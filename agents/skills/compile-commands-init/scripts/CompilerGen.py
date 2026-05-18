@@ -30,10 +30,28 @@ TEMP_ARTIFACTS = [
     "build_log.txt",
 ]
 
-ARM_STD_INCLUDE_CANDIDATES = [
-    Path("C:/Keil_v5/ARM/ARMCLANG/include"),
-    Path("C:/Keil_v5/ARM/ARMCC/include"),
-]
+ARM_STD_INCLUDE_CANDIDATES = {
+    "armclang": [
+        Path("C:/Keil_v5/ARM/ARMCLANG/include"),
+        Path("C:/Keil_v5/ARM/ARMCC/include"),
+    ],
+    "armcc": [
+        Path("C:/Keil_v5/ARM/ARMCC/include"),
+        Path("C:/Keil_v5/ARM/ARMCLANG/include"),
+    ],
+    "gcc": [
+        Path("C:/Keil_v5/ARM/ARMCLANG/include"),
+        Path("C:/Keil_v5/ARM/ARMCC/include"),
+    ],
+}
+
+COMPILER_EXECUTABLE_PATTERNS = {
+    "armcc": re.compile(r'(?P<path>[^\s"\']*armcc(?:\.exe)?)', re.IGNORECASE),
+    "armclang": re.compile(r'(?P<path>[^\s"\']*armclang(?:\.exe)?)', re.IGNORECASE),
+    "gcc": re.compile(r'(?P<path>[^\s"\']*(?:arm-none-eabi-)?gcc(?:\.exe)?)', re.IGNORECASE),
+}
+
+LOG_COMPILER_PRIORITY = ["armclang", "armcc", "gcc"]
 
 def convert_to_clang_flags(args_str):
     """
@@ -115,11 +133,12 @@ def normalize_clang_arg(arg):
         return arg.replace('\\"', '"')
     return arg
 
-def find_arm_std_include():
+def find_arm_std_include(compiler_name):
     """
-    为 clangd 找一个当前机器上真实存在的 ARM C 标准头目录。
+    按编译器优先级，为 clangd 找一个当前机器上真实存在的 ARM C 标准头目录。
     """
-    for candidate in ARM_STD_INCLUDE_CANDIDATES:
+    candidates = ARM_STD_INCLUDE_CANDIDATES.get(compiler_name, [])
+    for candidate in candidates:
         if candidate.exists():
             return candidate.as_posix()
     return None
@@ -178,7 +197,60 @@ def read_build_log(log_file="build_log.txt"):
         print(f"[ERROR] 无法读取 {log_file}: {e}")
         return []
 
-def generate_clangd_config():
+def detect_compiler_from_log(log_lines):
+    """
+    从构建日志中自动识别当前主编译器，避免每次手工传参。
+    """
+    for line in log_lines:
+        lowered = line.lower()
+        for compiler_name in LOG_COMPILER_PRIORITY:
+            if compiler_name in lowered and " -c " in lowered:
+                return compiler_name
+
+    return None
+
+def detect_arm_std_include_from_log(log_lines, compiler_name):
+    """
+    优先根据构建日志里的真实编译器路径反推出标准头目录，避免只靠硬编码候选目录。
+    """
+    if not compiler_name:
+        return None
+
+    executable_pattern = COMPILER_EXECUTABLE_PATTERNS.get(compiler_name)
+    if not executable_pattern:
+        return None
+
+    for line in log_lines:
+        if compiler_name not in line.lower():
+            continue
+
+        match = executable_pattern.search(line)
+        if not match:
+            continue
+
+        executable_path = Path(match.group("path").replace("\\", "/"))
+        derived_candidates = []
+
+        if compiler_name == "armclang":
+            derived_candidates.append(executable_path.parent.parent / "include")
+        elif compiler_name == "armcc":
+            derived_candidates.extend([
+                executable_path.parent.parent / "ARMCC" / "include",
+                executable_path.parent / "include",
+            ])
+        elif compiler_name == "gcc":
+            derived_candidates.extend([
+                executable_path.parent.parent / "arm-none-eabi" / "include",
+                executable_path.parent.parent / "include",
+            ])
+
+        for candidate in derived_candidates:
+            if candidate.exists():
+                return candidate.as_posix()
+
+    return None
+
+def generate_clangd_config(compiler_name=None, log_lines=None):
     """
     生成 .clangd 配置文件以优化 clangd 行为
     """
@@ -203,7 +275,10 @@ def generate_clangd_config():
         "    - -mfloat-abi=hard",
     ]
 
-    arm_std_include = find_arm_std_include()
+    arm_std_include = detect_arm_std_include_from_log(log_lines or [], compiler_name)
+    if not arm_std_include:
+        arm_std_include = find_arm_std_include(compiler_name)
+
     if arm_std_include:
         clangd_lines.extend([
             "    - -isystem",
@@ -256,7 +331,8 @@ def generate_compile_commands(compiler_name, preserve_build_log=False):
 
     compile_commands = []
     for line in log_lines:
-        if compiler_name in line and "-c" in line:
+        lowered = line.lower()
+        if compiler_name in lowered and "-c" in lowered:
             cmd = parse_compile_command(line, compiler_name)
             if cmd:
                 compile_commands.append(cmd)
@@ -352,16 +428,22 @@ def optimize_and_save(compile_commands):
         print(f"[ERROR] 无法生成 compile_commands.json: {e}")
 
 def main():
+    log_lines = read_build_log()
+
     if len(sys.argv) < 2:
-        print("用法:")
-        print("  python CompilerGen.py <compiler_name>   # 从build_log.txt生成.clangd和compile_commands.json")
-        print("  python CompilerGen.py --generate-config # 只生成.clangd配置文件")
-        print("  python CompilerGen.py <compiler_name> --keep-build-log")
-        print("示例: python CompilerGen.py armcc")
-        sys.exit(1)
+        compiler_name = detect_compiler_from_log(log_lines)
+        if not compiler_name:
+            print("未能从 build_log.txt 自动识别编译器，请显式传入编译器名")
+            print(f"支持的编译器: {', '.join(COMPILER_PATTERNS.keys())}")
+            sys.exit(1)
+
+        generate_clangd_config(compiler_name, log_lines=log_lines)
+        generate_compile_commands(compiler_name, preserve_build_log=True)
+        return
 
     if sys.argv[1] == "--generate-config":
-        generate_clangd_config()
+        compiler_name = detect_compiler_from_log(log_lines)
+        generate_clangd_config(compiler_name, log_lines=log_lines)
         return
 
     compiler_name = sys.argv[1].lower()
@@ -373,7 +455,7 @@ def main():
     preserve_build_log = "--keep-build-log" in sys.argv[2:]
 
     # 生成两个文件
-    generate_clangd_config()
+    generate_clangd_config(compiler_name, log_lines=log_lines)
     generate_compile_commands(compiler_name, preserve_build_log=preserve_build_log)
 
 if __name__ == "__main__":
