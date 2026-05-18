@@ -47,6 +47,11 @@ python agents\skills\embedded-workflow-cache-init\scripts\init_embedded_workflow
 - 初始化下载缓存前，必须先从仓库代码中查出 boot 和应用两套设备枚举信息；不能只写其中一种状态。
 - 没有事实支撑时，字段保留为空或占位值，不要猜 `VID/PID`、ACK、命令字。
 - 查到 boot 和应用枚举信息后，应分别写入缓存；至少保证后续 skill 能区分“升级态设备”和“应用态设备”。
+- 下载缓存要兼容后续刷写与 USB 工具的真实读取口径：
+  - `[firmware]` 中写 `firmware` 与 `artifact_path`
+  - `[firmware]` 中写 `header_size`、`chunk_size`、`crc_type`
+  - `[usb_comm]` 中补齐最小默认字段
+  - `[serial]` 中补齐串口默认参数
 - 配置文件要放在项目内 `.agents/cache/`，不要写到 skill 目录里。
 - `logic_timing_windows.csv` 只在用户提供测试方法、测试用例或建议抓取窗口时初始化。
 - `kingstvis_channel_maps.json` 只在用户提供了逻辑分析仪通道/引脚映射时创建或更新。

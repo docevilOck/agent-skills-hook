@@ -29,12 +29,24 @@
   - `vid`
   - `pid`
   - `transport`
+  - `path_hint`
+  - `boot_vid`
+  - `boot_pid`
+  - `boot_transport`
+  - `boot_path_hint`
+  - `app_vid`
+  - `app_pid`
+  - `app_transport`
+  - `app_path_hint`
 - `[firmware]`
+  - `firmware`
   - `artifact_path`
   - `artifact_type`
   - `allow_raw`
-- `[protocol]`
+  - `header_size`
   - `chunk_size`
+  - `crc_type`
+- `[protocol]`
   - `command_prefix_hex`
   - `pack_length_command`
   - `ota_command`
@@ -44,15 +56,41 @@
   - `ack_status_pos`
   - `query_pack_length`
   - `query_response_length`
-  - `crc_type`
+  - `ack_endian`
+  - `delay`
+  - `query_retries`
+  - `query_settle_delay`
+  - `io_timeout_ms`
+- `[usb_comm]`
+  - `default_mode`
+  - `default_payload_hex`
+  - `default_text`
+  - `text_encoding`
+  - `append_crlf`
+  - `read_length`
+  - `read_timeout_ms`
+  - `request_delay`
+- `[serial]`
+  - `port`
+  - `baudrate`
+  - `timeout`
+  - `parity`
+  - `bytesize`
+  - `stopbits`
+  - `rtscts`
+  - `dsrdtr`
+  - `xonxoff`
 
 规则：
 
 - 未知字段允许为空字符串。
 - `target_name` 必须落盘，其他字段只在用户提供或仓库已确认时写入。
+- 为兼容后续工具，`firmware` 与 `artifact_path` 应写入同一条事实值。
+- 为兼容旧缓存，`chunk_size` / `crc_type` 可在 `[firmware]` 与 `[protocol]` 同时保留，但消费端应优先读 `[firmware]`。
+- `[serial]` 用于沉淀串口监听默认参数，供 `embedded-debug-workflow` / `serial-log-debug` 复用。
 - 初始化该文件前，必须先从仓库代码中搜索设备枚举与识别逻辑，至少确认 boot 和应用两套枚举信息。
 - 如果仓库存在 bootloader / 升级态 与 应用态 两套 `VID/PID` 或路径线索，必须都写入缓存，不能只保留单一状态。
-- 若当前 `cfg` 结构暂时只有一组 `vid/pid`，也应在注释、扩展字段或后续兼容字段中保留 boot 与应用两套事实，避免后续 skill 误把应用态设备当升级态设备。
+- 若当前工具仍主要消费单组 `vid/pid`，应额外保留 boot 与应用两套兼容字段，避免后续 skill 误把应用态设备当升级态设备。
 
 ## 2. 逻辑分析窗口经验表
 

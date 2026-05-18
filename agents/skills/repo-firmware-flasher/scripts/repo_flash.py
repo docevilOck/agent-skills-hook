@@ -90,18 +90,51 @@ def load_config(path: Path) -> dict:
             return parser.get(section, key)
         return fallback
 
+    def first_non_empty(*values, fallback=""):
+        for value in values:
+            if value is None:
+                continue
+            if isinstance(value, str):
+                if value.strip():
+                    return value
+            else:
+                return value
+        return fallback
+
     cfg = {
         "config_path": path,
-        "transport": get("device", "transport", "usbprint").strip().lower(),
-        "vid": get("device", "vid", "").strip().upper(),
-        "pid": get("device", "pid", "").strip().upper(),
-        "path_hint": get("device", "path_hint", "").strip(),
-        "firmware": get("firmware", "firmware", "").strip(),
+        "transport": first_non_empty(
+            get("device", "flash_transport", ""),
+            get("device", "boot_transport", ""),
+            get("device", "transport", "usbprint"),
+        ).strip().lower(),
+        "vid": first_non_empty(
+            get("device", "flash_vid", ""),
+            get("device", "boot_vid", ""),
+            get("device", "vid", ""),
+        ).strip().upper(),
+        "pid": first_non_empty(
+            get("device", "flash_pid", ""),
+            get("device", "boot_pid", ""),
+            get("device", "pid", ""),
+        ).strip().upper(),
+        "path_hint": first_non_empty(
+            get("device", "flash_path_hint", ""),
+            get("device", "boot_path_hint", ""),
+            get("device", "path_hint", ""),
+        ).strip(),
+        "firmware": first_non_empty(
+            get("firmware", "firmware", ""),
+            get("firmware", "artifact_path", ""),
+        ).strip(),
         "artifact_type": get("firmware", "artifact_type", "auto").strip().lower(),
         "allow_raw": parse_bool(get("firmware", "allow_raw", "false")),
         "header_size": int(get("firmware", "header_size", "12")),
-        "chunk_size": int(get("firmware", "chunk_size", "8192")),
-        "crc_type": get("firmware", "crc_type", "crc32_init_ffffffff").strip().lower(),
+        "chunk_size": int(first_non_empty(get("firmware", "chunk_size", ""), get("protocol", "chunk_size", "8192"))),
+        "crc_type": first_non_empty(
+            get("firmware", "crc_type", ""),
+            get("protocol", "crc_type", "crc32_init_ffffffff"),
+        ).strip().lower(),
         "command_prefix": bytes.fromhex(get("protocol", "command_prefix_hex", "")),
         "pack_length_command": decode_escaped_ascii(get("protocol", "pack_length_command", "")),
         "ota_command": decode_escaped_ascii(get("protocol", "ota_command", "")),

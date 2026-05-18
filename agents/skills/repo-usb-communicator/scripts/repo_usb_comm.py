@@ -89,10 +89,14 @@ def load_config(path: Path) -> dict:
 
     cfg = {
         "config_path": path,
-        "transport": get("device", "transport", "usbprint").strip().lower(),
-        "vid": get("device", "vid", "").strip().upper(),
-        "pid": get("device", "pid", "").strip().upper(),
-        "path_hint": get("device", "path_hint", "").strip(),
+        "transport": (
+            get("device", "usb_transport", "")
+            or get("device", "app_transport", "")
+            or get("device", "transport", "usbprint")
+        ).strip().lower(),
+        "vid": (get("device", "usb_vid", "") or get("device", "app_vid", "") or get("device", "vid", "")).strip().upper(),
+        "pid": (get("device", "usb_pid", "") or get("device", "app_pid", "") or get("device", "pid", "")).strip().upper(),
+        "path_hint": (get("device", "usb_path_hint", "") or get("device", "app_path_hint", "") or get("device", "path_hint", "")).strip(),
         "command_prefix": bytes.fromhex(get("protocol", "command_prefix_hex", "")),
         "default_mode": get("usb_comm", "default_mode", "text").strip().lower(),
         "default_payload_hex": get("usb_comm", "default_payload_hex", "").strip(),

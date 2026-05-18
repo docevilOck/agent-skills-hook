@@ -30,6 +30,11 @@ TEMP_ARTIFACTS = [
     "build_log.txt",
 ]
 
+ARM_STD_INCLUDE_CANDIDATES = [
+    Path("C:/Keil_v5/ARM/ARMCLANG/include"),
+    Path("C:/Keil_v5/ARM/ARMCC/include"),
+]
+
 def convert_to_clang_flags(args_str):
     """
     将任意编译器的标志转换为 clang 兼容格式
@@ -102,6 +107,23 @@ def convert_to_clang_flags(args_str):
 
     return clang_args
 
+def normalize_clang_arg(arg):
+    """
+    清理从构建日志直接保留下来的 shell 转义，避免写入 arguments 后继续污染 clangd。
+    """
+    if arg.startswith("-D") and '\\"' in arg:
+        return arg.replace('\\"', '"')
+    return arg
+
+def find_arm_std_include():
+    """
+    为 clangd 找一个当前机器上真实存在的 ARM C 标准头目录。
+    """
+    for candidate in ARM_STD_INCLUDE_CANDIDATES:
+        if candidate.exists():
+            return candidate.as_posix()
+    return None
+
 def parse_compile_command(log_line, compiler_name):
     """
     解析日志中的一行，提取编译命令并转换为 clang 兼容格式
@@ -136,6 +158,8 @@ def parse_compile_command(log_line, compiler_name):
     if not any(arg.startswith("--target=") for arg in command):
         command.append("--target=arm-none-eabi")
 
+    command = [normalize_clang_arg(arg) for arg in command]
+
     return {
         "directory": os.getcwd(),
         "file": source_file,
@@ -158,26 +182,36 @@ def generate_clangd_config():
     """
     生成 .clangd 配置文件以优化 clangd 行为
     """
-    clangd_config = """CompileFlags:
-  Remove:
-    - --apcs=interwork
-    - --multibyte_chars
-    - --diag_error=warning
-    - --depend=*
-    - --preinclude=*
-    - --via=*
-    - --pd=*
-    - --split_sections
-    - --feedback=*
-    - --keep=*
-    - --list=*
-  Add:
-    - --target=arm-none-eabi
-    - -mcpu=cortex-m4
-    - -mfpu=fpv4-sp-d16
-    - -mfloat-abi=hard
-  CompilationDatabase: .
-"""
+    clangd_lines = [
+        "CompileFlags:",
+        "  Remove:",
+        "    - --apcs=interwork",
+        "    - --multibyte_chars",
+        "    - --diag_error=warning",
+        "    - --depend=*",
+        "    - --preinclude=*",
+        "    - --via=*",
+        "    - --pd=*",
+        "    - --split_sections",
+        "    - --feedback=*",
+        "    - --keep=*",
+        "    - --list=*",
+        "  Add:",
+        "    - --target=arm-none-eabi",
+        "    - -mcpu=cortex-m4",
+        "    - -mfpu=fpv4-sp-d16",
+        "    - -mfloat-abi=hard",
+    ]
+
+    arm_std_include = find_arm_std_include()
+    if arm_std_include:
+        clangd_lines.extend([
+            "    - -isystem",
+            f"    - {arm_std_include}",
+        ])
+
+    clangd_lines.append("  CompilationDatabase: .")
+    clangd_config = "\n".join(clangd_lines) + "\n"
     
     try:
         with open(".clangd", "w", encoding="utf-8") as f:
@@ -307,7 +341,7 @@ def optimize_and_save(compile_commands):
         if not any(arg.startswith("--target=") for arg in new_args):
             new_args.append("--target=arm-none-eabi")
             
-        entry["arguments"] = new_args
+        entry["arguments"] = [normalize_clang_arg(arg) for arg in new_args]
 
     # 写入文件
     try:

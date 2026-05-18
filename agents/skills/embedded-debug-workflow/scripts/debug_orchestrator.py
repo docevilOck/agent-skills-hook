@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import configparser
 import json
 import subprocess
 import sys
@@ -53,6 +54,37 @@ def run_json_cmd(command: list[str], cwd: Optional[Path], log_path: Path) -> Dic
     return result
 
 
+def parse_bool(value: str | None, default: bool = False) -> bool:
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def load_serial_defaults(config_path: Path) -> Dict[str, Any]:
+    parser = configparser.ConfigParser()
+    if not parser.read(config_path, encoding="utf-8"):
+        raise FileNotFoundError(f"config not found: {config_path}")
+    if not parser.has_section("serial"):
+        return {}
+
+    def get(key: str, fallback: str = "") -> str:
+        if parser.has_option("serial", key):
+            return parser.get("serial", key)
+        return fallback
+
+    return {
+        "port": get("port", "").strip(),
+        "baudrate": int(get("baudrate", "115200")),
+        "timeout": float(get("timeout", "1.0")),
+        "parity": get("parity", "N").strip() or "N",
+        "bytesize": int(get("bytesize", "8")),
+        "stopbits": float(get("stopbits", "1.0")),
+        "rtscts": parse_bool(get("rtscts", "false")),
+        "dsrdtr": parse_bool(get("dsrdtr", "false")),
+        "xonxoff": parse_bool(get("xonxoff", "false")),
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
@@ -65,6 +97,7 @@ def main() -> int:
     parser.add_argument("--artifacts-dir", default="artifacts")
     parser.add_argument("--build-cmd", nargs="+")
     parser.add_argument("--flash-cmd", nargs="+")
+    parser.add_argument("--device-config")
     parser.add_argument("--serial-tool")
     parser.add_argument("--serial-port")
     parser.add_argument("--serial-baudrate", type=int, default=115200)
@@ -93,6 +126,38 @@ def main() -> int:
     run_dir = artifacts_root / f"debug_orchestrator_{now_stamp()}"
     run_dir.mkdir(parents=True, exist_ok=True)
     summary_path = run_dir / "summary.json"
+    summary: Dict[str, Any] = {
+        "ok": False,
+        "run_dir": str(run_dir),
+        "steps": [],
+        "serial_session": None,
+        "serial_polls": [],
+        "serial_tool": None,
+        "device_config": None,
+    }
+
+    if args.device_config:
+        device_config = Path(args.device_config).resolve()
+        serial_defaults = load_serial_defaults(device_config)
+        summary["device_config"] = str(device_config)
+        if not args.serial_port and serial_defaults.get("port"):
+            args.serial_port = serial_defaults["port"]
+        if args.serial_baudrate == 115200 and "baudrate" in serial_defaults:
+            args.serial_baudrate = serial_defaults["baudrate"]
+        if args.serial_timeout == 1.0 and "timeout" in serial_defaults:
+            args.serial_timeout = serial_defaults["timeout"]
+        if args.serial_parity == "N" and "parity" in serial_defaults:
+            args.serial_parity = serial_defaults["parity"]
+        if args.serial_bytesize == 8 and "bytesize" in serial_defaults:
+            args.serial_bytesize = serial_defaults["bytesize"]
+        if args.serial_stopbits == 1.0 and "stopbits" in serial_defaults:
+            args.serial_stopbits = serial_defaults["stopbits"]
+        if not args.serial_rtscts and serial_defaults.get("rtscts", False):
+            args.serial_rtscts = True
+        if not args.serial_dsrdtr and serial_defaults.get("dsrdtr", False):
+            args.serial_dsrdtr = True
+        if not args.serial_xonxoff and serial_defaults.get("xonxoff", False):
+            args.serial_xonxoff = True
 
     skill_root = Path(__file__).resolve().parents[1]
     if args.serial_tool:
@@ -107,14 +172,7 @@ def main() -> int:
         print(json.dumps(summary, ensure_ascii=False, indent=2))
         return 6
 
-    summary: Dict[str, Any] = {
-        "ok": False,
-        "run_dir": str(run_dir),
-        "steps": [],
-        "serial_session": None,
-        "serial_polls": [],
-        "serial_tool": str(serial_tool),
-    }
+    summary["serial_tool"] = str(serial_tool)
 
     if args.build_cmd:
         build_result = run_cmd(args.build_cmd, workspace, run_dir / "build.json")
