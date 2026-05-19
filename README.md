@@ -108,6 +108,12 @@ cd windows
 - `kingstvis-socket`
   - 通过 SocketAPI 驱动 KingstVIS 进行抓取和导出，优先生成 CSV 供 AI 分析。
 
+### 通用 Skills
+
+- `grill-me`
+  - 对计划或设计进行逐题追问式梳理，直到关键分支和依赖被逐步澄清。
+  - 仅在用户明确点名 `grill-me` 或明确要求“grill me”时使用；默认不自动触发。
+
 ## 验证与回滚
 
 ### 验证部署
