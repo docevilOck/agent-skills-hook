@@ -28,7 +28,10 @@ agent-skills-hook/
 │   ├── opencode/opencode.json # OpenCode 主配置
 │
 ├── linux/deploy.sh          # Linux 部署脚本（软链接）
+├── linux/cache_semble_model.sh # 导出本机 Semble 模型缓存
 ├── windows/deploy.ps1       # Windows 部署脚本（复制）
+├── windows/cache_semble_model.ps1 # 导出本机 Semble 模型缓存
+├── third_party/semble/      # Semble 模型缓存镜像
 │
 ├── agents/skills/           # 共享技能库
 │
@@ -119,6 +122,31 @@ cd windows
 ### 验证部署
 
 当前各运行时都会使用自己的用户级配置目录与仓库内对应目录：Codex 部署 `AGENTS.md`、`agents/`、`skills/`，OpenCode 部署 `AGENTS.md`、`opencode.json`、`skills/`，并同步 `~/.claude/skills`，Claude Code 部署 `AGENTS.md`、`CLAUDE.md`、`skills/`。
+
+## Semble 部署
+
+- 部署脚本现在会自动检查本机是否已有 `semble`
+- 若未安装，会自动执行 `python -m pip install "semble[mcp]"`
+- 若仓库内存在 `third_party/semble/huggingface/hub/models--minishlab--potion-code-16M`
+  - 会自动同步到本机 `~/.cache/huggingface/hub/`
+- 会自动生成仓库级 `Semble` 接入文件：
+  - `.mcp.json`
+  - `opencode.json`
+- 会自动确保 `Codex` 用户级 MCP 已配置 `semble`
+- 会自动确保 `Qoder` 用户级 `settings.json` 中包含 `mcpServers.semble`
+- 会自动把 `config/opencode/opencode.json` 合并到 `~/.config/opencode/opencode.json`
+- 会自动为 `Semble` 注入 `HF_HUB_DISABLE_SYMLINKS=1`，绕过 Windows 上 Hugging Face cache symlink 问题
+- 这样模型通常只需联网下载一次，后续机器可直接复用仓库内缓存
+
+首次把本机缓存导入仓库：
+
+```powershell
+.\windows\cache_semble_model.ps1
+```
+
+```bash
+./linux/cache_semble_model.sh
+```
 
 **Linux（软链接）**：
 ```bash

@@ -16,6 +16,12 @@ $Stamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $RepoSkills = Join-Path $RepoRoot "agents\skills"
 $ConfigRoot = Join-Path $RepoRoot "config"
 $CodexAgents = Join-Path $ConfigRoot "codex\agents"
+$SharedConfigRoot = Join-Path $ConfigRoot "shared"
+$SembleRepoCache = Join-Path $RepoRoot "third_party\semble\huggingface\hub\models--minishlab--potion-code-16M"
+$SembleHubRoot = Join-Path $env:USERPROFILE ".cache\huggingface\hub"
+$SembleHubCache = Join-Path $SembleHubRoot "models--minishlab--potion-code-16M"
+$RepoMcpJson = Join-Path $RepoRoot ".mcp.json"
+$RepoOpenCodeJson = Join-Path $RepoRoot "opencode.json"
 
 # 验证 skills 目录存在
 if (-not (Test-Path $RepoSkills)) {
@@ -73,6 +79,165 @@ function Copy-DirectoryTree {
     }
 }
 
+function Merge-JsonConfig {
+    param(
+        [string]$Src,
+        [string]$Dest
+    )
+
+    $DestDir = Split-Path $Dest -Parent
+    if ($DestDir -and -not (Test-Path $DestDir)) {
+        New-Item -ItemType Directory -Path $DestDir -Force | Out-Null
+    }
+
+    if (-not (Test-Path $Dest)) {
+        Copy-Item $Src $Dest -Force
+        return
+    }
+
+    $tmp = Join-Path $env:TEMP ("agent-skills-hook-merge-" + [guid]::NewGuid().ToString() + ".py")
+    @'
+import json
+import sys
+from pathlib import Path
+
+src = Path(sys.argv[1])
+dest = Path(sys.argv[2])
+
+with src.open("r", encoding="utf-8-sig") as f:
+    overlay = json.load(f)
+try:
+    with dest.open("r", encoding="utf-8-sig") as f:
+        merged = json.load(f)
+except Exception:
+    backup = dest.with_suffix(dest.suffix + ".invalid.bak")
+    backup.write_bytes(dest.read_bytes())
+    merged = {}
+
+def merge(base, overlay):
+    for key, value in overlay.items():
+        if key in base and isinstance(base[key], dict) and isinstance(value, dict):
+            base[key] = merge(base[key], value)
+            continue
+        if key in base and isinstance(base[key], list) and isinstance(value, list):
+            merged_list = []
+            seen = set()
+            for item in base[key] + value:
+                marker = json.dumps(item, ensure_ascii=False, sort_keys=True)
+                if marker in seen:
+                    continue
+                seen.add(marker)
+                merged_list.append(item)
+            base[key] = merged_list
+            continue
+        base[key] = value
+    return base
+
+merge(merged, overlay)
+
+with dest.open("w", encoding="utf-8") as f:
+    json.dump(merged, f, ensure_ascii=False, indent=2)
+    f.write("\n")
+'@ | Set-Content -Path $tmp -Encoding utf8
+
+    python $tmp $Src $Dest
+    Remove-Item $tmp -Force
+}
+
+function Ensure-SembleInstalled {
+    $sem = Get-Command semble -ErrorAction SilentlyContinue
+    if ($null -ne $sem) {
+        Write-Host "Semble already installed: $($sem.Source)"
+        return
+    }
+
+    Write-Host "Semble not found. Installing semble[mcp]..."
+    python -m pip install "semble[mcp]"
+}
+
+function Sync-SembleModelCache {
+    New-Item -ItemType Directory -Path $SembleHubRoot -Force | Out-Null
+
+    if (-not (Test-Path $SembleRepoCache)) {
+        Write-Host "Semble repo cache not found at $SembleRepoCache"
+        Write-Host "Skip cache sync. First run on a networked machine, then export the cache into the repo."
+        return
+    }
+
+    Copy-DirectoryTree $SembleRepoCache $SembleHubCache
+    Write-Host "Semble model cache synced to $SembleHubCache"
+}
+
+function Ensure-RepoSembleFiles {
+    $mcpJson = @'
+{
+  "mcpServers": {
+    "semble": {
+      "type": "stdio",
+      "command": "semble",
+      "args": [],
+      "env": {
+        "HF_HUB_DISABLE_SYMLINKS": "1",
+        "HF_HUB_DISABLE_SYMLINKS_WARNING": "1"
+      }
+    }
+  }
+}
+'@
+    Set-Content -Path $RepoMcpJson -Value $mcpJson -Encoding utf8
+
+    Safe-Copy "$ConfigRoot\opencode\opencode.json" $RepoOpenCodeJson
+}
+
+function Ensure-CodexSembleMcp {
+    $existing = codex mcp get semble 2>$null
+    if ($LASTEXITCODE -eq 0 -and $existing -match "command:\s+semble" -and $existing -match "HF_HUB_DISABLE_SYMLINKS") {
+        Write-Host "Codex MCP 'semble' already configured."
+        return
+    }
+
+    if ($LASTEXITCODE -eq 0) {
+        codex mcp remove semble | Out-Null
+    }
+
+    codex mcp add semble --env HF_HUB_DISABLE_SYMLINKS=1 --env HF_HUB_DISABLE_SYMLINKS_WARNING=1 -- semble
+    Write-Host "Codex MCP 'semble' configured."
+}
+
+function Ensure-QoderSembleMcp {
+    $QoderSettings = Join-Path $env:USERPROFILE ".qoder\settings.json"
+    if (-not (Test-Path $QoderSettings)) {
+        New-Item -ItemType Directory -Path (Split-Path $QoderSettings -Parent) -Force | Out-Null
+        "{}" | Set-Content -Path $QoderSettings -Encoding utf8
+    }
+
+    $overlay = Join-Path $env:TEMP ("agent-skills-hook-qoder-" + [guid]::NewGuid().ToString() + ".json")
+    @'
+{
+  "mcpServers": {
+    "semble": {
+      "command": "semble",
+      "args": [],
+      "env": {
+        "HF_HUB_DISABLE_SYMLINKS": "1",
+        "HF_HUB_DISABLE_SYMLINKS_WARNING": "1"
+      }
+    }
+  }
+}
+'@ | Set-Content -Path $overlay -Encoding utf8
+
+    Merge-JsonConfig $overlay $QoderSettings
+    Remove-Item $overlay -Force
+    Write-Host "Qoder MCP 'semble' configured in $QoderSettings"
+}
+
+Ensure-SembleInstalled
+Sync-SembleModelCache
+Ensure-RepoSembleFiles
+Ensure-CodexSembleMcp
+Ensure-QoderSembleMcp
+
 # Codex 部署
 if ($Target -eq "codex" -or $Target -eq "all") {
     $BackupC = Join-Path $env:USERPROFILE ".codex-backups\agent-skills-hook-$Stamp"
@@ -111,6 +276,7 @@ if ($Target -eq "opencode" -or $Target -eq "all") {
     # 部署配置（从 config/ 复制）
     New-Item -ItemType Directory -Path "$OpenCodeDir" -Force | Out-Null
     Safe-Copy "$ConfigRoot\opencode\AGENTS.md" "$OpenCodeDir\AGENTS.md"
+    Merge-JsonConfig "$ConfigRoot\opencode\opencode.json" "$OpenCodeDir\opencode.json"
     Safe-Copy $RepoSkills "$OpenCodeDir\skills"
     Safe-Copy $RepoSkills "$env:USERPROFILE\.claude\skills"
     if (Test-Path "$env:USERPROFILE\.agents\skills") {

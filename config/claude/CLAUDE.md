@@ -10,6 +10,17 @@
 ## 技能强制评估（每个用户请求）
 - 开始任何工作前，始终运行 `Skill(skill-forced-eval)` 并遵循其步骤。
 
+## Code Search
+- 需要按意图找代码、定位实现、理解某个功能怎么工作、或从已知位置继续找相关代码时，优先使用 `Semble`，不要先用纯文本 grep。
+- 先用 `semble search "<query>" <path>` 做语义搜索；必要时再用 `semble find-related <file_path> <line> <path>` 扩展到相关实现。
+- 只有在需要精确字符串匹配、穷举字面量、或对搜索结果做快速确认时，才回退到 grep。
+- 如果 `Semble` 不在 `PATH`，使用 `python -m semble` 作为等价入口。
+
+### Workflow
+- 先用 `semble search` 找到最相关代码块。
+- 只有当返回的代码块上下文不足时，才打开整个文件。
+- 找到一个有价值的位置后，可继续用 `semble find-related` 找相似或相关实现。
+
 ## 审阅输出语言
 - 当用户要求 "review" 时，最终响应必须使用中文。保持所有叙述/说明文字为中文，同时保留所需的审阅结构和格式规则。
 

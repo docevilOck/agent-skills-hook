@@ -16,6 +16,12 @@ REPO_SKILLS="$REPO_ROOT/agents/skills"
 CONFIG_ROOT="$REPO_ROOT/config"
 CODEX_AGENTS="$CONFIG_ROOT/codex/agents"
 OPENCODE_CONFIG="$CONFIG_ROOT/opencode"
+SHARED_CONFIG_ROOT="$CONFIG_ROOT/shared"
+SEMBLE_REPO_CACHE="$REPO_ROOT/third_party/semble/huggingface/hub/models--minishlab--potion-code-16M"
+SEMBLE_HUB_ROOT="$HOME/.cache/huggingface/hub"
+SEMBLE_HUB_CACHE="$SEMBLE_HUB_ROOT/models--minishlab--potion-code-16M"
+REPO_MCP_JSON="$REPO_ROOT/.mcp.json"
+REPO_OPENCODE_JSON="$REPO_ROOT/opencode.json"
 
 if [ ! -d "$REPO_SKILLS" ]; then
   echo "ERROR: $REPO_SKILLS missing. Run 'git submodule update --init --recursive agents/skills' first." >&2
@@ -121,6 +127,70 @@ with dest.open("w", encoding="utf-8") as f:
     f.write("\n")
 PY
 }
+
+ensure_semble_installed() {
+  if command -v semble >/dev/null 2>&1; then
+    echo "Semble already installed: $(command -v semble)"
+    return 0
+  fi
+
+  echo "Semble not found. Installing semble[mcp]..."
+  python -m pip install "semble[mcp]"
+}
+
+sync_semble_model_cache() {
+  mkdir -p "$SEMBLE_HUB_ROOT"
+
+  if [ ! -d "$SEMBLE_REPO_CACHE" ]; then
+    echo "Semble repo cache not found at $SEMBLE_REPO_CACHE"
+    echo "Skip cache sync. First run on a networked machine, then export the cache into the repo."
+    return 0
+  fi
+
+  rm -rf "$SEMBLE_HUB_CACHE"
+  cp -a "$SEMBLE_REPO_CACHE" "$SEMBLE_HUB_CACHE"
+  echo "Semble model cache synced to $SEMBLE_HUB_CACHE"
+}
+
+ensure_repo_semble_files() {
+  cat >"$REPO_MCP_JSON" <<'EOF'
+{
+  "mcpServers": {
+    "semble": {
+      "type": "stdio",
+      "command": "semble",
+      "args": [],
+      "env": {
+        "HF_HUB_DISABLE_SYMLINKS": "1",
+        "HF_HUB_DISABLE_SYMLINKS_WARNING": "1"
+      }
+    }
+  }
+}
+EOF
+
+  cp -a "$CONFIG_ROOT/opencode/opencode.json" "$REPO_OPENCODE_JSON"
+}
+
+ensure_codex_semble_mcp() {
+  if codex mcp get semble >/tmp/codex_semble_get.txt 2>/dev/null; then
+    if grep -q 'command: semble' /tmp/codex_semble_get.txt && grep -q 'HF_HUB_DISABLE_SYMLINKS' /tmp/codex_semble_get.txt; then
+      echo "Codex MCP 'semble' already configured."
+      rm -f /tmp/codex_semble_get.txt
+      return 0
+    fi
+    codex mcp remove semble >/dev/null 2>&1 || true
+  fi
+
+  rm -f /tmp/codex_semble_get.txt
+  codex mcp add semble --env HF_HUB_DISABLE_SYMLINKS=1 --env HF_HUB_DISABLE_SYMLINKS_WARNING=1 -- semble
+  echo "Codex MCP 'semble' configured."
+}
+
+ensure_semble_installed
+sync_semble_model_cache
+ensure_repo_semble_files
+ensure_codex_semble_mcp
 
 # Codex 部署
 if [ "$TARGET" = "codex" ] || [ "$TARGET" = "all" ]; then
