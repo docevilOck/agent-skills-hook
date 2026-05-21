@@ -24,3 +24,4 @@ docs/
 **/*.pyd
 .worktrees/
 .omx/
+.qoder/
