@@ -8,7 +8,7 @@ Skills 使用的是 Claude Code 的工具名。遇到这些工具名时，请使
 |-----------------|------------------|
 | `Task` 工具（子代理派发） | `spawn_agent` (see [Named agent dispatch](#named-agent-dispatch)) |
 | 多个 `Task` 并行派发 | Multiple `spawn_agent` calls |
-| `Task` 返回结果 | `wait` |
+| `Task` 返回结果 | `wait_agent` |
 | `Task` 完成后释放槽位 | `close_agent` 释放槽位 |
 | `TodoWrite`（任务追踪） | `update_plan` |
 | `Skill` tool (invoke a skill) | Skills load natively — just follow the instructions |
@@ -24,7 +24,7 @@ Skills 使用的是 Claude Code 的工具名。遇到这些工具名时，请使
 multi_agent = true
 ```
 
-这会启用 `spawn_agent`、`wait` 和 `close_agent`，供需要子代理派发的 skills 使用，例如 `subagent-driven-development`。
+这会启用 `spawn_agent`、`wait_agent` 和 `close_agent`，供需要子代理派发的 skills 使用，例如并行调查、并行审查这类工作流。
 
 ## 命名代理派发
 

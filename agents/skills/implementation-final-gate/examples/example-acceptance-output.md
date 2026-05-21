@@ -13,12 +13,14 @@
 
 差异归类：
 - 实现偏离设计，需要修代码
+- 实现偏离 exec plan，需要修代码
 - 证据不足，当前不能给 `pass`
 
 发现的问题：
 1. High：[src/uart/uart_session.c] 中接收状态仍通过 `g_uart_rx_state` 维护，与 architecture 文档要求的 `uart_session_t` 上下文收敛不一致。
 2. Medium：detail 文档要求命令分发改为 `switch (packet->cmd)`，当前实现仍保留 6 段长链 `if/else if`。
 3. Medium：`UART_STATE_RX_PAYLOAD` 已在 detail 文档定义为枚举状态，但错误恢复分支仍直接写入裸值 `3`。
+4. Medium：exec plan 中要求“先移除旧全局状态，再补上下文初始化测试”，当前代码里测试已补，但旧全局状态仍残留。
 
 已确认一致的关键点：
 - `uart_session_t` 已建立，并承接了缓冲区、长度和重试计数。
@@ -33,6 +35,7 @@
 - 先把 `g_uart_rx_state` 下沉到 `uart_session_t`。
 - 把命令分发改成 detail 文档约定的 `switch` 结构。
 - 修复裸状态值后重新运行验证，再进入下一轮验收。
+- 按 exec plan 补齐“移除旧全局状态”这一步，再重新进入 `implementation-final-gate`。
 ```
 
 ## `pass` 样例
@@ -94,3 +97,4 @@
 - `发现的问题` 优先写与设计不一致的内容，不要泛泛评论代码风格
 - `已确认一致的关键点` 只列最重要的事实
 - `未覆盖风险` 必须写真实缺口，不允许省略
+- 如果结论是 `blocked`，必须明确写出“主 agent 需要修改的项”，以便回炉后重审

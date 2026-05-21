@@ -171,12 +171,11 @@ NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST
 
 **修根因，不修症状：**
 
-1. **先创建失败测试用例**
+1. **先创建能稳定复现问题的验证手段**
    - 用最简单的方式复现
    - 如果可以，写自动化测试
    - 如果没有框架，就写一次性测试脚本
    - 修复之前必须先有它
-   - 编写合格失败测试时，使用 `superpowers:test-driven-development` skill
 
 2. **Implement Single Fix**
    - Address the root cause identified
@@ -284,7 +283,6 @@ NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST
 - **`condition-based-waiting.md`** - Replace arbitrary timeouts with condition polling
 
 **相关 skills：**
-- **superpowers:test-driven-development** - For creating failing test case (Phase 4, Step 1)
 - **superpowers:verification-before-completion** - Verify fix worked before claiming success
 
 ## 实际影响

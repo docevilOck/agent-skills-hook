@@ -12,7 +12,7 @@ description: 在完成任务、实现重要功能或准备合并前使用，用�
 ## 何时请求审查
 
 **必须：**
-- 在 `subagent-driven-development` 中，每个任务完成后都要审查
+- 在 `executing-plans` 中，每完成 2-3 个任务或一个里程碑都要审查
 - 完成一个主要功能后审查
 - 合并到 main 之前审查
 

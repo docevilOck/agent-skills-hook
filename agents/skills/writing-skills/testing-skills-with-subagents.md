@@ -10,7 +10,7 @@
 
 **核心原则：** 如果你从来没在没有 skill 的情况下亲眼看过 agent 失败，你就不知道这个 skill 到底有没有防住真正的问题。
 
-**必须的前置知识：** 使用这个 skill 之前，你必须理解 `superpowers:test-driven-development`。那个 skill 解释了最基础的 RED-GREEN-REFACTOR 循环；这里是在此基础上扩展出适合 skill 测试的格式，也就是压力场景和合理化表。
+**必须的前置知识：** 使用这个 skill 之前，你必须理解基本的失败基线、最小修正和回归验证思路；这里是在此基础上扩展出适合 skill 测试的格式，也就是压力场景和合理化表。
 
 **完整示例：** 参见 `examples/CLAUDE_MD_TESTING.md`，那里有一整套针对 `CLAUDE.md` 文档变体的测试演示。
 

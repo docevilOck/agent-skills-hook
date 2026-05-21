@@ -9,7 +9,7 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 
 这个 skill 用于代码实现阶段的最终验收。
 
-它不是普通代码审查，也不是只跑测试的验证门禁。它的核心任务是把**代码实现**与以下设计输入做逐项对照：
+它不是普通代码审查，也不是只跑测试的验证门禁。它的核心任务是**拉一个独立审查 agent**，把**代码实现**与以下设计输入做逐项对照：
 
 - `implementation-architecture-workflow` 产出的实现架构文档
 - `implementation-struct-dataflow-workflow` 产出的 detail 文档
@@ -21,6 +21,8 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 - 实现是否偏离了结构体、数据流、流程设计
 - 偏离是否合理、是否被显式更新到文档
 - 这次改动是否可以给出最终验收结论
+
+如果审查 agent 发现任何未被批准的差异，就必须审核不通过，打回主 agent 修改。主 agent 修改后，必须重新进入这个 skill，再拉审查 agent 重审。这个循环要一直持续到审查 agent 给出 `pass`，主 agent 才能宣称“计划已经完成”。
 
 ## 何时使用
 
@@ -36,6 +38,8 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 如果只是想让另一个视角找 bug，优先用 `requesting-code-review`。
 
 如果目标是**实现与设计一致性验收**，用这个 skill。
+
+如果主 agent 正准备宣称“已经完成计划”“已经按计划实现完成”“可以正式收尾”，这个 skill 是必经门禁。
 
 ## 输入要求
 
@@ -73,15 +77,27 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 
 ## 核心流程
 
-1. 先读取 architecture 文档，提取模块边界、接口、状态归属、主流程、关键分支、前后变化。
-2. 再读取 detail 文档，提取结构体设计、数据流、流程图、状态枚举、错误路径、关键约束。
-3. 再看实际代码实现，按“接口、结构体、状态、分支、流程、错误处理、文件边界”逐项映射。
-4. 检查实现里是否出现文档未批准的偏离。
-5. 检查文档强调的约束是否真的落到了代码里，而不是只写在文档里。
-6. 如有验证结果，再确认验证证据是否支持验收结论。
-7. 最后输出 `pass`、`need-info` 或 `blocked`。
+1. 主 agent 先定位 architecture 文档、detail 文档、exec plan、代码范围和本轮验证证据。
+2. 主 agent 读取这些输入，整理成明确的审查上下文。
+3. 主 agent 使用独立审查 agent 执行最终一致性验收。
+4. 审查 agent 必须按“architecture -> detail -> exec plan -> code -> evidence”的顺序逐项对照。
+5. 审查 agent 检查实现里是否出现文档或计划未批准的偏离。
+6. 审查 agent 检查文档强调的约束是否真的落到了代码里，而不是只写在文档里。
+7. 审查 agent 输出 `pass`、`need-info` 或 `blocked`。
+8. 如果结论是 `blocked`，主 agent 必须先修改代码或补齐文档，再重新进入这个 skill，重新拉审查 agent 验收。
+9. 只有当审查 agent 输出 `pass` 时，主 agent 才能宣称“已经按计划完成”。
 
 如果没有新的、可归属到本轮结论的验证证据，最多输出 `need-info`，不能输出 `pass`。
+
+## 审查 agent 要求
+
+- 必须是独立视角，不能把主 agent 自己的口头总结当结论
+- 必须显式核对 architecture、detail、exec plan、code、evidence 这五类输入
+- 必须把 data flow、flow、结构体设计与代码逐项对上
+- 发现任何未批准差异时，必须返回 `blocked`
+- 不允许用“基本一致”“差不多符合”“核心没问题”这类模糊表述放行
+
+审查提示模板见 [final-gate-reviewer-prompt.md](final-gate-reviewer-prompt.md)。
 
 ## 重点检查项
 
@@ -125,6 +141,7 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 - 已找到并核对 detail 文档
 - 已明确本轮验收对应的代码范围
 - 代码实现与设计一致，或偏离已被明确接受并补充到文档
+- 代码实现与 exec plan 一致，关键步骤没有漏做、错做或擅自改做
 - 本轮存在新的验证证据，且证据与结论匹配
 - 未覆盖风险已明确说明
 
@@ -151,6 +168,8 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 - 找不到 architecture 文档或 detail 文档
 - 无法定位本轮改动对应的实现范围
 - 实现明显背离设计，且没有文档更新
+- 实现明显背离 exec plan
+- 实现与 data flow / flow / 结构体设计不一致
 - 关键设计约束未落地
 - 结论依赖关键证据，但证据不存在
 
@@ -158,6 +177,7 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 
 - 关键设计基线缺失、互相冲突或当前上下文下无法建立时，用 `blocked`
 - 在补齐前提之前继续审查没有意义的，用 `blocked`
+- 只要需要打回主 agent 改代码或改文档后再审，也用 `blocked`
 
 ## 输出格式
 
@@ -174,15 +194,18 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 
 如果需求结论依赖真实目标板、外设、时序、功耗、波形或现场观察，而本轮没有对应人工或现场证据，不能给 `pass`。
 
+如果审查结论是 `blocked`，输出里必须明确列出“需要主 agent 修改的项”，这样主 agent 才能按项修复并重新送审。
+
 ## 与其他 skill 的关系
 
 - 上游通常来自 `implementation-architecture-workflow`
 - detail 输入通常来自 `implementation-struct-dataflow-workflow`
 - 如需补验证证据，联动 `verification-before-completion`
 - 如需独立质量复核，联动 `requesting-code-review`
+- 默认在 `executing-plans` 的末尾作为最终收口门禁
 
 ## 最低要求
 
 没有 architecture 文档、没有 detail 文档、没有代码对照，就不要假装做了最终验收。
 
-验收的重点是**实现是否符合设计**，不是只看“代码能不能跑”。
+验收的重点是**实现是否符合 architecture、detail 和 exec plan**，不是只看“代码能不能跑”。

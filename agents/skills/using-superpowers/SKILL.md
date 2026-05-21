@@ -25,7 +25,7 @@ Superpowers skills 会覆盖默认系统提示词行为，但**用户指令始�
 2. **Superpowers skills** — override default system behavior where they conflict
 3. **Default system prompt** — lowest priority
 
-如果 `CLAUDE.md`、`GEMINI.md` 或 `AGENTS.md` 说“不要用 TDD”，而某个 skill 说“始终使用 TDD”，那就照用户指令做。最终控制权在用户手里。
+如果 `CLAUDE.md`、`GEMINI.md` 或 `AGENTS.md` 与某个 skill 的默认做法冲突，那就照用户指令做。最终控制权在用户手里。
 
 ## 如何访问 Skills
 
@@ -102,7 +102,7 @@ digraph skill_flow {
 当多个 skill 都可能适用时，按这个顺序来：
 
 1. **先用门禁类 skills**（例如 `systematic-debugging`、`verification-before-completion`）- 它们决定先查什么、先验证什么、什么时候可以下结论
-2. **再用执行类 skills**（例如 `using-git-worktrees`、`test-driven-development`、`subagent-driven-development`）- 它们指导如何组织工作区、如何落地实现、如何推进任务
+2. **再用执行类 skills**（例如 `using-git-worktrees`、`executing-plans`）- 它们指导如何组织工作区、如何落地实现、如何推进任务
 
 “我们来做 X” -> 先把实际执行范围和意图问清楚，再用执行类 skills。
 “修这个 bug” -> 先 debugging，再用领域相关 skills。
@@ -111,7 +111,7 @@ digraph skill_flow {
 
 **门禁类**（debugging、verification-before-completion）：严格执行，不要把纪律改没了。
 
-**执行类**（worktree、TDD、subagent-driven-development）：按步骤推进，不要把流程跳掉。
+**执行类**（worktree、executing-plans）：按步骤推进，不要把流程跳掉。
 
 **灵活**（patterns）：根据上下文调整原则。
 

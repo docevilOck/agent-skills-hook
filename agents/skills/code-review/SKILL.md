@@ -202,11 +202,11 @@ The code-reviewer agent checks:
 review recent auth changes and report findings
 ```
 
-**With subagent-driven-development:**
+**With executing-plans:**
 ```
 code-review then fix all issues
 ```
-Review code, get feedback, fix until approved.
+Review code at milestones, get feedback, fix until approved.
 
 **With Ultrawork:**
 ```

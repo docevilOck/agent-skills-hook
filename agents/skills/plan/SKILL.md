@@ -17,7 +17,7 @@ Plan creates comprehensive, actionable work plans through intelligent interactio
 
 <Do_Not_Use_When>
 - User wants autonomous end-to-end execution -- use the available execution workflow instead
-- User wants to start coding immediately with a clear task -- use `subagent-driven-development` or delegate to executor
+- User wants to start coding immediately with a clear task -- use `executing-plans` or delegate to executor
 - User asks a simple question that can be answered directly -- just answer it
 - Task is a single focused fix with obvious scope -- skip planning, just do it
 </Do_Not_Use_When>
@@ -216,7 +216,7 @@ Why bad: Decision fatigue. Present one option with trade-offs, get reaction, the
 - In consensus mode, stop after 5 Planner/Architect/Critic iterations and present the best version
 - Consensus mode outputs the plan by default; with `--interactive`, user can approve and hand off to the selected execution workflow
 - If the user says "just do it" or "skip planning", **MUST** invoke `$ralph` to transition to execution mode. Do NOT implement directly in the planning agent.
-- If the user says "just do it" or "skip planning", **MUST** transition to execution mode. Use `subagent-driven-development` for implementation handoff. Do NOT implement directly in the planning agent.
+- If the user says "just do it" or "skip planning", **MUST** transition to execution mode. Use `executing-plans` for implementation handoff. Do NOT implement directly in the planning agent.
 - Escalate to the user when there are irreconcilable trade-offs that require a business decision
 </Escalation_And_Stop_Conditions>
 
