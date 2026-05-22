@@ -20,8 +20,6 @@ $SharedConfigRoot = Join-Path $ConfigRoot "shared"
 $SembleRepoCache = Join-Path $RepoRoot "third_party\semble\huggingface\hub\models--minishlab--potion-code-16M"
 $SembleHubRoot = Join-Path $env:USERPROFILE ".cache\huggingface\hub"
 $SembleHubCache = Join-Path $SembleHubRoot "models--minishlab--potion-code-16M"
-$RepoMcpJson = Join-Path $RepoRoot ".mcp.json"
-$RepoOpenCodeJson = Join-Path $RepoRoot "opencode.json"
 
 # 验证 skills 目录存在
 if (-not (Test-Path $RepoSkills)) {
@@ -168,27 +166,6 @@ function Sync-SembleModelCache {
     Write-Host "Semble model cache synced to $SembleHubCache"
 }
 
-function Ensure-RepoSembleFiles {
-    $mcpJson = @'
-{
-  "mcpServers": {
-    "semble": {
-      "type": "stdio",
-      "command": "semble",
-      "args": [],
-      "env": {
-        "HF_HUB_DISABLE_SYMLINKS": "1",
-        "HF_HUB_DISABLE_SYMLINKS_WARNING": "1"
-      }
-    }
-  }
-}
-'@
-    Set-Content -Path $RepoMcpJson -Value $mcpJson -Encoding utf8
-
-    Safe-Copy "$ConfigRoot\opencode\opencode.json" $RepoOpenCodeJson
-}
-
 function Ensure-CodexSembleMcp {
     $listOutput = $null
     $hadExisting = $false
@@ -243,7 +220,6 @@ function Ensure-QoderSembleMcp {
 
 Ensure-SembleInstalled
 Sync-SembleModelCache
-Ensure-RepoSembleFiles
 Ensure-CodexSembleMcp
 Ensure-QoderSembleMcp
 

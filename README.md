@@ -121,7 +121,7 @@ cd windows
 
 ### 验证部署
 
-当前各运行时都会使用自己的用户级配置目录与仓库内对应目录：Codex 部署 `AGENTS.md`、`agents/`、`skills/`，OpenCode 部署 `AGENTS.md`、`opencode.json`、`skills/`，并同步 `~/.claude/skills`，Claude Code 部署 `AGENTS.md`、`CLAUDE.md`、`skills/`。
+当前各运行时都会使用自己的用户级配置目录：Codex 部署 `AGENTS.md`、`agents/`、`skills/`，OpenCode 部署 `AGENTS.md`、`opencode.json`、`skills/`，并同步 `~/.claude/skills`，Claude Code 部署 `AGENTS.md`、`CLAUDE.md`、`skills/`。
 
 ## Semble 部署
 
@@ -129,9 +129,6 @@ cd windows
 - 若未安装，会自动执行 `python -m pip install "semble[mcp]"`
 - 若仓库内存在 `third_party/semble/huggingface/hub/models--minishlab--potion-code-16M`
   - 会自动同步到本机 `~/.cache/huggingface/hub/`
-- 会自动生成仓库级 `Semble` 接入文件：
-  - `.mcp.json`
-  - `opencode.json`
 - 会自动确保 `Codex` 用户级 MCP 已配置 `semble`
 - 会自动确保 `Qoder` 用户级 `settings.json` 中包含 `mcpServers.semble`
 - 会自动把 `config/opencode/opencode.json` 合并到 `~/.config/opencode/opencode.json`

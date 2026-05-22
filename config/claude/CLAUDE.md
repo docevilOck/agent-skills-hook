@@ -4,8 +4,8 @@
 - 每个新会话的首次响应时，打印一个简短块：
   - "SessionStart" 标题
   - 活跃指令层（全局 `~/.claude/CLAUDE.md`、仓库 `CLAUDE.md` 若存在）
-  - 技能来源（`~/.claude/skills`、`./.claude/skills`）
-  - 可选指令文件（`~/.claude/settings.json`、`./.claude/settings.json`）若存在
+  - 技能来源（`~/.claude/skills`）
+  - 可选指令文件（`~/.claude/settings.json`）若存在
 
 ## 技能强制评估（每个用户请求）
 - 开始任何工作前，始终运行 `Skill(skill-forced-eval)` 并遵循其步骤。

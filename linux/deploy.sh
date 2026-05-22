@@ -20,8 +20,6 @@ SHARED_CONFIG_ROOT="$CONFIG_ROOT/shared"
 SEMBLE_REPO_CACHE="$REPO_ROOT/third_party/semble/huggingface/hub/models--minishlab--potion-code-16M"
 SEMBLE_HUB_ROOT="$HOME/.cache/huggingface/hub"
 SEMBLE_HUB_CACHE="$SEMBLE_HUB_ROOT/models--minishlab--potion-code-16M"
-REPO_MCP_JSON="$REPO_ROOT/.mcp.json"
-REPO_OPENCODE_JSON="$REPO_ROOT/opencode.json"
 
 if [ ! -d "$REPO_SKILLS" ]; then
   echo "ERROR: $REPO_SKILLS missing. Run 'git submodule update --init --recursive agents/skills' first." >&2
@@ -152,26 +150,6 @@ sync_semble_model_cache() {
   echo "Semble model cache synced to $SEMBLE_HUB_CACHE"
 }
 
-ensure_repo_semble_files() {
-  cat >"$REPO_MCP_JSON" <<'EOF'
-{
-  "mcpServers": {
-    "semble": {
-      "type": "stdio",
-      "command": "semble",
-      "args": [],
-      "env": {
-        "HF_HUB_DISABLE_SYMLINKS": "1",
-        "HF_HUB_DISABLE_SYMLINKS_WARNING": "1"
-      }
-    }
-  }
-}
-EOF
-
-  cp -a "$CONFIG_ROOT/opencode/opencode.json" "$REPO_OPENCODE_JSON"
-}
-
 ensure_codex_semble_mcp() {
   if codex mcp get semble >/tmp/codex_semble_get.txt 2>/dev/null; then
     if grep -q 'command: semble' /tmp/codex_semble_get.txt && grep -q 'HF_HUB_DISABLE_SYMLINKS' /tmp/codex_semble_get.txt; then
@@ -189,7 +167,6 @@ ensure_codex_semble_mcp() {
 
 ensure_semble_installed
 sync_semble_model_cache
-ensure_repo_semble_files
 ensure_codex_semble_mcp
 
 # Codex 部署
