@@ -20,6 +20,8 @@ SHARED_CONFIG_ROOT="$CONFIG_ROOT/shared"
 SEMBLE_REPO_CACHE="$REPO_ROOT/third_party/semble/huggingface/hub/models--minishlab--potion-code-16M"
 SEMBLE_HUB_ROOT="$HOME/.cache/huggingface/hub"
 SEMBLE_HUB_CACHE="$SEMBLE_HUB_ROOT/models--minishlab--potion-code-16M"
+SEMBLE_SNAPSHOT_REL="snapshots/86848193a842865570d9c8d3e7d268b66ab52752/model.safetensors"
+SEMBLE_MIN_BINARY_BYTES=1048576
 
 if [ ! -d "$REPO_SKILLS" ]; then
   echo "ERROR: $REPO_SKILLS missing. Run 'git submodule update --init --recursive agents/skills' first." >&2
@@ -126,6 +128,67 @@ with dest.open("w", encoding="utf-8") as f:
 PY
 }
 
+is_semble_pointer_file() {
+  local path="$1"
+  [ -f "$path" ] || return 1
+  local first_line
+  first_line="$(head -n 1 "$path" 2>/dev/null || true)"
+  [ "$first_line" = "version https://git-lfs.github.com/spec/v1" ]
+}
+
+get_semble_pointer_oid() {
+  local path="$1"
+  local oid
+  oid="$(awk '/^oid sha256:/ { sub(/^oid sha256:/, "", $0); print; exit }' "$path")"
+  if [ -z "$oid" ]; then
+    echo "Invalid LFS pointer file: missing sha256 oid in $path" >&2
+    return 1
+  fi
+  printf '%s\n' "$oid"
+}
+
+is_semble_binary_file() {
+  local path="$1"
+  [ -f "$path" ] || return 1
+  local size
+  size="$(wc -c < "$path")"
+  [ "$size" -ge "$SEMBLE_MIN_BINARY_BYTES" ] || return 1
+  ! is_semble_pointer_file "$path"
+}
+
+repair_semble_snapshot_from_blobs() {
+  local cache_root="$1"
+  local snapshot_file="$cache_root/$SEMBLE_SNAPSHOT_REL"
+
+  if is_semble_binary_file "$snapshot_file"; then
+    return 0
+  fi
+
+  if ! is_semble_pointer_file "$snapshot_file"; then
+    echo "Invalid Semble snapshot: expected either a real safetensors file or an LFS pointer at $snapshot_file" >&2
+    return 1
+  fi
+
+  local oid
+  oid="$(get_semble_pointer_oid "$snapshot_file")" || return 1
+  local blob_path="$cache_root/blobs/$oid"
+  if ! is_semble_binary_file "$blob_path"; then
+    echo "Semble blob missing or invalid for oid $oid at $blob_path" >&2
+    return 1
+  fi
+
+  cp -f "$blob_path" "$snapshot_file"
+}
+
+assert_semble_local_cache_valid() {
+  local cache_root="$1"
+  local snapshot_file="$cache_root/$SEMBLE_SNAPSHOT_REL"
+  if ! is_semble_binary_file "$snapshot_file"; then
+    echo "Local Semble cache is invalid at $snapshot_file" >&2
+    return 1
+  fi
+}
+
 ensure_semble_installed() {
   if command -v semble >/dev/null 2>&1; then
     echo "Semble already installed: $(command -v semble)"
@@ -145,8 +208,10 @@ sync_semble_model_cache() {
     return 0
   fi
 
+  repair_semble_snapshot_from_blobs "$SEMBLE_REPO_CACHE"
   rm -rf "$SEMBLE_HUB_CACHE"
   cp -a "$SEMBLE_REPO_CACHE" "$SEMBLE_HUB_CACHE"
+  assert_semble_local_cache_valid "$SEMBLE_HUB_CACHE"
   echo "Semble model cache synced to $SEMBLE_HUB_CACHE"
 }
 

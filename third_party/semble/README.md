@@ -24,6 +24,11 @@ third_party/
 - `refs/`
 - `snapshots/`
 
+部署脚本会把 `blobs/` 视为离线真源。
+如果 `snapshots/.../model.safetensors` 是 Git LFS pointer，部署时会自动解析其中的 `oid sha256:...`，
+再用对应的 `blobs/<sha256>` 重建真实的 `model.safetensors`，然后再同步到用户缓存。
+如果 `blobs/` 中找不到对应实体文件，部署会直接失败，并拒绝覆盖本机 Hugging Face 缓存。
+
 ## 导出方式
 
 ### Windows
@@ -46,4 +51,5 @@ third_party/
 ## 说明
 
 - 模型首次联网下载一次即可，后续部署可直接复用仓库中的缓存
+- 导出脚本会先校验本机 `snapshot/.../model.safetensors` 是真实二进制文件，不会导出 LFS pointer
 - 如果仓库里没有该目录，部署脚本会跳过缓存同步，但仍会继续部署其他配置

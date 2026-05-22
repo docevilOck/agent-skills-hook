@@ -20,6 +20,8 @@ $SharedConfigRoot = Join-Path $ConfigRoot "shared"
 $SembleRepoCache = Join-Path $RepoRoot "third_party\semble\huggingface\hub\models--minishlab--potion-code-16M"
 $SembleHubRoot = Join-Path $env:USERPROFILE ".cache\huggingface\hub"
 $SembleHubCache = Join-Path $SembleHubRoot "models--minishlab--potion-code-16M"
+$SembleSnapshotRel = "snapshots\86848193a842865570d9c8d3e7d268b66ab52752\model.safetensors"
+$SembleMinBinaryBytes = 1048576
 
 # 验证 skills 目录存在
 if (-not (Test-Path $RepoSkills)) {
@@ -142,6 +144,82 @@ with dest.open("w", encoding="utf-8") as f:
     Remove-Item $tmp -Force
 }
 
+function Test-SemblePointerFile {
+    param(
+        [string]$Path
+    )
+
+    if (-not (Test-Path $Path -PathType Leaf)) {
+        return $false
+    }
+
+    $firstLine = Get-Content -LiteralPath $Path -TotalCount 1 -ErrorAction Stop
+    return $firstLine -eq "version https://git-lfs.github.com/spec/v1"
+}
+
+function Get-SemblePointerOid {
+    param(
+        [string]$Path
+    )
+
+    $match = Select-String -LiteralPath $Path -Pattern "^oid sha256:([0-9a-f]{64})$" -ErrorAction Stop | Select-Object -First 1
+    if ($null -eq $match) {
+        throw "Invalid LFS pointer file: missing sha256 oid in $Path"
+    }
+    return $match.Matches[0].Groups[1].Value
+}
+
+function Test-SembleBinaryFile {
+    param(
+        [string]$Path
+    )
+
+    if (-not (Test-Path $Path -PathType Leaf)) {
+        return $false
+    }
+
+    $item = Get-Item -LiteralPath $Path -ErrorAction Stop
+    if ($item.Length -lt $SembleMinBinaryBytes) {
+        return $false
+    }
+
+    return -not (Test-SemblePointerFile -Path $Path)
+}
+
+function Repair-SembleSnapshotFromBlobs {
+    param(
+        [string]$CacheRoot
+    )
+
+    $snapshotFile = Join-Path $CacheRoot $SembleSnapshotRel
+    if (Test-SembleBinaryFile -Path $snapshotFile) {
+        return
+    }
+
+    if (-not (Test-SemblePointerFile -Path $snapshotFile)) {
+        throw "Invalid Semble snapshot: expected either a real safetensors file or an LFS pointer at $snapshotFile"
+    }
+
+    $oid = Get-SemblePointerOid -Path $snapshotFile
+    $blobPath = Join-Path $CacheRoot ("blobs\" + $oid)
+    if (-not (Test-SembleBinaryFile -Path $blobPath)) {
+        throw "Semble blob missing or invalid for oid $oid at $blobPath"
+    }
+
+    Copy-Item -LiteralPath $blobPath -Destination $snapshotFile -Force
+}
+
+function Assert-SembleLocalCacheValid {
+    param(
+        [string]$CacheRoot
+    )
+
+    $snapshotFile = Join-Path $CacheRoot $SembleSnapshotRel
+    if (-not (Test-SembleBinaryFile -Path $snapshotFile)) {
+        throw "Local Semble cache is invalid at $snapshotFile"
+    }
+}
+
 function Ensure-SembleInstalled {
     $sem = Get-Command semble -ErrorAction SilentlyContinue
     if ($null -ne $sem) {
@@ -162,7 +240,10 @@ function Sync-SembleModelCache {
         return
     }
 
+    Repair-SembleSnapshotFromBlobs -CacheRoot $SembleRepoCache
+
     Copy-DirectoryTree $SembleRepoCache $SembleHubCache
+    Assert-SembleLocalCacheValid -CacheRoot $SembleHubCache
     Write-Host "Semble model cache synced to $SembleHubCache"
 }
 
