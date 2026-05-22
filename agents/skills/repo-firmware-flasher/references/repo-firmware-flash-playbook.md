@@ -22,6 +22,7 @@
 - 最终刷写文件名
 - 是否存在打包、加密、补 CRC、合并镜像
 - 原始 bin 和 OTA bin 哪个才是下载入口真正使用的文件
+- 如果本轮验证依赖新代码，必须先等待编译完成，再确认当前构建产物路径；严禁编译和刷写并行执行
 
 3. 连接方式
 - `VID/PID`
@@ -130,27 +131,28 @@ io_timeout_ms = 5000
 ## 建议流程
 
 1. 从仓库里定位刷写入口和协议代码。
-2. 把查到的参数写成 `.agents/cache/<目标名>_download.cfg`。
-3. 如果后续要真实写入设备，且需要观察复位后的启动日志，先开串口抓取，不要等刷写后再补抓。
-4. 先执行：
+2. 如果本轮依赖新代码或新产物，先执行构建并等待编译完成；构建未完成或失败时，不进入后续刷写步骤。
+3. 把查到的参数写成 `.agents/cache/<目标名>_download.cfg`。
+4. 如果后续要真实写入设备，且需要观察复位后的启动日志，先开串口抓取，不要等刷写后再补抓。
+5. 先执行：
 
 ```powershell
 python <repo_flash.py 路径> probe --config .agents/cache/<目标名>_download.cfg
 ```
 
-5. 再执行：
+6. 再执行：
 
 ```powershell
 python <repo_flash.py 路径> inspect-firmware --config .agents/cache/<目标名>_download.cfg
 ```
 
-6. 如需验证分包：
+7. 如需验证分包：
 
 ```powershell
 python <repo_flash.py 路径> make-packets --config .agents/cache/<目标名>_download.cfg --out artifacts\packet_blob.bin
 ```
 
-7. 只有在用户明确要求真实刷写时，才执行：
+8. 只有在用户明确要求真实刷写时，才执行：
 
 ```powershell
 python <repo_flash.py 路径> flash --config .agents/cache/<目标名>_download.cfg --yes
@@ -165,6 +167,8 @@ python <repo_flash.py 路径> flash --config .agents/cache/<目标名>_download.
 
 - 若设备刷写完成后会自动复位或立刻输出关键启动日志，必须先开串口抓取，再执行 `flash`。
 - 不要在 `flash` 完成后才启动串口；否则可能漏掉判断是否成功启动所需的首段日志。
+- 每次执行 `flash` 前一定要确保编译已经完成，且当前不存在正在进行的构建任务；严禁编译和刷写并行执行。
+- 默认只对单个目标串行执行探测、检查、分包和刷写，不并发对多个设备或多个会话同时刷写。
 
 ## 判断是否可复用本脚本
 
