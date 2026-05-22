@@ -190,13 +190,22 @@ function Ensure-RepoSembleFiles {
 }
 
 function Ensure-CodexSembleMcp {
-    $existing = codex mcp get semble 2>$null
-    if ($LASTEXITCODE -eq 0 -and $existing -match "command:\s+semble" -and $existing -match "HF_HUB_DISABLE_SYMLINKS") {
+    $listOutput = $null
+    $hadExisting = $false
+
+    try {
+        $listOutput = codex mcp list 2>$null
+        $hadExisting = ($LASTEXITCODE -eq 0 -and $listOutput -match "(?m)^\s*semble\s+semble\b")
+    } catch {
+        $hadExisting = $false
+    }
+
+    if ($hadExisting -and $listOutput -match "HF_HUB_DISABLE_SYMLINKS") {
         Write-Host "Codex MCP 'semble' already configured."
         return
     }
 
-    if ($LASTEXITCODE -eq 0) {
+    if ($hadExisting) {
         codex mcp remove semble | Out-Null
     }
 
