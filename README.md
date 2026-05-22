@@ -145,7 +145,7 @@ cd windows
 ./linux/cache_semble_model.sh
 ```
 
-**Linux（软链接）**：
+**Linux（skills/agents 软链接，配置文件复制或合并）**：
 ```bash
 ls -la ~/.codex/skills ~/.codex/agents ~/.codex/AGENTS.md
 ls -la ~/.config/opencode/skills ~/.config/opencode/AGENTS.md ~/.config/opencode/opencode.json
@@ -164,10 +164,15 @@ Test-Path "$env:USERPROFILE\.claude\CLAUDE.md"
 ### 回滚
 
 备份目录位于：
-- Linux: `~/.codex-backups/`, `~/.opencode-backups/`, `~/.claude-backups/`
-- Windows: `$env:USERPROFILE\.codex-backups\`, 等
+- Linux: `~/.codex-backups/`、`~/.opencode-backups/`、`~/.claude-backups/`、`~/.qoder-backups/`
+- Windows: `$env:USERPROFILE\.codex-backups\`、`$env:USERPROFILE\.opencode-backups\`、`$env:USERPROFILE\.claude-backups\`、`$env:USERPROFILE\.qoder-backups\`
 
 恢复备份：
+- 下方命令仅演示 Codex。
+- OpenCode、Claude Code、Qoder 也会生成各自备份目录；恢复时请从对应运行时的备份子目录拷回目标用户目录。
+- Windows 当前脚本不会单独备份部署前的 `~/.config/opencode/opencode.json`；如需完整回滚该文件，请在运行部署脚本前自行备份。
+
+Codex 恢复示例：
 ```bash
 # Linux
 cp -a ~/.codex-backups/agent-skills-hook-<timestamp>/codex/* ~/.codex/
@@ -196,9 +201,10 @@ Copy-Item "$env:USERPROFILE\.codex-backups\agent-skills-hook-<timestamp>\codex\*
 
 - Codex 部署维护 `~/.codex/AGENTS.md`、`agents/`、`skills/`
 - Codex 代理定义从 `config/codex/agents` 部署到 `~/.codex/agents`
-- OpenCode 部署维护 `~/.config/opencode/AGENTS.md`、`opencode.json`、`skills/`
+- OpenCode 部署维护 `~/.config/opencode/AGENTS.md`、`opencode.json`、`skills/`，并同步 `~/.claude/skills`
 - `config/opencode/opencode.json` 只保存共享配置模板，不保存 provider/API Key；部署脚本会把这些字段深合并到本地配置，保留未被模板覆盖的私有配置。
 - Claude Code 部署维护 `~/.claude/AGENTS.md`、`CLAUDE.md`、`skills/`
+- Qoder 部署维护 `~/.qoder/AGENTS.md`、`skills/`，并写入用户级 `settings.json` 的 `mcpServers.semble`
 
-- Linux 用户：修改后重新运行 `linux/deploy.sh`（软链接自动指向新内容）
-- Windows 用户：修改后重新运行 `windows/deploy.ps1`（复制新内容）
+- Linux 用户：修改后重新运行 `linux/deploy.sh`。其中 `skills/` 与 Codex `agents/` 通过软链接指向仓库内容，`AGENTS.md`、`CLAUDE.md` 与 OpenCode `opencode.json` 通过复制或合并更新。
+- Windows 用户：修改后重新运行 `windows/deploy.ps1`。其中 `AGENTS.md`、`CLAUDE.md`、`agents/`、`skills/` 通过复制更新，OpenCode `opencode.json` 通过合并更新。
