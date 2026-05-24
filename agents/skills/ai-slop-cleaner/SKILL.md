@@ -28,6 +28,15 @@ Use this skill when:
 - When the caller provides a changed-files list (for example, Ralph session-owned edits), keep the cleanup strictly bounded to those files.
 - In the **Ralph workflow**, the mandatory deslop pass should run this skill on Ralph's changed files only, in standard mode unless the caller explicitly requests otherwise.
 
+## Final Gate Integration
+
+- When this skill is invoked from `implementation-final-gate`, treat it as a **post-consistency-pass cleanup stage**, not as a freeform refactor pass.
+- Default scope is the final gate's accepted code range; if the caller provides a narrower changed-files list, keep the cleanup restricted to that narrower list.
+- If behavior must be locked with new regression coverage, you may include the **smallest necessary test files** as attached scope for that purpose only; do not use this as a loophole to expand implementation scope.
+- The goal is to remove slop and improve maintainability **without** changing approved architecture, detail, data flow, or exec-plan commitments.
+- If your cleanup edits code, the caller must send the result back through `implementation-final-gate` for a fresh independent consistency review.
+- Do not expand scope from “cleanup” into redesign. If the maintainability issue truly requires architecture or flow changes, stop and report that instead of forcing a broad refactor through this skill.
+
 ## Procedure
 
 1. **Lock behavior with regression tests first**

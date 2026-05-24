@@ -9,7 +9,12 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 
 这个 skill 用于代码实现阶段的最终验收。
 
-它不是普通代码审查，也不是只跑测试的验证门禁。它的核心任务是**拉一个独立审查 agent**，把**代码实现**与以下设计输入做逐项对照：
+它不是普通代码审查，也不是只跑测试的验证门禁。它的核心任务分成两段：
+
+1. **先拉独立审查 agent**，把**代码实现**与以下设计输入做逐项对照
+2. **一致性通过后，再拉独立 subagent 调用 `ai-slop-cleaner`**，在受限范围内做垃圾代码清理和可维护性提升；若清理改了代码，再重新回到一致性验收
+
+第一段一致性验收要对照的设计输入包括：
 
 - `implementation-architecture-workflow` 产出的实现架构文档
 - `implementation-struct-dataflow-workflow` 产出的 detail 文档
@@ -24,7 +29,9 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 
 这里的设计一致性判断遵循同一条文档规则：architecture、detail、exec plan 只定义“这次要做什么”。凡是文档里没有明确写到的实现、结构、流程、共享状态、旁路逻辑或验证动作，都按未获批准处理，而不是等待文档再额外写一段“明确不做”。
 
-如果审查 agent 发现任何未被批准的差异，就必须审核不通过，打回主 agent 修改。主 agent 修改后，必须重新进入这个 skill，再拉审查 agent 重审。这个循环要一直持续到审查 agent 给出 `pass`，主 agent 才能宣称“计划已经完成”。
+如果审查 agent 发现任何未被批准的差异，就必须审核不通过，打回主 agent 修改。主 agent 修改后，必须重新进入这个 skill，再拉审查 agent 重审。这个循环要一直持续到审查 agent 给出一致性 `pass`。
+
+但一致性 `pass` 还不是最终放行：主 agent 还必须再拉一个独立 subagent，受限调用 `ai-slop-cleaner` 做清理。如果清理阶段产生任何代码修改，就必须重新进入这个 skill，再次拉独立审查 agent 做一致性重审。只有在**清理后的最终代码**也通过一致性验收后，主 agent 才能宣称“计划已经完成”。
 
 ## 何时使用
 
@@ -39,7 +46,7 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 
 如果只是想让另一个视角找 bug，优先用 `requesting-code-review`。
 
-如果目标是**实现与设计一致性验收**，用这个 skill。
+如果目标是**实现与设计一致性验收**，并在通过后继续做一轮受限 deslop / maintainability cleanup，再复核一致性，用这个 skill。
 
 如果主 agent 正准备宣称“已经完成计划”“已经按计划实现完成”“可以正式收尾”，这个 skill 是必经门禁。
 
@@ -75,21 +82,33 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 3. 当前任务对应的 git diff / 工作区 diff
 4. architecture/detail 文档中明确点名的实现文件
 
+后续 `ai-slop-cleaner` 的作用范围默认也必须继承这份范围；如果能拿到更窄的 changed-files 列表，优先把清理范围进一步收敛到 changed files。
+
+如果为了满足 `ai-slop-cleaner` 的 regression-tests-first 规则，必须补最小测试覆盖，则允许把**锁定既有行为所必需的最小测试文件**纳入 cleanup 附属范围；这些测试文件也必须计入 cleanup 范围说明和后续验证证据。
+
 如果范围仍然不清楚，先输出 `need-info`，不要自己扩散成全仓库审查。
 
 ## 核心流程
 
 1. 主 agent 先定位 architecture 文档、detail 文档、exec plan、代码范围和本轮验证证据。
 2. 主 agent 读取这些输入，整理成明确的审查上下文。
-3. 主 agent 使用独立审查 agent 执行最终一致性验收。
+3. 主 agent 使用独立审查 agent 执行第一轮最终一致性验收。
 4. 审查 agent 必须按“architecture -> detail -> exec plan -> code -> evidence”的顺序逐项对照。
 5. 审查 agent 检查实现里是否出现文档或计划未批准的偏离。
 6. 审查 agent 检查文档强调的约束是否真的落到了代码里，而不是只写在文档里。
 7. 审查 agent 输出 `pass`、`need-info` 或 `blocked`。
 8. 如果结论是 `blocked`，主 agent 必须先修改代码或补齐文档，再重新进入这个 skill，重新拉审查 agent 验收。
-9. 只有当审查 agent 输出 `pass` 时，主 agent 才能宣称“已经按计划完成”。
+9. 如果结论是 `need-info`，主 agent 必须先补齐缺失输入、范围或验证证据，不得进入 cleanup；补齐后重新进入这个 skill。
+10. 只有当第一轮一致性结论为 `pass` 时，主 agent 才能进入清理阶段。
+11. 主 agent 拉一个新的独立 subagent，在当前代码范围或更窄 changed-files 范围内调用 `ai-slop-cleaner`。
+12. 清理 subagent 必须遵守 `ai-slop-cleaner` 的 regression-tests-first、显式 cleanup plan、分 smell 分 pass、最小 diff、最小作用域规则。
+13. 如果清理 subagent 没有做出任何代码修改，主 agent 可直接保留第一轮一致性结论，进入最终收尾。
+14. 如果清理 subagent 做出了代码修改，主 agent 必须补充这些修改对应的验证证据，并重新拉独立审查 agent，再做一次完整一致性验收。
+15. 只有当**最后一次一致性验收**输出 `pass` 时，主 agent 才能宣称“已经按计划完成”。
 
 如果没有新的、可归属到本轮结论的验证证据，最多输出 `need-info`，不能输出 `pass`。
+
+如果清理 subagent 产出的改动超出既定范围、引入新的抽象层、或让实现偏离 architecture/detail/exec plan，也必须回到 `blocked`，不能因为“一致性阶段之前通过过”而继续放行。
 
 ## 审查 agent 要求
 
@@ -98,6 +117,7 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 - 必须把 data flow、flow、结构体设计与代码逐项对上
 - 发现任何未批准差异时，必须返回 `blocked`
 - 不允许用“基本一致”“差不多符合”“核心没问题”这类模糊表述放行
+- 如果本轮代码已经过 `ai-slop-cleaner` 清理，必须按**清理后的最终代码**重做对照，不能沿用清理前结论
 
 审查提示模板见 [final-gate-reviewer-prompt.md](final-gate-reviewer-prompt.md)。
 
@@ -146,6 +166,7 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 - 代码实现与 exec plan 一致，关键步骤没有漏做、错做或擅自改做
 - 本轮存在新的验证证据，且证据与结论匹配
 - 未覆盖风险已明确说明
+- 若经历过 `ai-slop-cleaner` 清理，则清理后的最终代码也已重新完成一致性验收
 
 ### `need-info`
 
@@ -174,6 +195,7 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 - 实现与 data flow / flow / 结构体设计不一致
 - 关键设计约束未落地
 - 结论依赖关键证据，但证据不存在
+- `ai-slop-cleaner` 修改了代码，但清理后的实现还没有重新完成一致性验收
 
 判定原则：
 
@@ -191,6 +213,7 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 4. 发现的问题：按严重度列出与设计不一致之处
 5. 已确认一致的关键点：只列最重要的几项
 6. 未覆盖风险：明确还没验证到哪里
+7. 如果进入过 `ai-slop-cleaner`，要明确说明：清理是否改代码、清理范围是什么、清理后是否已重新验收
 
 如果没有发现不一致，也不能只说“通过”，仍要说明对照了什么。
 
@@ -204,6 +227,7 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 - detail 输入通常来自 `implementation-struct-dataflow-workflow`
 - 如需补验证证据，联动 `verification-before-completion`
 - 如需独立质量复核，联动 `requesting-code-review`
+- 如需在一致性通过后做垃圾代码清理和可维护性提升，联动 `ai-slop-cleaner`
 - 默认在 `executing-plans` 的末尾作为最终收口门禁
 
 ## 最低要求
@@ -211,3 +235,5 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 没有 architecture 文档、没有 detail 文档、没有代码对照，就不要假装做了最终验收。
 
 验收的重点是**实现是否符合 architecture、detail 和 exec plan**，不是只看“代码能不能跑”。
+
+如果进入了 `ai-slop-cleaner` 清理阶段，最终放行对象是**清理后的最终代码**，不是清理前那一版代码。
