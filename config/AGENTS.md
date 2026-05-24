@@ -17,6 +17,12 @@
 - 不适合在入口文件里展开的内容：具体检查清单、长流程、示例命令、深层协作规则
 - 需要深度规则时，按主题拆分到 `docs/` 下属子目录，不在入口展开
 
+## Semble MCP 约束
+
+- 若运行时通过 `mcp__semble__` 或等价 MCP 工具调用 `Semble`，必须显式传递目标仓库根目录 `repo`
+- 不得假设 `Semble MCP` 会继承当前工作目录，也不得依赖 default index
+- 只有直接使用命令行 `semble search "<query>" <path>` / `semble find-related <file> <line> <path>` 时，才可以按 CLI 规则传路径参数
+
 ## 产出要求
 
 - 中文说明优先，术语保持一致

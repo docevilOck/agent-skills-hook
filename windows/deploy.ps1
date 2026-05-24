@@ -269,6 +269,7 @@ function Ensure-CodexSembleMcp {
 
     codex mcp add semble --env HF_HUB_DISABLE_SYMLINKS=1 --env HF_HUB_DISABLE_SYMLINKS_WARNING=1 -- semble
     Write-Host "Codex MCP 'semble' configured."
+    Write-Host "Reminder: mcp__semble__ calls must always pass repo explicitly."
 }
 
 function Ensure-QoderSembleMcp {
@@ -297,6 +298,7 @@ function Ensure-QoderSembleMcp {
     Merge-JsonConfig $overlay $QoderSettings
     Remove-Item $overlay -Force
     Write-Host "Qoder MCP 'semble' configured in $QoderSettings"
+    Write-Host "Reminder: Semble MCP calls must always pass repo explicitly."
 }
 
 Ensure-SembleInstalled

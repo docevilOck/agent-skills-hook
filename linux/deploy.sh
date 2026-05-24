@@ -195,8 +195,28 @@ ensure_semble_installed() {
     return 0
   fi
 
+  local py_cmd=""
+  if command -v python >/dev/null 2>&1; then
+    py_cmd="python"
+  elif command -v python3 >/dev/null 2>&1; then
+    py_cmd="python3"
+  else
+    echo "ERROR: python/python3 not found." >&2
+    return 1
+  fi
+
+  if ! "$py_cmd" -m pip --version >/dev/null 2>&1; then
+    if "$py_cmd" -m ensurepip --help >/dev/null 2>&1; then
+      echo "pip not found. Bootstrapping with ensurepip..."
+      "$py_cmd" -m ensurepip --upgrade
+    else
+      echo "ERROR: pip not available for $py_cmd, and ensurepip is unavailable." >&2
+      return 1
+    fi
+  fi
+
   echo "Semble not found. Installing semble[mcp]..."
-  python -m pip install "semble[mcp]"
+  "$py_cmd" -m pip install "semble[mcp]"
 }
 
 sync_semble_model_cache() {
@@ -228,6 +248,7 @@ ensure_codex_semble_mcp() {
   rm -f /tmp/codex_semble_get.txt
   codex mcp add semble --env HF_HUB_DISABLE_SYMLINKS=1 --env HF_HUB_DISABLE_SYMLINKS_WARNING=1 -- semble
   echo "Codex MCP 'semble' configured."
+  echo "Reminder: mcp__semble__ calls must always pass repo explicitly."
 }
 
 ensure_semble_installed

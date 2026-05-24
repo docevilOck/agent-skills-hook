@@ -134,6 +134,8 @@ cd windows
 - 会自动把 `config/opencode/opencode.json` 合并到 `~/.config/opencode/opencode.json`
 - 会自动为 `Semble` 注入 `HF_HUB_DISABLE_SYMLINKS=1`，绕过 Windows 上 Hugging Face cache symlink 问题
 - 这样模型通常只需联网下载一次，后续机器可直接复用仓库内缓存
+- 注意：部署只保证 `Semble MCP` 可用，不会为每次搜索自动注入仓库路径
+- 通过 `mcp__semble__` 调用时，必须显式传 `repo`；不要依赖 cwd 或 default index
 
 首次把本机缓存导入仓库：
 

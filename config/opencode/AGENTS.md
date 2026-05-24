@@ -15,11 +15,14 @@
 - 先用 `semble search "<query>" <path>` 做语义搜索；必要时再用 `semble find-related <file_path> <line> <path>` 扩展到相关实现。
 - 只有在需要精确字符串匹配、穷举字面量、或对搜索结果做快速确认时，才回退到 grep。
 - 优先使用 `PATH` 中的 `semble` 可执行文件；若不存在，不要假设 `python -m semble` 可用，应先检查当前环境的安装方式并按该环境文档提供的入口执行。
+- 若使用 `Semble MCP` / `mcp__semble__`，每次调用都必须显式传 `repo`，值为当前目标仓库根目录的绝对路径或明确的远端 URL。
+- 不得假设 `Semble MCP` 会继承 cwd；也不得依赖启动时 default index。
 
 ### Workflow
 - 先用 `semble search` 找到最相关代码块。
 - 只有当返回的代码块上下文不足时，才打开整个文件。
 - 找到一个有价值的位置后，可继续用 `semble find-related` 找相似或相关实现。
+- 使用 MCP 搜索时，`repo` 是必填项，不允许省略。
 
 ## 工具选择
 - 优先使用当前运行时提供的原生工具或 MCP 工具；只有在原生工具或 MCP 工具不可用、能力不匹配、或明显低效时，才回退到命令行。

@@ -20,7 +20,7 @@ Task tool (general-purpose):
     | Category | What to Look For |
     |----------|------------------|
     | Completeness | TODOs, placeholders, incomplete tasks, missing steps |
-    | Spec Alignment | Plan covers spec requirements, no major scope creep |
+    | Spec Alignment | Plan covers spec requirements, and only includes work explicitly required by the spec/design/plan inputs |
     | Task Decomposition | Tasks have clear boundaries, steps are actionable |
     | Buildability | Could an engineer follow this plan without getting stuck? |
 
@@ -32,6 +32,9 @@ Task tool (general-purpose):
 
     Approve unless there are serious gaps — missing requirements from the spec,
     contradictory steps, placeholder content, or tasks so vague they can't be acted on.
+
+    Treat the plan as a positive scope definition: if work is not explicitly included
+    in the plan/spec/design inputs, it should not appear implicitly in the plan.
 
     ## Output Format
 

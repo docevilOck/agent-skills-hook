@@ -2,6 +2,8 @@
 
 这个清单用于 `implementation-final-gate` 的详细对照。
 
+默认规则：design 文档只声明“这次要做什么”。凡是 architecture、detail、exec plan 中没有明确写到的实现内容，默认按未批准处理，不要求文档再额外列一份“明确不做”清单。
+
 ## 1. 输入完整性
 
 - 是否已经定位本次改动对应的 architecture 文档
