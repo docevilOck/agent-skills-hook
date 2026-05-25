@@ -15,8 +15,9 @@ description: 为 C/C++ 项目初始化 compile_commands.json 和 .clangd 配置�
 1. 检测运行平台（Linux / Windows）
 2. 编译或抓取日志之前先执行一次 clean，避免旧产物和过期命令污染结果
 3. 按平台选择生成策略，生成 `compile_commands.json`
-4. 生成 `.clangd` 配置文件
-5. 验证生成结果
+4. 为源码直接包含的本地头文件补充显式编译数据库条目
+5. 生成 `.clangd` 配置文件
+6. 验证生成结果
 
 ---
 
@@ -109,6 +110,9 @@ python <skill-dir>/scripts/CompilerGen.py <compiler>
 | `gcc` | gcc / arm-none-eabi-gcc |
 
 脚本自动生成 `compile_commands.json` 和 `.clangd`，并在成功后默认清理 `build_log.txt` 这类脚本临时产物。
+生成 `compile_commands.json` 时，脚本会扫描每个源码文件直接 `#include "..."` 的本地头文件，
+并为可解析到的 `.h/.hpp/.hh/.hxx` 头文件补充 `-x c-header` 或 `-x c++-header` 显式条目，
+避免 clangd 只能用错误或残缺的推断上下文解析头文件。
 
 如需保留 `build_log.txt`：
 
@@ -118,15 +122,13 @@ python <skill-dir>/scripts/CompilerGen.py <compiler> --keep-build-log
 
 ---
 
-## 步骤 3：.clangd 增强
+## 步骤 3：.clangd 配置原则
 
-若为 ARM 嵌入式项目且 `.clangd` 中未含目标架构参数，补充：
+`.clangd` 只负责移除 clangd 不兼容或无意义的编译器参数，并指定 `CompilationDatabase: .`。
 
-```yaml
-CompileFlags:
-  Add:
-    - --target=arm-none-eabi
-```
+不要在 `.clangd` 中额外添加 `--target`、`-mcpu`、`-mfpu`、`-mfloat-abi` 或系统头路径。
+这些信息应来自 `compile_commands.json` 的真实构建命令。额外追加目标参数会和不同项目、
+不同芯片或不同工具链的编译数据库冲突，导致 clangd 索引残缺、头文件 inactive region 判断错误。
 
 ## 步骤 4：验证
 
@@ -144,6 +146,8 @@ which clangd && clangd --version || echo "clangd 未安装，可后续安装验�
 验证时额外检查：
 
 - `compile_commands.json` 条目数是否明显过少；若只有少量文件，优先怀疑 clean/rebuild 不完整
+- `compile_commands.json` 是否包含关键头文件条目；例如 `ssl_tls13_keys.h` 这类被源码直接包含的头文件应有自己的 `file` 条目
+- `.clangd` 中不应出现全局 `CompileFlags.Add` 注入目标架构参数
 - 如果未传 `--keep-build-log`，确认 `build_log.txt` 已被自动清理
 
 ---

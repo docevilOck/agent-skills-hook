@@ -30,6 +30,8 @@ TEMP_ARTIFACTS = [
     "build_log.txt",
 ]
 
+HEADER_EXTENSIONS = {".h", ".hh", ".hpp", ".hxx"}
+
 ARM_STD_INCLUDE_CANDIDATES = {
     "armclang": [
         Path("C:/Keil_v5/ARM/ARMCLANG/include"),
@@ -252,7 +254,11 @@ def detect_arm_std_include_from_log(log_lines, compiler_name):
 
 def generate_clangd_config(compiler_name=None, log_lines=None):
     """
-    生成 .clangd 配置文件以优化 clangd 行为
+    生成 .clangd 配置文件。
+
+    compile_commands.json 已携带目标架构、FPU、系统头等真实编译参数。
+    这里不要再通过 Add 注入目标参数，否则容易和不同项目/芯片的
+    编译数据库冲突，导致 clangd 索引残缺。
     """
     clangd_lines = [
         "CompileFlags:",
@@ -268,22 +274,7 @@ def generate_clangd_config(compiler_name=None, log_lines=None):
         "    - --feedback=*",
         "    - --keep=*",
         "    - --list=*",
-        "  Add:",
-        "    - --target=arm-none-eabi",
-        "    - -mcpu=cortex-m4",
-        "    - -mfpu=fpv4-sp-d16",
-        "    - -mfloat-abi=hard",
     ]
-
-    arm_std_include = detect_arm_std_include_from_log(log_lines or [], compiler_name)
-    if not arm_std_include:
-        arm_std_include = find_arm_std_include(compiler_name)
-
-    if arm_std_include:
-        clangd_lines.extend([
-            "    - -isystem",
-            f"    - {arm_std_include}",
-        ])
 
     clangd_lines.append("  CompilationDatabase: .")
     clangd_config = "\n".join(clangd_lines) + "\n"
@@ -345,6 +336,161 @@ def generate_compile_commands(compiler_name, preserve_build_log=False):
         print(f"成功生成 compile_commands.json，共 {len(compile_commands)} 条编译命令")
     else:
         print("未找到任何编译命令，请检查 build_log.txt 内容")
+
+def is_source_file(path):
+    return Path(path).suffix.lower() in {".c", ".cc", ".cpp", ".cxx"}
+
+def is_header_file(path):
+    return Path(path).suffix.lower() in HEADER_EXTENSIONS
+
+def split_include_arg(arg):
+    if arg.startswith("-I") and len(arg) > 2:
+        return arg[2:]
+    return None
+
+def extract_include_dirs(args):
+    include_dirs = []
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg == "-I" and i + 1 < len(args):
+            include_dirs.append(args[i + 1])
+            i += 2
+            continue
+
+        include_dir = split_include_arg(arg)
+        if include_dir:
+            include_dirs.append(include_dir)
+
+        i += 1
+
+    return include_dirs
+
+def source_language_flag(source_file):
+    suffix = Path(source_file).suffix.lower()
+    if suffix == ".c":
+        return "c-header"
+    if suffix in {".cc", ".cpp", ".cxx"}:
+        return "c++-header"
+    return "c-header"
+
+def normalize_path_for_db(path):
+    return Path(path).as_posix()
+
+def resolve_header(include_name, source_file, include_dirs, directory):
+    candidates = []
+    source_dir = Path(directory) / Path(source_file).parent
+    candidates.append(source_dir / include_name)
+
+    for include_dir in include_dirs:
+        inc = Path(include_dir)
+        if not inc.is_absolute():
+            inc = Path(directory) / inc
+        candidates.append(inc / include_name)
+
+    for candidate in candidates:
+        try:
+            resolved = candidate.resolve()
+        except OSError:
+            continue
+
+        if resolved.exists() and resolved.is_file() and is_header_file(resolved):
+            try:
+                return normalize_path_for_db(resolved.relative_to(Path(directory).resolve()))
+            except ValueError:
+                return normalize_path_for_db(resolved)
+
+    return None
+
+def find_direct_headers(entry):
+    source_file = entry.get("file")
+    directory = entry.get("directory", os.getcwd())
+    if not source_file or not is_source_file(source_file):
+        return []
+
+    source_path = Path(directory) / source_file
+    if not source_path.exists():
+        return []
+
+    args = entry.get("arguments", [])
+    include_dirs = extract_include_dirs(args)
+    include_pattern = re.compile(r'^\s*#\s*include\s+"([^"]+)"')
+    headers = []
+    seen = set()
+
+    try:
+        with open(source_path, "r", encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                match = include_pattern.match(line)
+                if not match:
+                    continue
+
+                header = resolve_header(match.group(1), source_file, include_dirs, directory)
+                if header and header not in seen:
+                    headers.append(header)
+                    seen.add(header)
+    except Exception as e:
+        print(f"[WARN] 无法扫描头文件依赖 {source_file}: {e}")
+
+    return headers
+
+def make_header_entry(source_entry, header_file):
+    args = list(source_entry.get("arguments", []))
+    if not args:
+        return None
+
+    new_args = []
+    skip_next = False
+    for i, arg in enumerate(args):
+        if skip_next:
+            skip_next = False
+            continue
+
+        if arg == "-c" and i + 1 < len(args):
+            new_args.extend(["-x", source_language_flag(source_entry.get("file", "")), "-c", header_file])
+            skip_next = True
+            continue
+
+        if arg == "-o" and i + 1 < len(args):
+            output = Path(source_entry.get("output", ""))
+            stem = Path(header_file).stem
+            suffix = output.suffix or ".o"
+            if output.parent:
+                header_output = output.parent / f"{stem}.header{suffix}"
+            else:
+                header_output = Path(f"{stem}.header{suffix}")
+            new_args.extend(["-o", normalize_path_for_db(header_output)])
+            skip_next = True
+            continue
+
+        new_args.append(arg)
+
+    return {
+        "directory": source_entry.get("directory", os.getcwd()),
+        "file": header_file,
+        "output": normalize_path_for_db(Path(source_entry.get("output", "")).with_name(Path(header_file).stem + ".header.o")) if source_entry.get("output") else "",
+        "arguments": new_args,
+    }
+
+def add_header_compile_commands(compile_commands):
+    header_entries = []
+    seen_files = {normalize_path_for_db(entry.get("file", "")) for entry in compile_commands}
+
+    for entry in compile_commands:
+        for header in find_direct_headers(entry):
+            if header in seen_files:
+                continue
+
+            header_entry = make_header_entry(entry, header)
+            if not header_entry:
+                continue
+
+            header_entries.append(header_entry)
+            seen_files.add(header)
+
+    compile_commands.extend(header_entries)
+    if header_entries:
+        print(f"已补充头文件编译命令: {len(header_entries)} 条")
 
 def optimize_and_save(compile_commands):
     """
@@ -418,6 +564,8 @@ def optimize_and_save(compile_commands):
             new_args.append("--target=arm-none-eabi")
             
         entry["arguments"] = [normalize_clang_arg(arg) for arg in new_args]
+
+    add_header_compile_commands(compile_commands)
 
     # 写入文件
     try:
