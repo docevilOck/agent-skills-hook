@@ -24,6 +24,7 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 
 - 实现是否忠实落地了架构设计
 - 实现是否偏离了结构体、数据流、流程设计
+- 执行计划是否正确引用、传递并落实了这些设计约束，而不是在计划阶段偷偷发明新设计
 - 偏离是否合理、是否被显式更新到文档
 - 这次改动是否可以给出最终验收结论
 
@@ -71,6 +72,8 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 - `need-info`：信息暂时不足，但理论上可补齐
 - `blocked`：当前上下文下无法继续定位或缺失关键设计输入
 
+如果拿到了 exec plan，还要检查它是否明确引用了 architecture / detail / flow / dataflow 文档，是否把这些文档里的约束正确传递给执行阶段；不能把 exec plan 当成脱离设计文档独立成立的真源。
+
 ## 范围确定规则
 
 验收范围必须先定清楚，再开始对照。
@@ -81,6 +84,8 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 2. `writing-plans` 中列出的文件清单
 3. 当前任务对应的 git diff / 工作区 diff
 4. architecture/detail 文档中明确点名的实现文件
+
+如果 exec plan 中列出的文件范围明显超出 architecture / detail / flow / dataflow 文档允许的边界，也要按范围异常处理，不能默认放行。
 
 后续 `ai-slop-cleaner` 的作用范围默认也必须继承这份范围；如果能拿到更窄的 changed-files 列表，优先把清理范围进一步收敛到 changed files。
 
@@ -94,17 +99,18 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 2. 主 agent 读取这些输入，整理成明确的审查上下文。
 3. 主 agent 使用独立审查 agent 执行第一轮最终一致性验收。
 4. 审查 agent 必须按“architecture -> detail -> exec plan -> code -> evidence”的顺序逐项对照。
-5. 审查 agent 检查实现里是否出现文档或计划未批准的偏离。
-6. 审查 agent 检查文档强调的约束是否真的落到了代码里，而不是只写在文档里。
-7. 审查 agent 输出 `pass`、`need-info` 或 `blocked`。
-8. 如果结论是 `blocked`，主 agent 必须先修改代码或补齐文档，再重新进入这个 skill，重新拉审查 agent 验收。
-9. 如果结论是 `need-info`，主 agent 必须先补齐缺失输入、范围或验证证据，不得进入 cleanup；补齐后重新进入这个 skill。
-10. 只有当第一轮一致性结论为 `pass` 时，主 agent 才能进入清理阶段。
-11. 主 agent 拉一个新的独立 subagent，在当前代码范围或更窄 changed-files 范围内调用 `ai-slop-cleaner`。
-12. 清理 subagent 必须遵守 `ai-slop-cleaner` 的 regression-tests-first、显式 cleanup plan、分 smell 分 pass、最小 diff、最小作用域规则。
-13. 如果清理 subagent 没有做出任何代码修改，主 agent 可直接保留第一轮一致性结论，进入最终收尾。
-14. 如果清理 subagent 做出了代码修改，主 agent 必须补充这些修改对应的验证证据，并重新拉独立审查 agent，再做一次完整一致性验收。
-15. 只有当**最后一次一致性验收**输出 `pass` 时，主 agent 才能宣称“已经按计划完成”。
+5. 审查 agent 先检查 exec plan 是否正确引用 architecture / detail / flow / dataflow 文档，是否把这些约束传递成了可执行任务，而不是新增了文档中不存在的设计。
+6. 审查 agent 检查实现里是否出现文档或计划未批准的偏离。
+7. 审查 agent 检查文档强调的约束是否真的落到了代码里，而不是只写在文档里。
+8. 审查 agent 输出 `pass`、`need-info` 或 `blocked`。
+9. 如果结论是 `blocked`，主 agent 必须先修改代码或补齐文档，再重新进入这个 skill，重新拉审查 agent 验收。
+10. 如果结论是 `need-info`，主 agent 必须先补齐缺失输入、范围或验证证据，不得进入 cleanup；补齐后重新进入这个 skill。
+11. 只有当第一轮一致性结论为 `pass` 时，主 agent 才能进入清理阶段。
+12. 主 agent 拉一个新的独立 subagent，在当前代码范围或更窄 changed-files 范围内调用 `ai-slop-cleaner`。
+13. 清理 subagent 必须遵守 `ai-slop-cleaner` 的 regression-tests-first、显式 cleanup plan、分 smell 分 pass、最小 diff、最小作用域规则。
+14. 如果清理 subagent 没有做出任何代码修改，主 agent 可直接保留第一轮一致性结论，进入最终收尾。
+15. 如果清理 subagent 做出了代码修改，主 agent 必须补充这些修改对应的验证证据，并重新拉独立审查 agent，再做一次完整一致性验收。
+16. 只有当**最后一次一致性验收**输出 `pass` 时，主 agent 才能宣称“已经按计划完成”。
 
 如果没有新的、可归属到本轮结论的验证证据，最多输出 `need-info`，不能输出 `pass`。
 
@@ -114,6 +120,7 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 
 - 必须是独立视角，不能把主 agent 自己的口头总结当结论
 - 必须显式核对 architecture、detail、exec plan、code、evidence 这五类输入
+- 必须显式核对 exec plan 是否只是执行映射，还是偷偷承担了新的设计决策
 - 必须把 data flow、flow、结构体设计与代码逐项对上
 - 发现任何未批准差异时，必须返回 `blocked`
 - 不允许用“基本一致”“差不多符合”“核心没问题”这类模糊表述放行
@@ -129,6 +136,8 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 - 接口位置、调用方向、接入点是否与架构设计一致
 - 结构体是否与 detail 文档定义一致
 - 数据流、状态流、错误流是否与 detail 文档一致
+- exec plan 是否正确引用了 architecture / detail / flow / dataflow 文档，而不是脱离这些文档自定义约束
+- exec plan 中的任务、文件范围和验证动作，是否都能追溯到已确认设计
 - 关键分支是否按设计落地，而不是实现时擅自改成别的结构
 - 是否新增了文档未说明的共享可变状态
 - 是否出现文档未允许的业务全局变量
@@ -162,6 +171,7 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 - 已找到并核对 architecture 文档
 - 已找到并核对 detail 文档
 - 已明确本轮验收对应的代码范围
+- 若存在 exec plan，则已确认它正确引用并传递了上游设计约束，没有在计划阶段引入新的未批准设计
 - 代码实现与设计一致，或偏离已被明确接受并补充到文档
 - 代码实现与 exec plan 一致，关键步骤没有漏做、错做或擅自改做
 - 本轮存在新的验证证据，且证据与结论匹配
@@ -190,6 +200,7 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 
 - 找不到 architecture 文档或 detail 文档
 - 无法定位本轮改动对应的实现范围
+- exec plan 与 architecture / detail / flow / dataflow 文档冲突，或 exec plan 自行引入了新的未批准设计
 - 实现明显背离设计，且没有文档更新
 - 实现明显背离 exec plan
 - 实现与 data flow / flow / 结构体设计不一致
