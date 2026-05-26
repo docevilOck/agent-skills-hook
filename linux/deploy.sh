@@ -17,11 +17,6 @@ CONFIG_ROOT="$REPO_ROOT/config"
 CODEX_AGENTS="$CONFIG_ROOT/codex/agents"
 OPENCODE_CONFIG="$CONFIG_ROOT/opencode"
 SHARED_CONFIG_ROOT="$CONFIG_ROOT/shared"
-SEMBLE_REPO_CACHE="$REPO_ROOT/third_party/semble/huggingface/hub/models--minishlab--potion-code-16M"
-SEMBLE_HUB_ROOT="$HOME/.cache/huggingface/hub"
-SEMBLE_HUB_CACHE="$SEMBLE_HUB_ROOT/models--minishlab--potion-code-16M"
-SEMBLE_SNAPSHOT_REL="snapshots/86848193a842865570d9c8d3e7d268b66ab52752/model.safetensors"
-SEMBLE_MIN_BINARY_BYTES=1048576
 
 if [ ! -d "$REPO_SKILLS" ]; then
   echo "ERROR: $REPO_SKILLS missing. Run 'git submodule update --init --recursive agents/skills' first." >&2
@@ -128,132 +123,34 @@ with dest.open("w", encoding="utf-8") as f:
 PY
 }
 
-is_semble_pointer_file() {
-  local path="$1"
-  [ -f "$path" ] || return 1
-  local first_line
-  first_line="$(head -n 1 "$path" 2>/dev/null || true)"
-  [ "$first_line" = "version https://git-lfs.github.com/spec/v1" ]
-}
-
-get_semble_pointer_oid() {
-  local path="$1"
-  local oid
-  oid="$(awk '/^oid sha256:/ { sub(/^oid sha256:/, "", $0); print; exit }' "$path")"
-  if [ -z "$oid" ]; then
-    echo "Invalid LFS pointer file: missing sha256 oid in $path" >&2
-    return 1
-  fi
-  printf '%s\n' "$oid"
-}
-
-is_semble_binary_file() {
-  local path="$1"
-  [ -f "$path" ] || return 1
-  local size
-  size="$(wc -c < "$path")"
-  [ "$size" -ge "$SEMBLE_MIN_BINARY_BYTES" ] || return 1
-  ! is_semble_pointer_file "$path"
-}
-
-repair_semble_snapshot_from_blobs() {
-  local cache_root="$1"
-  local snapshot_file="$cache_root/$SEMBLE_SNAPSHOT_REL"
-
-  if is_semble_binary_file "$snapshot_file"; then
+ensure_codegraph_installed() {
+  if command -v codegraph >/dev/null 2>&1; then
+    echo "CodeGraph already installed: $(command -v codegraph)"
     return 0
   fi
 
-  if ! is_semble_pointer_file "$snapshot_file"; then
-    echo "Invalid Semble snapshot: expected either a real safetensors file or an LFS pointer at $snapshot_file" >&2
+  if ! command -v npm >/dev/null 2>&1; then
+    echo "ERROR: codegraph not found in PATH, and npm is unavailable. Install Node.js/npm first." >&2
     return 1
   fi
 
-  local oid
-  oid="$(get_semble_pointer_oid "$snapshot_file")" || return 1
-  local blob_path="$cache_root/blobs/$oid"
-  if ! is_semble_binary_file "$blob_path"; then
-    echo "Semble blob missing or invalid for oid $oid at $blob_path" >&2
-    return 1
-  fi
-
-  cp -f "$blob_path" "$snapshot_file"
+  echo "CodeGraph not found. Installing @colbymchenry/codegraph via npm..."
+  npm i -g @colbymchenry/codegraph
 }
 
-assert_semble_local_cache_valid() {
-  local cache_root="$1"
-  local snapshot_file="$cache_root/$SEMBLE_SNAPSHOT_REL"
-  if ! is_semble_binary_file "$snapshot_file"; then
-    echo "Local Semble cache is invalid at $snapshot_file" >&2
-    return 1
-  fi
+install_codegraph_agents() {
+  echo "Installing CodeGraph into supported agents..."
+  codegraph install --yes
 }
 
-ensure_semble_installed() {
-  if command -v semble >/dev/null 2>&1; then
-    echo "Semble already installed: $(command -v semble)"
-    return 0
-  fi
-
-  local py_cmd=""
-  if command -v python >/dev/null 2>&1; then
-    py_cmd="python"
-  elif command -v python3 >/dev/null 2>&1; then
-    py_cmd="python3"
-  else
-    echo "ERROR: python/python3 not found." >&2
-    return 1
-  fi
-
-  if ! "$py_cmd" -m pip --version >/dev/null 2>&1; then
-    if "$py_cmd" -m ensurepip --help >/dev/null 2>&1; then
-      echo "pip not found. Bootstrapping with ensurepip..."
-      "$py_cmd" -m ensurepip --upgrade
-    else
-      echo "ERROR: pip not available for $py_cmd, and ensurepip is unavailable." >&2
-      return 1
-    fi
-  fi
-
-  echo "Semble not found. Installing semble[mcp]..."
-  "$py_cmd" -m pip install "semble[mcp]"
+show_codegraph_reminder() {
+  echo "OpenCode MCP template now uses 'codegraph serve --mcp'."
+  echo "Per-repo indexing still needs 'codegraph init -i <repo>'."
 }
 
-sync_semble_model_cache() {
-  mkdir -p "$SEMBLE_HUB_ROOT"
-
-  if [ ! -d "$SEMBLE_REPO_CACHE" ]; then
-    echo "Semble repo cache not found at $SEMBLE_REPO_CACHE"
-    echo "Skip cache sync. First run on a networked machine, then export the cache into the repo."
-    return 0
-  fi
-
-  repair_semble_snapshot_from_blobs "$SEMBLE_REPO_CACHE"
-  rm -rf "$SEMBLE_HUB_CACHE"
-  cp -a "$SEMBLE_REPO_CACHE" "$SEMBLE_HUB_CACHE"
-  assert_semble_local_cache_valid "$SEMBLE_HUB_CACHE"
-  echo "Semble model cache synced to $SEMBLE_HUB_CACHE"
-}
-
-ensure_codex_semble_mcp() {
-  if codex mcp get semble >/tmp/codex_semble_get.txt 2>/dev/null; then
-    if grep -q 'command: semble' /tmp/codex_semble_get.txt && grep -q 'HF_HUB_DISABLE_SYMLINKS' /tmp/codex_semble_get.txt; then
-      echo "Codex MCP 'semble' already configured."
-      rm -f /tmp/codex_semble_get.txt
-      return 0
-    fi
-    codex mcp remove semble >/dev/null 2>&1 || true
-  fi
-
-  rm -f /tmp/codex_semble_get.txt
-  codex mcp add semble --env HF_HUB_DISABLE_SYMLINKS=1 --env HF_HUB_DISABLE_SYMLINKS_WARNING=1 -- semble
-  echo "Codex MCP 'semble' configured."
-  echo "Reminder: mcp__semble__ calls must always pass repo explicitly."
-}
-
-ensure_semble_installed
-sync_semble_model_cache
-ensure_codex_semble_mcp
+ensure_codegraph_installed
+install_codegraph_agents
+show_codegraph_reminder
 
 # Codex 部署
 if [ "$TARGET" = "codex" ] || [ "$TARGET" = "all" ]; then

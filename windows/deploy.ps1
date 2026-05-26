@@ -17,11 +17,6 @@ $RepoSkills = Join-Path $RepoRoot "agents\skills"
 $ConfigRoot = Join-Path $RepoRoot "config"
 $CodexAgents = Join-Path $ConfigRoot "codex\agents"
 $SharedConfigRoot = Join-Path $ConfigRoot "shared"
-$SembleRepoCache = Join-Path $RepoRoot "third_party\semble\huggingface\hub\models--minishlab--potion-code-16M"
-$SembleHubRoot = Join-Path $env:USERPROFILE ".cache\huggingface\hub"
-$SembleHubCache = Join-Path $SembleHubRoot "models--minishlab--potion-code-16M"
-$SembleSnapshotRel = "snapshots\86848193a842865570d9c8d3e7d268b66ab52752\model.safetensors"
-$SembleMinBinaryBytes = 1048576
 
 # 验证 skills 目录存在
 if (-not (Test-Path $RepoSkills)) {
@@ -144,167 +139,35 @@ with dest.open("w", encoding="utf-8") as f:
     Remove-Item $tmp -Force
 }
 
-function Test-SemblePointerFile {
-    param(
-        [string]$Path
-    )
-
-    if (-not (Test-Path $Path -PathType Leaf)) {
-        return $false
-    }
-
-    $firstLine = Get-Content -LiteralPath $Path -TotalCount 1 -ErrorAction Stop
-    return $firstLine -eq "version https://git-lfs.github.com/spec/v1"
-}
-
-function Get-SemblePointerOid {
-    param(
-        [string]$Path
-    )
-
-    $match = Select-String -LiteralPath $Path -Pattern "^oid sha256:([0-9a-f]{64})$" -ErrorAction Stop | Select-Object -First 1
-    if ($null -eq $match) {
-        throw "Invalid LFS pointer file: missing sha256 oid in $Path"
-    }
-    return $match.Matches[0].Groups[1].Value
-}
-
-function Test-SembleBinaryFile {
-    param(
-        [string]$Path
-    )
-
-    if (-not (Test-Path $Path -PathType Leaf)) {
-        return $false
-    }
-
-    $item = Get-Item -LiteralPath $Path -ErrorAction Stop
-    if ($item.Length -lt $SembleMinBinaryBytes) {
-        return $false
-    }
-
-    return -not (Test-SemblePointerFile -Path $Path)
-}
-
-function Repair-SembleSnapshotFromBlobs {
-    param(
-        [string]$CacheRoot
-    )
-
-    $snapshotFile = Join-Path $CacheRoot $SembleSnapshotRel
-    if (Test-SembleBinaryFile -Path $snapshotFile) {
+function Ensure-CodeGraphInstalled {
+    $cg = Get-Command codegraph -ErrorAction SilentlyContinue
+    if ($null -ne $cg) {
+        Write-Host "CodeGraph already installed: $($cg.Source)"
         return
     }
 
-    if (-not (Test-SemblePointerFile -Path $snapshotFile)) {
-        throw "Invalid Semble snapshot: expected either a real safetensors file or an LFS pointer at $snapshotFile"
+    $npm = Get-Command npm -ErrorAction SilentlyContinue
+    if ($null -eq $npm) {
+        throw "codegraph not found in PATH, and npm is unavailable. Install Node.js/npm first."
     }
 
-    $oid = Get-SemblePointerOid -Path $snapshotFile
-    $blobPath = Join-Path $CacheRoot ("blobs\" + $oid)
-    if (-not (Test-SembleBinaryFile -Path $blobPath)) {
-        throw "Semble blob missing or invalid for oid $oid at $blobPath"
-    }
-
-    Copy-Item -LiteralPath $blobPath -Destination $snapshotFile -Force
+    Write-Host "CodeGraph not found. Installing @colbymchenry/codegraph via npm..."
+    npm i -g @colbymchenry/codegraph
 }
 
-function Assert-SembleLocalCacheValid {
-    param(
-        [string]$CacheRoot
-    )
-
-    $snapshotFile = Join-Path $CacheRoot $SembleSnapshotRel
-    if (-not (Test-SembleBinaryFile -Path $snapshotFile)) {
-        throw "Local Semble cache is invalid at $snapshotFile"
-    }
+function Install-CodeGraphAgents {
+    Write-Host "Installing CodeGraph into supported agents..."
+    codegraph install --yes
 }
 
-function Ensure-SembleInstalled {
-    $sem = Get-Command semble -ErrorAction SilentlyContinue
-    if ($null -ne $sem) {
-        Write-Host "Semble already installed: $($sem.Source)"
-        return
-    }
-
-    Write-Host "Semble not found. Installing semble[mcp]..."
-    python -m pip install "semble[mcp]"
+function Show-CodeGraphReminder {
+    Write-Host "OpenCode MCP template now uses 'codegraph serve --mcp'."
+    Write-Host "Per-repo indexing still needs 'codegraph init -i <repo>'."
 }
 
-function Sync-SembleModelCache {
-    New-Item -ItemType Directory -Path $SembleHubRoot -Force | Out-Null
-
-    if (-not (Test-Path $SembleRepoCache)) {
-        Write-Host "Semble repo cache not found at $SembleRepoCache"
-        Write-Host "Skip cache sync. First run on a networked machine, then export the cache into the repo."
-        return
-    }
-
-    Repair-SembleSnapshotFromBlobs -CacheRoot $SembleRepoCache
-
-    Copy-DirectoryTree $SembleRepoCache $SembleHubCache
-    Assert-SembleLocalCacheValid -CacheRoot $SembleHubCache
-    Write-Host "Semble model cache synced to $SembleHubCache"
-}
-
-function Ensure-CodexSembleMcp {
-    $listOutput = $null
-    $hadExisting = $false
-
-    try {
-        $listOutput = codex mcp list 2>$null
-        $hadExisting = ($LASTEXITCODE -eq 0 -and $listOutput -match "(?m)^\s*semble\s+semble\b")
-    } catch {
-        $hadExisting = $false
-    }
-
-    if ($hadExisting -and $listOutput -match "HF_HUB_DISABLE_SYMLINKS") {
-        Write-Host "Codex MCP 'semble' already configured."
-        return
-    }
-
-    if ($hadExisting) {
-        codex mcp remove semble | Out-Null
-    }
-
-    codex mcp add semble --env HF_HUB_DISABLE_SYMLINKS=1 --env HF_HUB_DISABLE_SYMLINKS_WARNING=1 -- semble
-    Write-Host "Codex MCP 'semble' configured."
-    Write-Host "Reminder: mcp__semble__ calls must always pass repo explicitly."
-}
-
-function Ensure-QoderSembleMcp {
-    $QoderSettings = Join-Path $env:USERPROFILE ".qoder\settings.json"
-    if (-not (Test-Path $QoderSettings)) {
-        New-Item -ItemType Directory -Path (Split-Path $QoderSettings -Parent) -Force | Out-Null
-        "{}" | Set-Content -Path $QoderSettings -Encoding utf8
-    }
-
-    $overlay = Join-Path $env:TEMP ("agent-skills-hook-qoder-" + [guid]::NewGuid().ToString() + ".json")
-    @'
-{
-  "mcpServers": {
-    "semble": {
-      "command": "semble",
-      "args": [],
-      "env": {
-        "HF_HUB_DISABLE_SYMLINKS": "1",
-        "HF_HUB_DISABLE_SYMLINKS_WARNING": "1"
-      }
-    }
-  }
-}
-'@ | Set-Content -Path $overlay -Encoding utf8
-
-    Merge-JsonConfig $overlay $QoderSettings
-    Remove-Item $overlay -Force
-    Write-Host "Qoder MCP 'semble' configured in $QoderSettings"
-    Write-Host "Reminder: Semble MCP calls must always pass repo explicitly."
-}
-
-Ensure-SembleInstalled
-Sync-SembleModelCache
-Ensure-CodexSembleMcp
-Ensure-QoderSembleMcp
+Ensure-CodeGraphInstalled
+Install-CodeGraphAgents
+Show-CodeGraphReminder
 
 # Codex 部署
 if ($Target -eq "codex" -or $Target -eq "all") {

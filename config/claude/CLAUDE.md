@@ -11,15 +11,16 @@
 - 开始任何工作前，始终运行 `Skill(skill-forced-eval)` 并遵循其步骤。
 
 ## Code Search
-- 需要按意图找代码、定位实现、理解某个功能怎么工作、或从已知位置继续找相关代码时，优先使用 `Semble`，不要先用纯文本 grep。
-- 先用 `semble search "<query>" <path>` 做语义搜索；必要时再用 `semble find-related <file_path> <line> <path>` 扩展到相关实现。
+- 需要按意图找代码、定位实现、理解某个功能怎么工作、或从已知位置继续找相关代码时，优先使用 `CodeGraph`，不要先用纯文本 grep。
+- 优先使用当前运行时提供的 `codegraph_*` 原生工具；先看 `codegraph_context` / `codegraph_files`，再按需用 `codegraph_node`、`codegraph_callers`、`codegraph_callees`、`codegraph_trace` 深挖。
 - 只有在需要精确字符串匹配、穷举字面量、或对搜索结果做快速确认时，才回退到 grep。
-- 优先使用 `PATH` 中的 `semble` 可执行文件；若不存在，不要假设 `python -m semble` 可用，应先检查当前环境的安装方式并按该环境文档提供的入口执行。
+- 若原生 `codegraph_*` 工具不可用，回退到 `PATH` 中的 `codegraph` CLI；优先使用 `codegraph init -i <path>`、`codegraph query`、`codegraph files`、`codegraph context`、`codegraph callers`、`codegraph callees`。
+- 不得假设任意 `CodeGraph` 索引已预先存在；进入新仓库时，先检查是否已初始化，必要时再执行 `codegraph init -i <repo>`。
 
 ### Workflow
-- 先用 `semble search` 找到最相关代码块。
-- 只有当返回的代码块上下文不足时，才打开整个文件。
-- 找到一个有价值的位置后，可继续用 `semble find-related` 找相似或相关实现。
+- 先用 `codegraph_context` 或 `codegraph_files` 定位入口和相关文件。
+- 只有当结构化结果上下文不足时，才打开整个文件。
+- 找到关键符号后，继续用 `codegraph_node`、`codegraph_callers`、`codegraph_callees` 或 `codegraph_trace` 扩展到相关实现。
 
 ## 工具选择
 - 优先使用当前运行时提供的原生工具或 MCP 工具；只有在原生工具或 MCP 工具不可用、能力不匹配、或明显低效时，才回退到命令行。

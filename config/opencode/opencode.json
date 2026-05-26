@@ -4,16 +4,14 @@
   "small_model": "rayplus/gpt-5.4-mini",
   "default_agent": "build",
   "mcp": {
-    "semble": {
+    "codegraph": {
       "type": "local",
       "enabled": true,
       "command": [
-        "semble"
+        "codegraph",
+        "serve",
+        "--mcp"
       ],
-      "environment": {
-        "HF_HUB_DISABLE_SYMLINKS": "1",
-        "HF_HUB_DISABLE_SYMLINKS_WARNING": "1"
-      },
       "timeout": 60000
     }
   },

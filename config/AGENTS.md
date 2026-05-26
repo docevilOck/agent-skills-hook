@@ -17,11 +17,11 @@
 - 不适合在入口文件里展开的内容：具体检查清单、长流程、示例命令、深层协作规则
 - 需要深度规则时，按主题拆分到 `docs/` 下属子目录，不在入口展开
 
-## Semble MCP 约束
+## CodeGraph 约束
 
-- 若运行时通过 `mcp__semble__` 或等价 MCP 工具调用 `Semble`，必须显式传递目标仓库根目录 `repo`
-- 不得假设 `Semble MCP` 会继承当前工作目录，也不得依赖 default index
-- 只有直接使用命令行 `semble search "<query>" <path>` / `semble find-related <file> <line> <path>` 时，才可以按 CLI 规则传路径参数
+- 优先使用结构化的 `codegraph_*` 工具完成代码理解、调用链追踪和影响面分析，不要先退回纯文本搜索
+- 若运行时没有 `codegraph_*` 工具，才回退到 `codegraph` CLI；进入新仓库时先检查索引状态，必要时执行 `codegraph init -i <repo>`
+- 不得假设任意仓库天然已有 `.codegraph/`；没有索引时应先初始化，再继续查询
 
 ## 产出要求
 

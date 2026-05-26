@@ -28,10 +28,7 @@ agent-skills-hook/
 │   ├── opencode/opencode.json # OpenCode 主配置
 │
 ├── linux/deploy.sh          # Linux 部署脚本（软链接）
-├── linux/cache_semble_model.sh # 导出本机 Semble 模型缓存
 ├── windows/deploy.ps1       # Windows 部署脚本（复制）
-├── windows/cache_semble_model.ps1 # 导出本机 Semble 模型缓存
-├── third_party/semble/      # Semble 模型缓存镜像
 │
 ├── agents/skills/           # 共享技能库
 │
@@ -123,29 +120,15 @@ cd windows
 
 当前各运行时都会使用自己的用户级配置目录：Codex 部署 `AGENTS.md`、`agents/`、`skills/`，OpenCode 部署 `AGENTS.md`、`opencode.json`、`skills/`，并同步 `~/.claude/skills`，Claude Code 部署 `AGENTS.md`、`CLAUDE.md`、`skills/`。
 
-## Semble 部署
+## CodeGraph 部署
 
-- 部署脚本现在会自动检查本机是否已有 `semble`
-- 若未安装，会自动执行 `python -m pip install "semble[mcp]"`
-- 若仓库内存在 `third_party/semble/huggingface/hub/models--minishlab--potion-code-16M`
-  - 会自动同步到本机 `~/.cache/huggingface/hub/`
-- 会自动确保 `Codex` 用户级 MCP 已配置 `semble`
-- 会自动确保 `Qoder` 用户级 `settings.json` 中包含 `mcpServers.semble`
+- 部署脚本现在会自动检查本机是否存在 `codegraph`
+- 若未安装，会自动执行 `npm i -g @colbymchenry/codegraph`
+- 随后会自动执行 `codegraph install --yes`
 - 会自动把 `config/opencode/opencode.json` 合并到 `~/.config/opencode/opencode.json`
-- 会自动为 `Semble` 注入 `HF_HUB_DISABLE_SYMLINKS=1`，绕过 Windows 上 Hugging Face cache symlink 问题
-- 这样模型通常只需联网下载一次，后续机器可直接复用仓库内缓存
-- 注意：部署只保证 `Semble MCP` 可用，不会为每次搜索自动注入仓库路径
-- 通过 `mcp__semble__` 调用时，必须显式传 `repo`；不要依赖 cwd 或 default index
-
-首次把本机缓存导入仓库：
-
-```powershell
-.\windows\cache_semble_model.ps1
-```
-
-```bash
-./linux/cache_semble_model.sh
-```
+- OpenCode 配置会注册 `codegraph serve --mcp`
+- 代码检索相关提示词已统一切换为优先使用 `codegraph_*` 工具或 `codegraph` CLI
+- 注意：部署不会替每个仓库自动创建索引；进入新仓库时仍需执行 `codegraph init -i <repo>`
 
 **Linux（skills/agents 软链接，配置文件复制或合并）**：
 ```bash
@@ -206,7 +189,7 @@ Copy-Item "$env:USERPROFILE\.codex-backups\agent-skills-hook-<timestamp>\codex\*
 - OpenCode 部署维护 `~/.config/opencode/AGENTS.md`、`opencode.json`、`skills/`，并同步 `~/.claude/skills`
 - `config/opencode/opencode.json` 只保存共享配置模板，不保存 provider/API Key；部署脚本会把这些字段深合并到本地配置，保留未被模板覆盖的私有配置。
 - Claude Code 部署维护 `~/.claude/AGENTS.md`、`CLAUDE.md`、`skills/`
-- Qoder 部署维护 `~/.qoder/AGENTS.md`、`skills/`，并写入用户级 `settings.json` 的 `mcpServers.semble`
+- Qoder 部署维护 `~/.qoder/AGENTS.md`、`skills/`
 
 - Linux 用户：修改后重新运行 `linux/deploy.sh`。其中 `skills/` 与 Codex `agents/` 通过软链接指向仓库内容，`AGENTS.md`、`CLAUDE.md` 与 OpenCode `opencode.json` 通过复制或合并更新。
 - Windows 用户：修改后重新运行 `windows/deploy.ps1`。其中 `AGENTS.md`、`CLAUDE.md`、`agents/`、`skills/` 通过复制更新，OpenCode `opencode.json` 通过合并更新。
