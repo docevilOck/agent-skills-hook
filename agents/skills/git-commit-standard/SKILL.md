@@ -9,7 +9,7 @@ description: Use only when the user explicitly requests this skill or AGENTS.md 
 
 用于执行仓库约定的提交、版本、固件产物归档和 changelog/release record 同步。核心原则：**提交前先确认仓库规则，再默认检查并同步版本元数据、README/changelog、固件产物和发布记录，最后 commit**。
 
-**默认行为（最高优先级）：每次执行任何 commit 相关操作时，只要存在代码改动，就必须先重新编译并更新最新固件产物，再同步 README/changelog 总结。** 这条规则对 `commit` 和 `amend` 一视同仁，不受是否修改版本号影响；它不是额外功能、不是可选增强、也不是需要写进 commit message 的“变更点”，而是本 skill 的硬性门禁。只有仓库规则、用户明确要求或历史证据明确证明本次没有对应固件/README/changelog 记录项时，才可跳过，并在执行记录中说明依据。禁止把“未递进版本”“只是 amend”“只是 fix/中间提交”作为跳过固件或履历同步的理由。
+**默认行为（最高优先级）：每次执行任何 commit 相关操作时，只要存在代码改动，就必须先重新编译并更新最新固件产物，再同步 README/changelog 总结。** 这条规则对 `commit` 和 `amend` 一视同仁，不受是否修改版本号影响；它是本 skill 的硬性门禁，不能当作额外功能、可选增强或 commit message 里的“变更点”。只有仓库规则、用户明确要求或历史证据明确证明本次没有对应固件/README/changelog 记录项时，才可跳过，并在执行记录中说明依据。禁止把“未递进版本”“只是 amend”“只是 fix/中间提交”作为跳过固件或履历同步的理由。
 
 该 skill 设计为通用技能：不要写死某个仓库的版本头、固件目录、构建宏、产物命名或 README 路径；这些信息必须从当前仓库的配置、AGENTS.md、历史提交和实际文件结构中推导或维护。
 

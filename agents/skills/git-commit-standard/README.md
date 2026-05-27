@@ -18,7 +18,7 @@ git-commit-standard/
 - 时间格式固定为 `YYYY.MM.DD`
 - 修改者来源于 `git config user.name`
 - 每完成一个完整可发布闭环，按仓库规则递增 beta/build/release 字段；普通中间提交不强制递增
-- 每次执行 commit 相关操作时，只要存在代码改动，不论是 commit 还是 amend，不论是否修改版本号，都必须先重新编译并更新最新固件产物，再同步 README/changelog 总结；这不是可选项，而是硬性门禁
+- 每次执行 commit 相关操作时，只要存在代码改动，不论是 commit 还是 amend，不论是否修改版本号，都必须先重新编译并更新最新固件产物，再同步 README/changelog 总结；这是硬性门禁
 - 版本递进和固件产物同步是两个独立门禁；未递进版本、只是 amend、只是 fix 都不能作为跳过固件产物的理由
 - amend 如果改动了版本号、版本宏、构建输入、release 配置或产物命名相关内容，必须重新编译固件、刷新当前版本归档产物，并把这些更新一起重新暂存后再 amend
 - README/changelog 可能需要汇总多个 commit，而不是只记录当前 commit；若仓库要求一版本一条，同版本改动必须合并到同一版本块，并用二级分点表达独立事项

@@ -3,7 +3,7 @@
 ```markdown
 # [流程名] 流程图
 
-> 如果一张图已经覆盖多个子问题，优先拆成 `*-overview.md`、`*-main.md`、`*-exceptions.md`，不要把所有路径塞进一个文件。
+> 如果一张图已经覆盖多个子问题，overview 必须写到 `detail/<name>-overview.md`；本目录只放 `*-main.md`、`*-exceptions.md` 和 `.puml` 图源，不要把所有路径塞进一个文件。
 
 ## 1. 目的
 [这条流程回答什么问题]
@@ -41,6 +41,6 @@
 
 复杂流程建议至少拆成：
 
-- `xxx-overview.md`：问题范围、阅读顺序、子图索引
-- `xxx-main.md`：主流程图与简述
-- `xxx-exceptions.md`：异常、超时、失败与回退流程
+- `detail/xxx-overview.md`：问题范围、文档分布图、阅读顺序、子图索引
+- `detail/flows/xxx-main.md`：主流程图与简述
+- `detail/flows/xxx-exceptions.md`：异常、超时、失败与回退流程

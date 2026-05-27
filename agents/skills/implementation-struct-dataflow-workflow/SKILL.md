@@ -30,12 +30,17 @@ detail 文档只写本次改动需要落地的结构体、数据流、流程和�
 
 详细拆解文档默认落到 `docs/plans/YY-MM-DD_<topic>/detail/`，按职责拆成：
 
+- `<name>-overview.md`
 - `structures/<name>.md`
 - `dataflow/<name>.md`
 - `flows/<name>.md`
 - `flows/<name>.puml`（如保留图源）
 
-如果某一类文档过长，不要继续往单文件里堆，优先在同目录下继续拆分成“总览 + 详述 + 图源/图文”。
+`overview` / `index` 类总览文档必须放在 `detail/` 根目录，不要放进 `structures/`、`dataflow/` 或 `flows/`。子目录只放对应职责的详述文档和图源。
+
+根目录 overview 必须包含一张"文档分布与说明"文本图，把本次 detail 下生成的所有文档、目录层级、阅读顺序和文档用途可视化出来。
+
+如果某一类文档过长，不要继续往单文件里堆，先在 `detail/` 根目录保留短总览，再把详述、错误路径、状态迁移、图文说明拆到对应子目录。
 
 默认优先处理嵌入式 C / 纯 C 场景里的结构体、缓冲区、协议帧、外设配置和数据流。Rust / C++ / TS 也可使用，但输出重点仍然是“状态归属、数据边界、流程分发”。
 
@@ -83,16 +88,17 @@ detail 文档只写本次改动需要落地的结构体、数据流、流程和�
 
 建议按下面顺序落盘，避免前后反复打架：
 
-1. `detail/structures/*.md`
-2. `detail/dataflow/*.md`
-3. `detail/flows/*.md`
-4. `detail/flows/*.puml`
+1. `detail/<name>-overview.md`
+2. `detail/structures/*.md`
+3. `detail/dataflow/*.md`
+4. `detail/flows/*.md`
+5. `detail/flows/*.puml`
 
-`dataflow` 和 `flows` 文档必须引用对应结构体文档名，保证后续 `implementation-final-gate` 能做一一映射。
+`detail/<name>-overview.md` 必须索引所有子文档。`dataflow` 和 `flows` 文档必须引用对应结构体文档名，保证后续 `implementation-final-gate` 能做一一映射。
 
 ## 长文档拆分策略
 
-目标不是把文档越拆越碎，而是避免单份 detail 文档长到 AI 一次读不清、后续实现者也难以定位。
+拆分目标是避免单份 detail 文档过长，确保 AI 和后续实现者都能快速定位。
 
 ### 什么时候必须拆
 
@@ -106,49 +112,54 @@ detail 文档只写本次改动需要落地的结构体、数据流、流程和�
 
 ### 拆分原则
 
-- 先保留一个短总览文件，负责入口、边界、索引和导航
+- 先在 `detail/` 根目录保留一个短总览文件，负责入口、边界、索引和导航
 - 再把高细节内容拆到子文档，不要把细节继续塞回总览
 - 图和大段说明可以分离；图文强绑定时，保留一个简版图文文件，再把长说明拆出去
 - 拆分后文件名必须让人一眼看懂层级，不要出现 `final-v2`、`misc` 这类无语义命名
 - 总览文件必须反向列出所有子文档，否则拆完只会更难找
+- 不要在 `dataflow/`、`flows/` 或 `structures/` 目录里创建 `*-overview.md`；这些目录里的文档应当是具体详述、错误路径、状态迁移、主流程图或结构体说明
 
 ### 推荐拆法
 
+#### detail 根目录
+
+如果主题较复杂，先建立总览入口：
+
+- `<name>-overview.md`
+
+其中 `overview` 只放范围、主链路、边界、引用关系、文档分布图、简图、子文档列表和阅读顺序。
+
 #### 数据流目录
 
-如果数据流较复杂，优先拆成：
+如果数据流较复杂，优先把细节拆成：
 
-- `dataflow/<name>-overview.md`
 - `dataflow/<name>-details.md`
 - `dataflow/<name>-errors.md`
 - `dataflow/<name>-states.md`
 
 其中：
 
-- `overview` 只放范围、主链路、边界、引用关系、简图
 - `details` 放逐步骤转换、字段流转、模块协作细节
 - `errors` 放错误入口、回退、重试、异常出口
 - `states` 放状态迁移、状态持有者、枚举含义、并发边界
 
 如果规模更大，再按子链路拆，例如：
 
-- `dataflow/rx-overview.md`
 - `dataflow/rx-details.md`
-- `dataflow/tx-overview.md`
 - `dataflow/tx-details.md`
+- `dataflow/rx-errors.md`
+- `dataflow/tx-errors.md`
 
 #### 流程图目录
 
-如果单张流程图已经覆盖多个问题，优先拆成：
+如果单张流程图已经覆盖多个问题，优先把图和路径拆成：
 
-- `flows/<name>-overview.md`
 - `flows/<name>-main.md`
 - `flows/<name>-exceptions.md`
 - `flows/<name>-main.puml`
 
 其中：
 
-- `overview` 只说明这组流程回答什么问题、包含哪些子图、对应哪些结构体和数据流文档
 - `main` 放主流程图和必要简述
 - `exceptions` 放异常路径、超时、失败处理、回退流程
 
@@ -163,25 +174,46 @@ detail 文档只写本次改动需要落地的结构体、数据流、流程和�
 
 如果仍需总入口，再补一个：
 
-- `structures/<module>-index.md`
+- `detail/<name>-overview.md`
 
 ### 总览文件最低要求
 
-无论拆哪一类，总览文件都至少要包含：
+总览文件必须位于 `detail/` 根目录，至少要包含：
 
 - 这组文档覆盖什么范围
 - 这组文档这次实际要落地哪些内容
 - 为什么需要拆分
+- 文档分布与说明文本图
 - 子文档列表及一句话用途
 - 关键结构体 / 关键状态 / 关键图源索引
 - 阅读顺序建议
+
+文档分布图使用手写 ASCII / text 图，不依赖 PlantUML 渲染。示例：
+
+```text
+detail/
+├── printer-job-overview.md        # 总入口：范围、阅读顺序、文档分布
+├── structures/
+│   ├── job-context.md             # 作业上下文与状态所有权
+│   └── page-buffer.md             # 页面缓冲区生命周期
+├── dataflow/
+│   ├── rx-details.md              # 输入到作业上下文的数据转换
+│   ├── rx-errors.md               # 输入错误、回退和状态复位
+│   └── rx-states.md               # 状态迁移和持有者
+└── flows/
+    ├── main.md                    # 主流程图与简述
+    ├── exceptions.md              # 异常路径流程
+    └── main.puml                  # 主流程图源
+
+阅读顺序：overview -> structures/job-context -> dataflow/rx-details -> flows/main
+```
 
 ### 图文分离规则
 
 如果图本身不复杂，但文字说明很长，优先采用：
 
-- 一个短 `*-overview.md` 放图和 5-10 行说明
-- 一个 `*-details.md` 放长解释
+- 一个短 `detail/<name>-overview.md` 放图和 5-10 行说明
+- 一个 `dataflow/<name>-details.md` 或 `flows/<name>-main.md` 放长解释
 
 如果图本身就复杂到需要独立维护，则采用：
 
@@ -194,8 +226,8 @@ detail 文档只写本次改动需要落地的结构体、数据流、流程和�
 
 拆分后必须保证：
 
-- `overview` 文件能跳到所有子文档
-- `details/errors/states` 文件明确回指自己的 `overview`
+- `detail/<name>-overview.md` 文件能跳到所有子文档
+- `details/errors/states` 文件明确回指 `detail/<name>-overview.md`
 - `flows` 文档明确指向对应 `dataflow` 文档
 - `dataflow` 文档明确指向对应 `structures` 文档
 
@@ -272,6 +304,7 @@ detail 文档只写本次改动需要落地的结构体、数据流、流程和�
 - 还没确认架构边界，就在 detail 阶段发明新的模块职责
 - 明明已经过长，仍坚持单文件，导致 AI 和实现者都无法快速定位
 - 拆了很多文件，但没有总览入口，导致阅读路径比拆分前更差
+- 把 `overview` / `index` 总览文档放进 `dataflow/` 或 `flows/`，导致 detail 根目录没有统一入口
 
 ## 完成后
 

@@ -3,7 +3,7 @@
 ```markdown
 # [模块名] 数据流规划
 
-> 如果本主题较大，优先写成 `*-overview.md`，再把细节拆到 `*-details.md` / `*-errors.md` / `*-states.md`。
+> 如果本主题较大，overview 必须写到 `detail/<name>-overview.md`；本目录只放 `*-details.md` / `*-errors.md` / `*-states.md` 等数据流细节文档。
 
 ## 1. 范围
 [这份数据流覆盖什么范围]
@@ -47,7 +47,7 @@
 
 复杂数据流建议至少拆成：
 
-- `xxx-overview.md`：总览、边界、简图、子文档索引
-- `xxx-details.md`：逐步骤细节
-- `xxx-errors.md`：错误路径和回退
-- `xxx-states.md`：状态迁移与持有者
+- `detail/xxx-overview.md`：总览、边界、文档分布图、简图、子文档索引
+- `detail/dataflow/xxx-details.md`：逐步骤细节
+- `detail/dataflow/xxx-errors.md`：错误路径和回退
+- `detail/dataflow/xxx-states.md`：状态迁移与持有者
