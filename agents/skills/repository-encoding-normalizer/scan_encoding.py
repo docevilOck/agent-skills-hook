@@ -12,6 +12,7 @@ import argparse
 import codecs
 import os
 from pathlib import Path
+import json
 
 
 def get_default_args():
@@ -48,6 +49,22 @@ def detect_encoding(data):
             return encoding
         except UnicodeDecodeError:
             continue
+    scored = []
+    for encoding in ("gbk", "big5"):
+        try:
+            text = data.decode(encoding, errors="replace")
+        except Exception:
+            continue
+        replacement_count = text.count("\ufffd")
+        chinese_count = sum(1 for ch in text if is_chinese_char(ch))
+        scored.append((encoding, chinese_count, replacement_count))
+    if scored:
+        scored.sort(key=lambda item: (-item[1], item[2]))
+        best_encoding, best_chinese_count, best_replacement_count = scored[0]
+        # 容错策略：当严格解码失败，但按历史本地编码容错解码后仍能恢复大量中文，
+        # 应优先按该编码继续扫描，而不是直接退化成 latin-1 把整文件排除出审计结果。
+        if best_chinese_count >= 8 and best_replacement_count <= max(16, len(data) // 4096):
+            return f"{best_encoding}-lossy"
     return "latin-1"
 
 
@@ -222,7 +239,7 @@ def write_markdown_report(results, out_path):
 
 def write_json_report(results, out_path):
     payload = {"results": results}
-    Path(out_path).write_text(__import__("json").dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    Path(out_path).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def main():
@@ -249,7 +266,10 @@ def main():
             continue
         encoding = detect_encoding(data)
         try:
-            text = data.decode(encoding)
+            if encoding.endswith("-lossy"):
+                text = data.decode(encoding[:-6], errors="replace")
+            else:
+                text = data.decode(encoding)
         except Exception as exc:
             print(f"WARN: cannot decode {rel} with {encoding}: {exc}")
             continue
