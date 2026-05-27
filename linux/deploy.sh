@@ -138,18 +138,13 @@ ensure_codegraph_installed() {
   npm i -g @colbymchenry/codegraph
 }
 
-install_codegraph_agents() {
-  echo "Installing CodeGraph into supported agents..."
-  codegraph install --yes
-}
-
 show_codegraph_reminder() {
   echo "OpenCode MCP template now uses 'codegraph serve --mcp'."
+  echo "CodeGraph usage rules are documented in AGENTS.md."
   echo "Per-repo indexing still needs 'codegraph init -i <repo>'."
 }
 
 ensure_codegraph_installed
-install_codegraph_agents
 show_codegraph_reminder
 
 # Codex 部署

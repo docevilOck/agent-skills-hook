@@ -124,10 +124,9 @@ cd windows
 
 - 部署脚本现在会自动检查本机是否存在 `codegraph`
 - 若未安装，会自动执行 `npm i -g @colbymchenry/codegraph`
-- 随后会自动执行 `codegraph install --yes`
 - 会自动把 `config/opencode/opencode.json` 合并到 `~/.config/opencode/opencode.json`
 - OpenCode 配置会注册 `codegraph serve --mcp`
-- 代码检索相关提示词已统一切换为优先使用 `codegraph_*` 工具或 `codegraph` CLI
+- 代码检索相关提示词与使用约束已写入对应运行时的 `AGENTS.md`
 - 注意：部署不会替每个仓库自动创建索引；进入新仓库时仍需执行 `codegraph init -i <repo>`
 
 **Linux（skills/agents 软链接，配置文件复制或合并）**：

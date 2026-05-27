@@ -155,18 +155,13 @@ function Ensure-CodeGraphInstalled {
     npm i -g @colbymchenry/codegraph
 }
 
-function Install-CodeGraphAgents {
-    Write-Host "Installing CodeGraph into supported agents..."
-    codegraph install --yes
-}
-
 function Show-CodeGraphReminder {
     Write-Host "OpenCode MCP template now uses 'codegraph serve --mcp'."
+    Write-Host "CodeGraph usage rules are documented in AGENTS.md."
     Write-Host "Per-repo indexing still needs 'codegraph init -i <repo>'."
 }
 
 Ensure-CodeGraphInstalled
-Install-CodeGraphAgents
 Show-CodeGraphReminder
 
 # Codex 部署
