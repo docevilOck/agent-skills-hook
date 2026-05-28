@@ -28,6 +28,7 @@ description: 仅当用户明确要求规范化源码仓库文件编码、保留�
 6. 生成的宏定义头文件必须按模块/功能清晰分区，并带中文注释。
 7. 除替换中文运行期字面量为宏以外，不改注释、格式、逻辑、API 或行为。
 8. 不处理二进制、生成物、供应商目录、构建输出目录，除非用户明确要求。
+9. 启动和汇编相关文件必须转换为 **UTF-8 无 BOM**，包括 `*.s`、`*.S`、启动汇编、链接/启动入口依赖的汇编 include；不要保存为 UTF-8 with BOM。
 
 ## 编译器策略
 
@@ -39,7 +40,7 @@ description: 仅当用户明确要求规范化源码仓库文件编码、保留�
 | `armclang` / ARM Compiler 6 | 转换为 UTF-8 | 避免不必要的 BOM 影响，按 UTF-8 统一保存。 |
 | 非 ARM 或未知编译器 | 默认 UTF-8 with BOM | 跨文件编码最稳妥。 |
 
-默认先识别工具链，再决定目标编码：`armclang` 输出 UTF-8，`armcc` 输出 UTF-8 with BOM，其他场景默认 UTF-8 with BOM。
+默认先识别工具链，再决定目标编码：`armclang` 输出 UTF-8，`armcc` 输出 UTF-8 with BOM，其他场景默认 UTF-8 with BOM。启动和汇编相关文件的无 BOM 要求优先于此默认策略。
 
 ## 工作流程
 
@@ -170,6 +171,7 @@ show_msg(MODULE_TEXT_PRINT_ERROR);
 完成字面量迁移决策后：
 
 - 先识别编译器类型，再决定编码格式：`armclang` 转换为 UTF-8，`armcc` 转换为 UTF-8 with BOM；
+- 启动和汇编相关文件（如 `*.s`、`*.S`、startup 汇编文件、汇编 include）必须转换为 UTF-8 无 BOM，并加入 `--no-bom-files`；
 - 新建或修改的宏头文件按选定编译器策略保存；
 - 行尾保持原样，除非仓库已有明确行尾规则。
 
@@ -191,7 +193,7 @@ python normalize_encoding.py \
     --include-marker '#include "includes.h"'
 ```
 
-**注意：** `normalize_encoding.py` 为模板脚本，执行前必须根据 `scan_encoding.py` 的审计结果调整 `--files`、`--macro-*` 和 `--source-file` 参数。Makefile 类文件务必放入 `--no-bom-files`，避免 Make 工具解析失败。
+**注意：** `normalize_encoding.py` 为模板脚本，执行前必须根据 `scan_encoding.py` 的审计结果调整 `--files`、`--macro-*` 和 `--source-file` 参数。Makefile 类文件、启动汇编和 `*.s`/`*.S` 等汇编文件务必放入 `--no-bom-files`，避免 Make 或汇编工具解析失败。
 
 ### 7. 验证
 
@@ -355,7 +357,7 @@ python normalize_encoding.py \
 
 **注意事项：**
 
-1. **Makefile 类文件**必须放入 `--no-bom-files`，否则 Make 工具会因 BOM 而报 `missing separator` 错误。
+1. **Makefile 类文件、启动汇编和 `*.s`/`*.S` 等汇编文件**必须放入 `--no-bom-files`，否则 Make 或汇编工具可能因 BOM 解析失败。
 2. `--macro-value` 中的字节必须按原始文件编码确认，而不是默认按 GBK 假设。
 3. `--old-string` 必须与实际源码中的字符串字面量完全匹配（包括引号和转义）。
 4. `--audit-json + --dry-run` 适合先自动区分“只转编码”和“需要迁移运行期中文”的文件，再人工确认。
