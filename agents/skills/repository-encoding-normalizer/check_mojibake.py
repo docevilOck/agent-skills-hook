@@ -1,0 +1,106 @@
+# -*- coding: utf-8 -*-
+"""
+编码转换后乱码巡检脚本。
+对本次编码转换涉及的文件做快速静态扫描，辅助发现明显乱码迹象。
+"""
+import argparse
+import codecs
+import os
+import re
+import sys
+from pathlib import Path
+
+
+SUSPICIOUS_TERMS = ("锟斤拷", "烫烫烫", "屯屯屯")
+QUESTION_RUN_RE = re.compile(r"\?{2,}")
+EXTENSIONS_WITHOUT_BOM = (".s", ".asm", ".inc")
+STARTUP_TOKENS = ("startup_", "startup-", "_startup", "crt0", "vectors", "vector_table")
+LITERAL_CONTEXT_MARKERS = (
+    "SUSPICIOUS_TERMS =",
+    "典型乱码片段",
+    "连续 `?`",
+    "`??`",
+    "`???`",
+)
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Check converted files for suspicious mojibake patterns.")
+    parser.add_argument("--root", default=".", help="Repository root")
+    parser.add_argument("--files", default="", help="Comma-separated list of files to inspect")
+    parser.add_argument(
+        "--allow-question-files",
+        default="",
+        help="Comma-separated list of files allowed to contain repeated question marks",
+    )
+    return parser.parse_args()
+
+
+def parse_csv(value):
+    return [item.strip().replace("\\", "/") for item in value.split(",") if item.strip()]
+
+
+def should_be_bomless(rel_path):
+    lowered = rel_path.lower()
+    if lowered.endswith((".mk",) + EXTENSIONS_WITHOUT_BOM):
+        return True
+    if "/startup" in lowered or lowered.startswith("startup"):
+        return True
+    return any(token in lowered for token in STARTUP_TOKENS)
+
+
+def scan_text(rel_path, text, allow_question):
+    findings = []
+    for line_no, line in enumerate(text.splitlines(), start=1):
+        if any(marker in line for marker in LITERAL_CONTEXT_MARKERS):
+            continue
+        if "\ufffd" in line:
+            findings.append(("replacement-char", line_no, line.strip()))
+        if not allow_question and QUESTION_RUN_RE.search(line):
+            findings.append(("question-run", line_no, line.strip()))
+        for term in SUSPICIOUS_TERMS:
+            if term in line:
+                findings.append(("suspicious-term", line_no, line.strip()))
+    return findings
+
+
+def inspect_file(root, rel_path, allow_question=False):
+    full_path = Path(root) / rel_path
+    data = full_path.read_bytes()
+    findings = []
+    if should_be_bomless(rel_path) and data.startswith(codecs.BOM_UTF8):
+        findings.append(("unexpected-bom", 1, "UTF-8 BOM found in BOM-less file"))
+    text = data.decode("utf-8", errors="replace")
+    findings.extend(scan_text(rel_path, text, allow_question))
+    return findings
+
+
+def main():
+    args = parse_args()
+    root = os.path.abspath(args.root)
+    files = parse_csv(args.files)
+    allow_question_files = set(parse_csv(args.allow_question_files))
+
+    if not files:
+        print("No files provided. Use --files with converted file list.")
+        return 2
+
+    all_findings = []
+    for rel_path in files:
+        findings = inspect_file(root, rel_path, allow_question=rel_path in allow_question_files)
+        if findings:
+            all_findings.append((rel_path, findings))
+
+    if not all_findings:
+        print("No suspicious mojibake patterns found.")
+        return 0
+
+    for rel_path, findings in all_findings:
+        print(f"[FILE] {rel_path}")
+        for kind, line_no, snippet in findings:
+            print(f"  - {kind} @ line {line_no}: {snippet}")
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

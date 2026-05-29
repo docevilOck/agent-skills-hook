@@ -13,6 +13,11 @@ from pathlib import Path
 BOM = codecs.BOM_UTF8
 
 
+def is_chinese_char(ch):
+    cp = ord(ch)
+    return (0x4E00 <= cp <= 0x9FFF) or (0x3400 <= cp <= 0x4DBF) or (0xF900 <= cp <= 0xFAFF)
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Normalize repository encoding.")
     parser.add_argument("--root", default=".", help="Repository root")
@@ -41,14 +46,34 @@ def detect_source_encoding(data):
             return encoding
         except UnicodeDecodeError:
             continue
+    scored = []
+    for encoding in ("gbk", "big5"):
+        try:
+            text = data.decode(encoding, errors="replace")
+        except Exception:
+            continue
+        replacement_count = text.count("\ufffd")
+        chinese_count = sum(1 for ch in text if is_chinese_char(ch))
+        scored.append((encoding, chinese_count, replacement_count))
+    if scored:
+        scored.sort(key=lambda item: (-item[1], item[2]))
+        best_encoding, best_chinese_count, best_replacement_count = scored[0]
+        if best_chinese_count >= 8 and best_replacement_count <= max(16, len(data) // 4096):
+            return f"{best_encoding}-lossy"
     return "latin-1"
+
+
+def decode_source_bytes(data, encoding=None):
+    resolved_encoding = encoding or detect_source_encoding(data)
+    if resolved_encoding.endswith("-lossy"):
+        return data.decode(resolved_encoding[:-6], errors="replace"), resolved_encoding
+    return data.decode(resolved_encoding), resolved_encoding
 
 
 def convert_file(filepath, use_bom=True):
     with open(filepath, "rb") as fh:
         data = fh.read()
-    enc = detect_source_encoding(data)
-    text = data.decode(enc)
+    text, enc = decode_source_bytes(data)
     text = text.replace("\r\n", "\n").replace("\n", "\r\n")
     with open(filepath, "wb") as fh:
         if use_bom:
@@ -88,13 +113,7 @@ def replace_string_in_source(filepath, include_marker, macro_header, old_string,
         data = fh.read()
     if data.startswith(BOM):
         data = data[len(BOM) :]
-    if source_encoding:
-        text = data.decode(source_encoding)
-    else:
-        try:
-            text = data.decode("utf-8")
-        except UnicodeDecodeError:
-            text = data.decode("gbk")
+    text, _ = decode_source_bytes(data, source_encoding)
 
     inc_line = f'#include "{os.path.basename(macro_header)}"'
     if include_marker in text and inc_line not in text:
@@ -125,9 +144,16 @@ def replace_string_in_source(filepath, include_marker, macro_header, old_string,
 
 def should_use_bom(rel_path, compiler, no_bom_files):
     normalized = rel_path.replace("\\", "/")
+    lowered = normalized.lower()
     if normalized in no_bom_files:
         return False
-    if normalized.lower().endswith(".mk"):
+    if lowered.endswith(".mk"):
+        return False
+    if lowered.endswith((".s", ".asm", ".inc")):
+        return False
+    if "/startup" in lowered or lowered.startswith("startup"):
+        return False
+    if any(token in lowered for token in ("startup_", "startup-", "_startup", "crt0", "vectors", "vector_table")):
         return False
     return compiler == "armcc"
 
