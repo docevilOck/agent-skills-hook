@@ -10,17 +10,38 @@
 ## 技能强制评估（每个用户请求）
 - 开始任何工作前，始终运行 `skill` 工具加载 `skill-forced-eval` 并遵循其步骤。
 
-## Code Search
-- 需要按意图找代码、定位实现、理解某个功能怎么工作、或从已知位置继续找相关代码时，优先使用 `CodeGraph`，不要先用纯文本 grep。
-- 优先使用当前运行时提供的 `codegraph_*` 原生工具；先看 `codegraph_context` / `codegraph_files`，再按需用 `codegraph_node`、`codegraph_callers`、`codegraph_callees`、`codegraph_trace` 深挖。
-- 只有在需要精确字符串匹配、穷举字面量、或对搜索结果做快速确认时，才回退到 grep。
-- 若原生 `codegraph_*` 工具不可用，回退到 `PATH` 中的 `codegraph` CLI；优先使用 `codegraph init -i <path>`、`codegraph query`、`codegraph files`、`codegraph context`、`codegraph callers`、`codegraph callees`。
-- 不得假设任意 `CodeGraph` 索引已预先存在；进入新仓库时，先检查是否已初始化，必要时再执行 `codegraph init -i <repo>`。
+## Code Search（强制决策树）
 
-### Workflow
-- 先用 `codegraph_context` 或 `codegraph_files` 定位入口和相关文件。
-- 只有当结构化结果上下文不足时，才打开整个文件。
-- 找到关键符号后，继续用 `codegraph_node`、`codegraph_callers`、`codegraph_callees` 或 `codegraph_trace` 扩展到相关实现。
+### 执行流程
+```
+代码搜索请求
+├─ 结构查询（符号/调用/架构）？
+│   ├─ 先检查：codegraph_status
+│   │   ├─ 已初始化 → 选择工具（见下表）
+│   │   └─ 未初始化 → 询问用户是否初始化
+│   └─ 禁止直接用 grep/Read
+│
+└─ 字面量搜索（字符串/注释/日志）？
+    └─ 使用 grep
+```
+
+### 工具映射表
+| 需求 | 工具 |
+|---|---|
+| 找符号定义 | `codegraph_search` |
+| 理解功能/架构 | `codegraph_context` |
+| 追踪调用链 | `codegraph_trace` |
+| 查看调用者/被调用 | `codegraph_callers` / `codegraph_callees` |
+| 评估改动影响 | `codegraph_impact` |
+| 查看多个符号源码 | `codegraph_explore` |
+| 列出文件 | `codegraph_files` |
+
+### 禁止行为
+- ❌ 未检查状态就用 grep 搜索符号
+- ❌ CodeGraph 可用时用 grep 搜索定义
+- ❌ 用 Read 逐个打开文件理解架构（应用 `codegraph_context`）
+- ❌ 用 grep 验证 CodeGraph 结果（信任 AST 解析）
+- ❌ 假设索引已存在（每次先检查状态）
 
 ## 工具选择
 - 优先使用当前运行时提供的原生工具或 MCP 工具；只有在原生工具或 MCP 工具不可用、能力不匹配、或明显低效时，才回退到命令行。
