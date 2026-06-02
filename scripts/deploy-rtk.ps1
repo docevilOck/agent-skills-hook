@@ -9,6 +9,9 @@
 #   .\scripts\deploy-rtk.ps1 -Tool opencode     # 仅部署 OpenCode
 #   .\scripts\deploy-rtk.ps1 -Tool codex        # 仅部署 Codex CLI
 #
+# Windows: rtk hook 模式不支持 → 使用项目本地模式 (rtk init)，AI 手动加 rtk 前缀
+# Unix:    使用 rtk init -g 全局 hook 模式，命令自动改写
+#
 # 所有操作均为幂等 — 已配置则跳过。
 # rtk 是一个 Rust 二进制，在 shell 命令到达 LLM 上下文前压缩输出 (节省 60-90% token)。
 # ==============================================================================
@@ -30,11 +33,15 @@ $RepoRoot = if ($PSScriptRoot) {
 }
 $HomeDir = $env:USERPROFILE
 $LocalBin = Join-Path $HomeDir ".local\bin"
+$IsWindows = $true   # PowerShell 专用脚本，必然是 Windows
 
 # rtk GitHub releases
 $RtkVersion = "0.28.2"
 $RtkReleaseUrl = "https://github.com/rtk-ai/rtk/releases/download/v${RtkVersion}/rtk-x86_64-pc-windows-msvc.zip"
 $RtkExpectedPath = Join-Path $LocalBin "rtk.exe"
+
+# rtk 指令合并标记
+$RtkMarker = "<!-- rtk-instructions"
 
 # ── 输出函数 ─────────────────────────────────────────────────────────────────
 function Write-Info  { Write-Host "[INFO]  $args" -ForegroundColor Cyan }
@@ -50,6 +57,14 @@ function Write-Section {
 
 # ── 辅助函数 ─────────────────────────────────────────────────────────────────
 
+function File-Contains {
+    param([string]$Pattern, [string]$FilePath)
+    if (Test-Path $FilePath) {
+        return (Select-String -Path $FilePath -Pattern ([regex]::Escape($Pattern)) -SimpleMatch -Quiet)
+    }
+    return $false
+}
+
 # 验证 rtk 是 Token Killer (不是 Type Kit)
 function Test-RtkValid {
     param([string]$RtkPath)
@@ -64,14 +79,44 @@ function Test-RtkValid {
 
 # 获取可用 rtk 路径
 function Get-RtkPath {
-    # 优先 PATH 中的
     $cmd = (Get-Command rtk -ErrorAction SilentlyContinue).Source
     if ($cmd -and (Test-RtkValid -RtkPath $cmd)) { return $cmd }
-
-    # 检查 local bin
     if ((Test-Path $RtkExpectedPath) -and (Test-RtkValid -RtkPath $RtkExpectedPath)) {
         return $RtkExpectedPath
     }
+    return $null
+}
+
+# 用 rtk init 生成指令内容 → 返回字符串
+# Windows 下 rtk init 先打印 "Hook-based requires Unix" 到 stderr 然后回退到 --claude-md
+# 需要局部关闭 ErrorActionPreference=Stop，否则 stderr 会中断执行
+function Get-RtkInstructions {
+    param([string]$RtkBin)
+
+    $prevEAP = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+
+    $tempDir = Join-Path ([System.IO.Path]::GetTempPath()) "rtk-temp-$(Get-Random)"
+    $prevDir = Get-Location
+    try {
+        New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+        Set-Location $tempDir
+
+        & $RtkBin init 2>$null | Out-Null
+
+        $generatedFile = Join-Path $tempDir "CLAUDE.md"
+        if ((Test-Path $generatedFile) -and ((Get-Item $generatedFile).Length -gt 100)) {
+            return (Get-Content $generatedFile -Raw).TrimEnd()
+        }
+    } catch {
+        Write-Warn "rtk init 异常: $_"
+    } finally {
+        Set-Location $prevDir -ErrorAction SilentlyContinue
+        Remove-Item $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+        $ErrorActionPreference = $prevEAP
+    }
+
+    Write-Warn "无法生成 rtk 指令内容"
     return $null
 }
 
@@ -79,7 +124,10 @@ function Get-RtkPath {
 function Step-CheckEnv {
     Write-Section "1. 环境检查"
 
-    # 检查已有 rtk
+    if ($IsWindows) {
+        Write-Info "检测到 Windows — 使用项目本地模式 (无 hook，AI 手动加 rtk 前缀)"
+    }
+
     $existing = Get-RtkPath
     if ($existing) {
         $ver = & $existing --version 2>&1
@@ -101,7 +149,6 @@ function Step-InstallRtk {
         return
     }
 
-    # 创建 local bin 目录
     if (-not (Test-Path $LocalBin)) {
         Write-Info "创建 $LocalBin ..."
         if (-not $DryRun) {
@@ -115,32 +162,29 @@ function Step-InstallRtk {
         return
     }
 
-    # 下载预编译二进制
     $zipPath = Join-Path $env:TEMP "rtk-v${RtkVersion}.zip"
     $extractPath = Join-Path $env:TEMP "rtk-extract"
 
     try {
         Write-Info "下载 rtk v$RtkVersion ..."
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
         Invoke-WebRequest -Uri $RtkReleaseUrl -OutFile $zipPath -ErrorAction Stop
 
         Write-Info "解压..."
         if (Test-Path $extractPath) { Remove-Item $extractPath -Recurse -Force }
         Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
 
-        # 找到 rtk.exe 并复制
         $exe = Get-ChildItem -Path $extractPath -Name "rtk.exe" -Recurse | Select-Object -First 1
         $exeFull = Join-Path $extractPath $exe
         Copy-Item $exeFull $RtkExpectedPath -Force
 
         Write-OK "rtk 安装完成: $RtkExpectedPath"
 
-        # 验证
         if (Test-RtkValid -RtkPath $RtkExpectedPath) {
             Write-OK "rtk 验证通过 (rtk gain)"
             $script:RtkBin = $RtkExpectedPath
         } else {
-            Write-Err "rtk 安装后验证失败 — 可能下载了错误的包"
-            Write-Err "请手动检查: $RtkExpectedPath"
+            Write-Err "rtk 安装后验证失败"
             exit 1
         }
     } catch {
@@ -156,7 +200,7 @@ function Step-InstallRtk {
     $userPath = [Environment]::GetEnvironmentVariable("PATH", "User")
     if ($userPath -notlike "*$LocalBin*") {
         Write-Warn "$LocalBin 不在用户 PATH 中"
-        Write-Info "请手动添加: setx PATH `"`$env:PATH;$LocalBin`""
+        Write-Info '请运行: setx PATH "%PATH%;' + $LocalBin + '"'
     }
 }
 
@@ -169,33 +213,35 @@ function Step-Claude {
         return
     }
 
-    # 检查是否已通过 rtk init -g 配置
-    $rtkMd = Join-Path $HomeDir ".claude\RTK.md"
-    $hookFile = Join-Path $HomeDir ".claude\hooks\rtk-rewrite.sh"
-    $settingsFile = Join-Path $HomeDir ".claude\settings.json"
-
-    $alreadyConfigured = (Test-Path $rtkMd) -and (Test-Path $hookFile)
-
-    if ($alreadyConfigured) {
-        # 进一步检查 settings.json 中是否有 rtk hook
-        if (Test-Path $settingsFile) {
-            $hasHook = Select-String -Path $settingsFile -Pattern "rtk-rewrite" -SimpleMatch -Quiet
-            if ($hasHook) {
-                Write-Skip "Claude Code: rtk 全局 hook 已配置"
-                Write-Info "  Hook: $hookFile"
-                Write-Info "  RTK.md: $rtkMd"
-                return
-            }
-        }
+    $claudeMd = Join-Path $RepoRoot "config\claude\CLAUDE.md"
+    if (-not (Test-Path $claudeMd)) {
+        Write-Warn "未找到 $claudeMd，跳过"
+        return
     }
 
-    Write-Info "执行 rtk init -g --auto-patch ..."
+    # 检查是否已合并 rtk 指令
+    if (File-Contains -Pattern $RtkMarker -FilePath $claudeMd) {
+        Write-Skip "rtk 指令已存在 ($claudeMd)"
+        return
+    }
+
+    Write-Info "生成 rtk 指令..."
     if ($DryRun) {
-        Write-Info "[DRY-RUN] & $script:RtkBin init -g --auto-patch"
-    } else {
-        & $script:RtkBin init -g --auto-patch 2>&1 | ForEach-Object { Write-Info "  $_" }
-        Write-OK "Claude Code rtk 配置完成"
+        Write-Info "[DRY-RUN] 合并 rtk 指令到 $claudeMd"
+        return
     }
+
+    # 用 rtk init --claude-md 生成指令内容
+    $instructions = Get-RtkInstructions -RtkBin $script:RtkBin
+    if (-not $instructions) { return }
+
+    # 合并到 config/claude/CLAUDE.md 头部
+    $existingContent = Get-Content $claudeMd -Raw
+    $separator = "<!-- ═══════════ rtk instructions (auto-generated, Windows manual mode) ═══════════ -->"
+    $separatorEnd = "<!-- ═══════════ end rtk instructions ═══════════ -->"
+    $merged = "$separator`r`n$instructions`r`n$separatorEnd`r`n`r`n$existingContent"
+    Set-Content -Path $claudeMd -Value $merged -NoNewline -Encoding UTF8
+    Write-OK "rtk 指令已合并到 $claudeMd"
 }
 
 # ── 步骤 3b: Codex CLI ──────────────────────────────────────────────────────
@@ -207,26 +253,32 @@ function Step-Codex {
         return
     }
 
-    # rtk 有 codex 支持: rtk init -g --codex
-    # 检查是否已配置
-    $codexRtkMd = Join-Path $HomeDir ".codex\RTK.md"
-    if (Test-Path $codexRtkMd) {
-        Write-Skip "Codex CLI: rtk 已配置 ($codexRtkMd)"
+    $codexAgentsMd = Join-Path $RepoRoot "config\codex\AGENTS.md"
+    if (-not (Test-Path $codexAgentsMd)) {
+        Write-Warn "未找到 $codexAgentsMd，跳过"
         return
     }
 
-    Write-Info "执行 rtk init -g --codex ..."
-    if ($DryRun) {
-        Write-Info "[DRY-RUN] & $script:RtkBin init -g --codex"
-    } else {
-        try {
-            & $script:RtkBin init -g --codex 2>&1 | ForEach-Object { Write-Info "  $_" }
-            Write-OK "Codex CLI rtk 配置完成"
-        } catch {
-            Write-Warn "rtk init --codex 执行异常: $_"
-            Write-Info "rtk 对 Codex 的 hook 支持请参考: https://github.com/rtk-ai/rtk/tree/master/hooks/codex"
-        }
+    if (File-Contains -Pattern $RtkMarker -FilePath $codexAgentsMd) {
+        Write-Skip "rtk 指令已存在 ($codexAgentsMd)"
+        return
     }
+
+    Write-Info "合并 rtk 指令..."
+    if ($DryRun) {
+        Write-Info "[DRY-RUN] 合并 rtk 指令到 $codexAgentsMd"
+        return
+    }
+
+    $instructions = Get-RtkInstructions -RtkBin $script:RtkBin
+    if (-not $instructions) { return }
+
+    $existingContent = Get-Content $codexAgentsMd -Raw
+    $separator = "<!-- ═══════════ rtk instructions (auto-generated, Windows manual mode) ═══════════ -->"
+    $separatorEnd = "<!-- ═══════════ end rtk instructions ═══════════ -->"
+    $merged = "$separator`r`n$instructions`r`n$separatorEnd`r`n`r`n$existingContent"
+    Set-Content -Path $codexAgentsMd -Value $merged -NoNewline -Encoding UTF8
+    Write-OK "rtk 指令已合并到 $codexAgentsMd"
 }
 
 # ── 步骤 3c: OpenCode ───────────────────────────────────────────────────────
@@ -238,25 +290,32 @@ function Step-OpenCode {
         return
     }
 
-    # rtk 对 OpenCode 使用 TypeScript 插件: rtk init -g --opencode
-    $pluginPath = Join-Path $HomeDir ".config\opencode\plugins\rtk.ts"
-    if (Test-Path $pluginPath) {
-        Write-Skip "OpenCode: rtk 插件已安装 ($pluginPath)"
+    $opencodeAgentsMd = Join-Path $RepoRoot "config\opencode\AGENTS.md"
+    if (-not (Test-Path $opencodeAgentsMd)) {
+        Write-Warn "未找到 $opencodeAgentsMd，跳过"
         return
     }
 
-    Write-Info "执行 rtk init -g --opencode ..."
-    if ($DryRun) {
-        Write-Info "[DRY-RUN] & $script:RtkBin init -g --opencode"
-    } else {
-        try {
-            & $script:RtkBin init -g --opencode 2>&1 | ForEach-Object { Write-Info "  $_" }
-            Write-OK "OpenCode rtk 配置完成"
-        } catch {
-            Write-Warn "rtk init --opencode 执行异常: $_"
-            Write-Info "手动安装方式: 将 hooks/opencode/rtk.ts 复制到 ~/.config/opencode/plugins/"
-        }
+    if (File-Contains -Pattern $RtkMarker -FilePath $opencodeAgentsMd) {
+        Write-Skip "rtk 指令已存在 ($opencodeAgentsMd)"
+        return
     }
+
+    Write-Info "合并 rtk 指令..."
+    if ($DryRun) {
+        Write-Info "[DRY-RUN] 合并 rtk 指令到 $opencodeAgentsMd"
+        return
+    }
+
+    $instructions = Get-RtkInstructions -RtkBin $script:RtkBin
+    if (-not $instructions) { return }
+
+    $existingContent = Get-Content $opencodeAgentsMd -Raw
+    $separator = "<!-- ═══════════ rtk instructions (auto-generated, Windows manual mode) ═══════════ -->"
+    $separatorEnd = "<!-- ═══════════ end rtk instructions ═══════════ -->"
+    $merged = "$separator`r`n$instructions`r`n$separatorEnd`r`n`r`n$existingContent"
+    Set-Content -Path $opencodeAgentsMd -Value $merged -NoNewline -Encoding UTF8
+    Write-OK "rtk 指令已合并到 $opencodeAgentsMd"
 }
 
 # ── 步骤 4: 汇总 ─────────────────────────────────────────────────────────────
@@ -265,18 +324,22 @@ function Step-Summary {
 
     Write-Host ""
     Write-Host "  ╔═════════════════════════════════════════════════════════╗"
-    Write-Host "  ║  rtk 部署完成                                           ║"
+    Write-Host "  ║  rtk 部署完成 (Windows 手动模式)                         ║"
     Write-Host "  ║                                                         ║"
+    if ($IsWindows) {
+        Write-Host "  ║  Windows 不支持 hook 自动改写命令。                     ║"
+        Write-Host "  ║  AI 会手动在命令前加 rtk 前缀，效果相同。               ║"
+        Write-Host "  ║  如需 hook 模式，请在 WSL 中运行。                       ║"
+        Write-Host "  ║                                                         ║"
+    }
     Write-Host "  ║  验证方式:                                               ║"
     Write-Host "  ║    • rtk gain          — 查看 token 节省统计             ║"
     Write-Host "  ║    • rtk gain --graph  — 带 ASCII 图                    ║"
-    Write-Host "  ║    • rtk init --show   — 检查 hook 状态                 ║"
     Write-Host "  ║                                                         ║"
-    Write-Host "  ║  使用方式 (在各工具中自动生效):                          ║"
-    Write-Host "  ║    • git status  → 自动改为 rtk git status              ║"
-    Write-Host "  ║    • npm test    → 自动改为 rtk npm test                ║"
-    Write-Host "  ║    • cargo test  → 自动改为 rtk cargo test              ║"
-    Write-Host "  ║  注意: 重启各 agent 工具以使 hook 生效                   ║"
+    Write-Host "  ║  使用方式:                                               ║"
+    Write-Host "  ║    • rtk git status    — 紧凑 git status                ║"
+    Write-Host "  ║    • rtk npm test      — 紧凑测试输出                   ║"
+    Write-Host "  ║    • rtk ls .          — 紧凑目录列表                   ║"
     Write-Host "  ╚═════════════════════════════════════════════════════════╝"
     Write-Host ""
 
