@@ -137,6 +137,39 @@ def roundtrip_verify(rel_path, text):
 
 
 # ============================================================
+# 残留非 ASCII 字符串检测（迁移后验证）
+# ============================================================
+
+# 在"已迁移运行期中文"的源文件中，不应再有含非 ASCII 字符的直接字符串字面量
+# 若发现残留，说明 scan→convert 流程遗漏了某些字符串
+NON_ASCII_RE = re.compile(r'[一-鿿㐀-䶿豈-﫿＀-￯ -ÿ -⁯　-〿＀-￯]')
+
+
+def find_remaining_direct_strings(rel_path, text):
+    """
+    检测源文件中是否残留了应该被迁移但未迁移的非 ASCII 直接字符串。
+    只检查 snprintf/printf/puts/sprintf 调用的字符串参数，跳过 #define 行。
+    """
+    findings = []
+    for line_no, line in enumerate(text.splitlines(), start=1):
+        stripped = line.strip()
+        # 跳过 #define / include / 注释
+        if stripped.startswith("#define") or stripped.startswith("#include") or stripped.startswith("//"):
+            continue
+        # 跳过注释块
+        if stripped.startswith("/*") or stripped.startswith("*"):
+            continue
+        # 提取双引号字符串
+        strings = re.findall(r'"([^"]*)"', line)
+        for s in strings:
+            if NON_ASCII_RE.search(s):
+                # 检查是否在函数调用上下文中
+                if any(kw in line for kw in ("snprintf", "sprintf", "printf", "prt_receive_puts", "Putchar", "puts")):
+                    findings.append(("remaining-direct-string", line_no, s[:100]))
+    return findings
+
+
+# ============================================================
 # 原有检测逻辑
 # ============================================================
 
@@ -154,6 +187,11 @@ def parse_args():
         "--deep",
         action="store_true",
         help="Enable deep checks: round-trip verification and semantic mojibake detection",
+    )
+    parser.add_argument(
+        "--check-migration",
+        default="",
+        help="Comma-separated list of source files that had runtime strings migrated; verify no direct non-ASCII strings remain",
     )
     return parser.parse_args()
 
@@ -187,7 +225,7 @@ def scan_text(rel_path, text, allow_question):
     return findings
 
 
-def inspect_file(root, rel_path, allow_question=False, deep=False):
+def inspect_file(root, rel_path, allow_question=False, deep=False, check_migration=False):
     full_path = Path(root) / rel_path
     data = full_path.read_bytes()
     findings = []
@@ -198,14 +236,20 @@ def inspect_file(root, rel_path, allow_question=False, deep=False):
 
     # 深度检测
     if deep:
-        # 解码为正确的 UTF-8（如果错误才用 replace）
         try:
             text_clean = data.decode("utf-8")
         except UnicodeDecodeError:
-            text_clean = text  # 已有替换字符的版本
-
+            text_clean = text
         findings.extend(find_semantic_mojibake(text_clean))
         findings.extend(roundtrip_verify(rel_path, text_clean))
+
+    # 迁移后残留检查
+    if check_migration:
+        try:
+            text_clean = data.decode("utf-8")
+        except UnicodeDecodeError:
+            text_clean = text
+        findings.extend(find_remaining_direct_strings(rel_path, text_clean))
 
     return findings
 
@@ -215,6 +259,7 @@ def main():
     root = os.path.abspath(args.root)
     files = parse_csv(args.files)
     allow_question_files = set(parse_csv(args.allow_question_files))
+    migrated_files = set(parse_csv(args.check_migration))
 
     if not files:
         print("No files provided. Use --files with converted file list.")
@@ -224,7 +269,8 @@ def main():
     for rel_path in files:
         findings = inspect_file(root, rel_path,
                                 allow_question=rel_path in allow_question_files,
-                                deep=args.deep)
+                                deep=args.deep,
+                                check_migration=rel_path in migrated_files)
         if findings:
             all_findings.append((rel_path, findings))
 
@@ -234,16 +280,20 @@ def main():
 
     for rel_path, findings in all_findings:
         print("[FILE] {}".format(rel_path))
-        for kind, line_no, snippet in findings:
+        for fnd in findings:
+            kind = fnd[0]
+            line_no = fnd[1]
             if kind in ("roundtrip-fail", "semantic-mojibake"):
-                # 深度检测项，显示更多信息
-                if len(snippet) > 2:
-                    print("  - {} @ line {}: {} (suspect: {})".format(
-                        kind, line_no, snippet[0][:80], snippet[1][:40]))
-                else:
-                    print("  - {} @ line {}: {}".format(kind, line_no, snippet[:80]))
+                # 4-element tuples: (kind, line_no, original, roundtrip)
+                orig = fnd[2][:80]
+                sus = fnd[3][:40]
+                print("  - {} @ line {}: {} (suspect: {})".format(kind, line_no, orig, sus))
+            elif kind == "remaining-direct-string":
+                # 3-element tuples: (kind, line_no, string)
+                print("  - {} @ line {}: direct non-ASCII: {}".format(kind, line_no, fnd[2][:80]))
             else:
-                print("  - {} @ line {}: {}".format(kind, line_no, snippet))
+                # 3-element tuples: (kind, line_no, snippet)
+                print("  - {} @ line {}: {}".format(kind, line_no, fnd[2]))
     return 1
 
 
