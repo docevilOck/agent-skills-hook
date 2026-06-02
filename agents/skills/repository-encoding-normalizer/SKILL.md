@@ -220,7 +220,17 @@ python normalize_encoding.py \
 可直接使用：
 
 ```bash
+# 基础检查
 python check_mojibake.py --root . --files "src/a.c,src/b.h,docs/readme.md"
+
+# 深度检查（推荐用于 gbk-lossy 文件）
+python check_mojibake.py --root . --files "src/a.c,src/b.h" --deep
+```
+
+或通过统一入口：
+
+```bash
+python encoding_workflow.py verify --root . --deep
 ```
 
 建议报告格式：
@@ -277,9 +287,30 @@ python check_mojibake.py --root . --files "src/a.c,src/b.h,docs/readme.md"
 
 ---
 
+## 统一入口（推荐 AI agent 使用）
+
+本 skill 提供 `encoding_workflow.py` 作为统一入口，确保不同 AI agent 执行时的一致性：
+
+```bash
+# 三步流程
+python encoding_workflow.py scan    --root /path/to/repo                # 扫描
+python encoding_workflow.py convert --root /path/to/repo --compiler armcc  # 转换
+python encoding_workflow.py verify  --root /path/to/repo --deep          # 验证
+
+# 或一步完成
+python encoding_workflow.py all --root /path/to/repo --compiler armcc
+```
+
+该脚本自动完成：
+1. `scan` — 调用 `scan_encoding.py` 盘点原始编码
+2. `convert` — 调用 `normalize_encoding.py` 批量转换，**并在转换前检测 gbk-lossy 文件**（可能混编的文件提前预警）
+3. `verify` — 调用 `check_mojibake.py --deep` 做基础乱码巡检 + 语义乱码检测
+
+---
+
 ## 工具脚本
 
-本 skill 目录下附带两个 Python 辅助脚本，用于自动化扫描和执行编码规范化。
+本 skill 目录下附带 Python 辅助脚本，用于自动化扫描和执行编码规范化。
 
 ### scan_encoding.py
 
@@ -386,9 +417,9 @@ python normalize_encoding.py \
 
 ### check_mojibake.py
 
-**作用：** 对本次编码转换涉及的文件做批量乱码巡检，快速发现替换字符、连续问号、典型乱码词和 UTF-8 BOM 误写入到无 BOM 文件等问题。
+**作用：** 对本次编码转换涉及的文件做批量乱码巡检，快速发现替换字符、连续问号、典型乱码词、UTF-8 BOM 误写入无 BOM 文件、以及**语义乱码**（UTF-8 字节被 gb18030 错解后产生的"合法但不正确"的汉字序列）。
 
-**位置：** `agents/skills/repository-encoding-normalizer/check_mojibake.py`
+**位置：** `~/.claude/skills/repository-encoding-normalizer/check_mojibake.py`
 
 **参数：**
 
@@ -397,14 +428,32 @@ python normalize_encoding.py \
 | `--root` | `.` | 仓库根目录 |
 | `--files` | `""` | 需要巡检的文件列表，逗号分隔，相对 `root` |
 | `--allow-question-files` | `""` | 允许出现连续问号的文件列表，逗号分隔，相对 `root` |
+| `--deep` | `false` | 开启深度检测：编码往返验证 + 语义乱码检测（检测 UTF-8 被 gb18030 错解产生的"合法汉字但语义不通"序列）|
 
 **用法示例：**
 
 ```bash
+# 基础检查
 python check_mojibake.py --root . --files "src/tp.c,src/tp_text.h,docs/readme.md"
+
+# 深度检查（含语义乱码检测）
+python check_mojibake.py --root . --files "src/cpcl_internal.c" --deep
 ```
+
+**检测能力对比：**
+
+| 乱码类型 | 基础检查 | `--deep` |
+|---|---|---|
+| `�` (U+FFFD 替换字符) | ✅ | ✅ |
+| `??` 连续问号 | ✅ | ✅ |
+| `锟斤拷` / `烫烫烫` 经典乱码 | ✅ | ✅ |
+| BOM 误写入无 BOM 文件 | ✅ | ✅ |
+| UTF-8→gb18030 语义乱码（如 `浠庣紦鍐`） | ❌ | ✅ |
+| 编码往返不一致 | ❌ | ✅ |
+
+**语义乱码原理：** 当 GBK 文件中混入 UTF-8 编码段落，使用 gb18030 容错读取时，UTF-8 字节会被错解为"合法但不正确"的 CJK 字符。这类字符在正常中文文本中极少连续出现。`--deep` 通过检测连续高风险 CJK 字符序列来发现此类问题。
 
 **输出说明：**
 
-- 无命中时输出 `No suspicious mojibake patterns found.`
-- 命中时按文件列出问题类型、行号和片段，并以非零状态码退出，方便作为人工复查前的快速筛查。
+- 无命中时输出 `No suspicious mojibake patterns found.`，退出码 0
+- 命中时按文件列出问题类型、行号和片段，并以非零状态码退出
