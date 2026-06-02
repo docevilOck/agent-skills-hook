@@ -81,7 +81,7 @@ def cmd_scan(root, exts, exclude):
 
 
 def cmd_convert(root, compiler, dry_run):
-    """阶段 2: 仅转换纯注释文件，运行时中文文件保持 GBK 不动。"""
+    """阶段 2: 执行编码转换 + 运行期中文提取。"""
     print("=" * 60)
     print("Phase 2: Converting encoding...")
     print("=" * 60)
@@ -96,71 +96,105 @@ def cmd_convert(root, compiler, dry_run):
 
     results = audit.get("results", [])
     comment_only = [r for r in results if r["file_class"] == "comment_only"]
-    runtime_files = [r for r in results if r["file_class"] in ("mixed_comment_and_runtime", "string_or_runtime")]
+    mixed = [r for r in results if r["file_class"] == "mixed_comment_and_runtime"]
     code_review = [r for r in results if r["file_class"] == "code_only_needs_review"]
 
-    # --- 2a. 运行时中文文件：跳过，保持 GBK ---
-    print("\n  [2a] Skipping {} files with runtime Chinese (keeping GBK):".format(len(runtime_files)))
-    for r in runtime_files:
-        print("    SKIP: {} (encoding={}, string_chars={})".format(
-            r["path"], r.get("encoding", "gbk"), r.get("string_chars", "?")))
+    total = len(comment_only) + len(mixed)
 
-    # --- 2b. 转换 comment_only 文件 -> UTF-8 with BOM ---
+    # --- 2a. 预处理：检测可能混编的 gbk-lossy 文件 ---
+    print("\n  [2a] Pre-scanning for mixed-encoding files...")
+    gbk_lossy = []
+    for r in results:
+        filepath = os.path.join(root, r["path"])
+        try:
+            with open(filepath, "rb") as f:
+                raw = f.read()
+            raw.decode("gbk")
+        except UnicodeDecodeError:
+            gbk_lossy.append(r)
+            print("    WARNING: {} has non-GBK bytes (encoding={})".format(
+                r["path"], r["encoding"]))
+
+    if gbk_lossy:
+        print("\n    {} files have non-GBK bytes. These may contain mixed UTF-8/GBK content.".format(
+            len(gbk_lossy)))
+        print("    The converter will use gb18030 as fallback, but semantic mojibake may occur.")
+        print("    Run 'verify --deep' after conversion to check for semantic mojibake.")
+        # 保存 gbk-lossy 列表供后续验证用
+        lossy_path = os.path.join(root, "encoding_gbk_lossy.json")
+        with open(lossy_path, "w", encoding="utf-8") as f:
+            json.dump([r["path"] for r in gbk_lossy], f, ensure_ascii=False)
+
+    # --- 2b. 转换 comment_only 文件 ---
     print("\n  [2b] Converting {} comment_only files...".format(len(comment_only)))
-    # 分离 .mk / .s / .S（需无 BOM）
-    no_bom_exts = (".mk", ".s", ".S")
-    mk_asm_files = [r for r in comment_only if any(r["path"].endswith(ext) for ext in no_bom_exts)]
-    normal_files = [r for r in comment_only if r not in mk_asm_files]
+    comment_files = ",".join(r["path"] for r in comment_only)
+    # 分离出 .mk 文件（需要无 BOM）
+    mk_files = [r["path"] for r in comment_only if r["path"].lower().endswith(".mk")]
+    non_mk_files = [r["path"] for r in comment_only if not r["path"].lower().endswith(".mk")]
 
-    if normal_files:
+    if non_mk_files:
         args = ["--root", root, "--compiler", compiler,
-                "--files", ",".join(r["path"] for r in normal_files)]
+                "--files", ",".join(non_mk_files)]
         if dry_run:
             args.append("--dry-run")
         result = run_script("normalize_encoding.py", args, cwd=root)
-        print(result.stdout.strip()[-300:] if len(result.stdout) > 300 else result.stdout.strip())
+        print(result.stdout.strip()[-200:] if len(result.stdout) > 200 else result.stdout.strip())
 
-    if mk_asm_files:
-        file_list = ",".join(r["path"] for r in mk_asm_files)
+    if mk_files:
         args = ["--root", root, "--compiler", compiler,
-                "--files", file_list, "--no-bom-files", file_list]
+                "--files", ",".join(mk_files),
+                "--no-bom-files", ",".join(mk_files)]
         if dry_run:
             args.append("--dry-run")
         result = run_script("normalize_encoding.py", args, cwd=root)
-        print(result.stdout.strip()[-300:] if len(result.stdout) > 300 else result.stdout.strip())
+        print(result.stdout.strip()[-200:] if len(result.stdout) > 200 else result.stdout.strip())
 
-    # --- 2c. code_only_needs_review ---
-    mk_in_code = [r for r in code_review if any(r["path"].endswith(ext) for ext in no_bom_exts)]
-    if mk_in_code:
-        print("\n  [2c] Converting {} code-only .mk/.s files (UTF-8 no BOM)...".format(len(mk_in_code)))
-        file_list = ",".join(r["path"] for r in mk_in_code)
-        args = ["--root", root, "--compiler", compiler,
-                "--files", file_list, "--no-bom-files", file_list]
-        result = run_script("normalize_encoding.py", args, cwd=root)
+    # --- 2c. 处理 mixed 文件 ---
+    print("\n  [2c] Processing {} mixed files...".format(len(mixed)))
+    if mixed:
+        for r in mixed:
+            print("    MIXED (needs manual migration): {} ({} string chars)".format(
+                r["path"], r.get("string_chars", "?")))
+
+    # --- 2d. .mk 和其他 code_only 文件 ---
+    print("\n  [2d] Processing {} code-only files...".format(len(code_review)))
+    if code_review:
+        mk_in_code = [r for r in code_review if r["path"].lower().endswith(".mk")]
+        other_code = [r for r in code_review if not r["path"].lower().endswith(".mk")]
+        if mk_in_code:
+            mk_list = ",".join(r["path"] for r in mk_in_code)
+            args = ["--root", root, "--compiler", compiler,
+                    "--files", mk_list, "--no-bom-files", mk_list]
+            if dry_run:
+                args.append("--dry-run")
+            result = run_script("normalize_encoding.py", args, cwd=root)
+        if other_code:
+            other_list = ",".join(r["path"] for r in other_code)
+            args = ["--root", root, "--compiler", compiler, "--files", other_list]
+            if dry_run:
+                args.append("--dry-run")
+            result = run_script("normalize_encoding.py", args, cwd=root)
 
     # --- 生成报告 ---
     report_path = os.path.join(root, "encoding_report.md")
     with open(report_path, "w", encoding="utf-8") as f:
         f.write("# 编码规范化报告\n\n")
         f.write("- 编译器: {}\n".format(compiler))
-        f.write("- 策略: 纯注释文件转 UTF-8，运行时中文文件保持 GBK\n\n")
-        f.write("## 已转换文件\n\n")
-        f.write("- comment_only: {} 个\n".format(len(comment_only)))
-        for r in comment_only:
-            f.write("  - `{}` ({})\n".format(r["path"], r.get("encoding", "?")))
-        if mk_in_code:
-            f.write("- code_only .mk/.s: {} 个\n".format(len(mk_in_code)))
-            for r in mk_in_code:
-                f.write("  - `{}`\n".format(r["path"]))
-        f.write("\n## 跳过文件（保持原始编码，运行时字节语义不变）\n\n")
-        f.write("- 含运行时中文的文件: {} 个\n".format(len(runtime_files)))
-        for r in runtime_files:
-            f.write("  - `{}` ({})\n".format(r["path"], r.get("encoding", "?")))
+        f.write("- comment_only 文件: {} (已转换)\n".format(len(comment_only)))
+        f.write("- mixed 文件: {} (需手动迁移运行期中文)\n".format(len(mixed)))
+        f.write("- code_only 文件: {} (已处理)\n".format(len(code_review)))
+        f.write("- gbk-lossy 警告: {} 个文件\n".format(len(gbk_lossy)))
+        if gbk_lossy:
+            f.write("\n## gbk-lossy 文件 (可能有语义乱码)\n\n")
+            for r in gbk_lossy:
+                f.write("- `{}`\n".format(r["path"]))
+            f.write("\n> 建议运行 `verify --deep` 检查这些文件的语义乱码。\n")
         f.write("\n> 运行 `verify --deep` 完成最终验证。\n")
 
     print("\n  Report: {}".format(report_path))
     print("  Done. Run 'verify --deep' to check results.")
-    return runtime_files
+
+    return gbk_lossy
 
 
 def cmd_verify(root, deep):
@@ -178,7 +212,7 @@ def cmd_verify(root, deep):
         audit = json.load(f)
 
     all_files = [r["path"] for r in audit.get("results", [])]
-    # 检查 .c/.h 文件
+    # 只检查 .c/.h 文件（这些是有中文的）
     check_files = [f for f in all_files if f.lower().endswith((".c", ".h"))]
 
     if not check_files:
@@ -271,9 +305,9 @@ def main():
 
     elif args.action == "all":
         audit, by_class = cmd_scan(args.root, args.exts, args.exclude)
-        runtime_files = cmd_convert(args.root, args.compiler, args.dry_run)
-        if runtime_files:
-            print("\n*** INFO: {} files with runtime Chinese kept in GBK. ***".format(len(runtime_files)))
+        gbk_lossy = cmd_convert(args.root, args.compiler, args.dry_run)
+        if gbk_lossy:
+            print("\n*** WARNING: {} files flagged as gbk-lossy. ***".format(len(gbk_lossy)))
             print("*** Run 'verify --deep' to check for semantic mojibake. ***")
         cmd_verify(args.root, args.deep)
 
