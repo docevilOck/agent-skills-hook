@@ -25,3 +25,4 @@ docs/
 .worktrees/
 .omx/
 .qoder/
+.context-mode-vendor/
