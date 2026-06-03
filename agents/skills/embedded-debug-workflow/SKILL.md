@@ -5,6 +5,31 @@ description: 当需要按“改代码、编译刷写、串口抓日志、可选 
 
 # 嵌入式调试闭环
 
+## 工具入口
+
+> **强制**：本 skill 提供编排脚本，配套 skill 各有独立工具。必须加载并调用对应 skill 的工具，禁止自行实现任何替代品。
+
+```
+$SKILL_ROOT = <本 skill 加载输出中 "Base directory for this skill:" 行的路径>
+```
+
+| 工具 | 路径 | 用途 |
+|---|---|---|
+| debug_orchestrator.py | `$SKILL_ROOT/scripts/debug_orchestrator.py` | 编排构建、刷写、串口、USB 触发全流程 |
+
+### 配套 skill 工具速查
+
+| 步骤 | 应加载的 skill | 应调用的工具 |
+|---|---|---|
+| 刷写固件 | `repo-firmware-flasher` | `$REPO_FIRMWARE_ROOT/scripts/repo_flash.py` |
+| 串口日志 | `serial-log-debug` | `$SERIAL_LOG_ROOT/serial_tool.py` |
+| USB 触发 | `repo-usb-communicator` | `$REPO_USB_ROOT/scripts/repo_usb_comm.py` |
+| 逻辑分析仪 | `kingstvis-socket` | `$KINGSTVIS_ROOT/scripts/kingstvis_socket_client.py` |
+
+每步开始前，先 `skill` 加载对应配套 skill，从其加载输出的 `Base directory` 行提取该 skill 的根目录，再调用工具。
+
+---
+
 ## 何时使用
 
 - 需要围绕一次真实设备现象做完整联调，而不是只改代码或只看日志。
@@ -182,6 +207,17 @@ description: 当需要按“改代码、编译刷写、串口抓日志、可选 
   - 缺少端口、设备、构建产物、协议参数或预期判定标准
 - blocked：
   - 构建失败、刷写失败、串口无法独占打开、设备无响应或关键依赖缺失
+
+## 工具使用验证（收尾必做）
+
+在声称本轮调试完成前，必须逐一核实以下项：
+
+1. 刷写步骤是否使用了 `repo-firmware-flasher` 提供的 `scripts/repo_flash.py`
+2. 串口日志抓取是否使用了 `serial-log-debug` 提供的 `serial_tool.py`
+3. 如需 USB 触发，是否使用了 `repo-usb-communicator` 提供的 `scripts/repo_usb_comm.py`
+4. 如需 IO 打点/逻辑分析仪，是否使用了 `kingstvis-socket` 提供的 `scripts/kingstvis_socket_client.py`
+5. 上述任一工具是否被 `New-Item`/`Set-Content`/手写脚本替代
+6. 若任一工具被自造替代 → 本轮结果无效，需回退重做
 
 ## 参考
 

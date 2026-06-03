@@ -5,6 +5,23 @@ description: 当需要为嵌入式调试、固件刷写或逻辑分析流程初�
 
 # 初始化嵌入式工作流缓存
 
+## 工具入口
+
+> **强制**：本 skill 提供以下精确定义的工具，必须直接调用，禁止自行实现替代品。
+
+```
+$SKILL_ROOT = <本 skill 加载输出中 "Base directory for this skill:" 行的路径>
+```
+
+| 工具 | 路径 | 用途 |
+|---|---|---|
+| init_embedded_workflow_cache.py | `$SKILL_ROOT/scripts/init_embedded_workflow_cache.py` | 初始化 .agents/cache 下的配置文件 |
+| cache-layout.md | `$SKILL_ROOT/references/cache-layout.md` | 缓存文件用途和字段说明 |
+
+执行缓存初始化时，先提取 `$SKILL_ROOT`，再用 `python "$SKILL_ROOT/scripts/init_embedded_workflow_cache.py" ...` 调用。
+
+---
+
 ## 何时使用
 
 - 需要首次为某个项目落盘 `.agents/cache/` 下的嵌入式工作流缓存文件。

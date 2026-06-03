@@ -48,6 +48,33 @@
 - 能用结构化工具完成的任务，不要先用通用 shell 命令绕过它；尤其是搜索、浏览、提取和平台交互类任务。
 - 需要命令行回退时，只使用最小必要命令完成目标，并保留可复核的结果证据。
 
+## 技能工具优先（强制）
+
+已加载的 skill 提供的工具和脚本为**唯一合法实现**，严禁自造替代品。
+
+```
+加载 skill 后 → 是否存在配套工具/脚本？
+├─ 是 → 必须使用该工具，严禁自行手写实现
+│   ├─ 从 skill 加载输出的 "Base directory for this skill:" 行提取 $SKILL_ROOT
+│   ├─ 用 $SKILL_ROOT + skill 文档中给出的相对路径拼出完整命令
+│   ├─ 执行前打印确认："使用 {skill名} 的 {工具名}"
+│   └─ 若工具执行失败 → 报告失败、不改用自造工具绕过
+│
+└─ 否（skill 明确声明"本 skill 仅提供工作流描述，无配套工具"）→ 允许手写
+```
+
+### 路径解析规则
+- skill 加载输出中必定包含 `Base directory for this skill: file:///xxx/skill-dir`
+- 将该路径作为 `$SKILL_ROOT`，与 SKILL.md 中给出的相对路径拼接
+- 例：skill 文档写 `scripts/serial_tool.py`，则实际命令为 `python "$SKILL_ROOT/scripts/serial_tool.py" ...`
+- 不得假设 skill 安装在仓库根目录、`agents/skills/` 或某个固定用户目录
+
+### 禁止行为
+- ❌ 加载了含工具/脚本的 skill 后，用 `New-Item`/`Set-Content` 临时造一个功能相同的文件
+- ❌ 看到 `<xxx.py 路径>` 占位符后自己重写同名脚本而不是解析实际路径
+- ❌ 用通用 shell 命令替代 skill 自带工具（如用 `[System.IO.Ports.SerialPort]` 替代 `serial_tool.py`）
+- ❌ 只把 skill 当思想指南、忽略其中列出的具体可执行工具
+
 ## 子代理分发（每个用户请求）
 - 开始实际执行前，先判断是否适合使用 OpenCode 内置子代理；默认提高分发倾向。
 - `Explore`：用于只读代码库调查、跨目录搜索、文件/符号定位、调用链或配置来源梳理。目标位置不明确时优先派发。

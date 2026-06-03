@@ -5,6 +5,22 @@ description: Use when debugging hardware over a Windows local serial port, espec
 
 # serial-log-debug
 
+## 工具入口
+
+> **强制**：本 skill 提供以下精确定义的工具，必须直接调用，禁止自行实现替代品。
+
+```
+$SKILL_ROOT = <本 skill 加载输出中 "Base directory for this skill:" 行的路径>
+```
+
+| 工具 | 路径 | 用途 |
+|---|---|---|
+| serial_tool.py | `$SKILL_ROOT/serial_tool.py` | 串口独占打开、收发、抓取、状态管理 |
+
+执行任何串口操作时，先提取 `$SKILL_ROOT`，再用 `python "$SKILL_ROOT/serial_tool.py" ...` 调用。
+
+---
+
 用于 Windows 下的本地串口联调。核心原则是：**先保留原始证据，再做轻量分析**。这个 skill 只覆盖 Windows 下的本地直连串口收发、日志落盘和基于日志的初步定位，不覆盖刷写、产测和远程串口场景。
 
 默认前置原则：

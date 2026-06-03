@@ -5,6 +5,23 @@ description: 当需要基于仓库代码定位 USB 设备参数，并通过脚�
 
 # 仓库 USB 通信
 
+## 工具入口
+
+> **强制**：本 skill 提供以下精确定义的工具，必须直接调用，禁止自行实现替代品。
+
+```
+$SKILL_ROOT = <本 skill 加载输出中 "Base directory for this skill:" 行的路径>
+```
+
+| 工具 | 路径 | 用途 |
+|---|---|---|
+| repo_usb_comm.py | `$SKILL_ROOT/scripts/repo_usb_comm.py` | 设备探测、打开、发送、请求响应、交换数据 |
+| repo-usb-communication-playbook.md | `$SKILL_ROOT/references/repo-usb-communication-playbook.md` | 设备识别定位方法和配置模板 |
+
+执行 USB 通信时，先提取 `$SKILL_ROOT`，再用 `python "$SKILL_ROOT/scripts/repo_usb_comm.py" ...` 调用。
+
+---
+
 ## 何时使用
 
 - 需要先从仓库里查 `VID/PID`、设备路径线索、传输方式，再对设备发命令。

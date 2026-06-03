@@ -5,6 +5,22 @@ description: Use when running KingstVIS capture/export through SocketAPI with on
 
 # KingstVIS Socket Automation
 
+## 工具入口
+
+> **强制**：本 skill 提供以下精确定义的工具，必须直接调用，禁止自行实现替代品。
+
+```
+$SKILL_ROOT = <本 skill 加载输出中 "Base directory for this skill:" 行的路径>
+```
+
+| 工具 | 路径 | 用途 |
+|---|---|---|
+| kingstvis_socket_client.py | `$SKILL_ROOT/scripts/kingstvis_socket_client.py` | KingstVIS SocketAPI 统一客户端（capture/connect/状态查询） |
+
+执行逻辑分析仪抓取时，先提取 `$SKILL_ROOT`，再用 `python "$SKILL_ROOT/scripts/kingstvis_socket_client.py" ...` 调用。
+
+---
+
 Use this skill when the user wants AI-assisted KingstVIS automation through the official SocketAPI.
 
 ## Prerequisites

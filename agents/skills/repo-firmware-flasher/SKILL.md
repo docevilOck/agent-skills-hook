@@ -5,6 +5,23 @@ description: 当需要基于仓库代码推导刷写参数，并复用统一流�
 
 # 仓库固件刷写
 
+## 工具入口
+
+> **强制**：本 skill 提供以下精确定义的工具，必须直接调用，禁止自行实现替代品。
+
+```
+$SKILL_ROOT = <本 skill 加载输出中 "Base directory for this skill:" 行的路径>
+```
+
+| 工具 | 路径 | 用途 |
+|---|---|---|
+| repo_flash.py | `$SKILL_ROOT/scripts/repo_flash.py` | 探测设备、检查固件、生成分包、真实刷写 |
+| repo-firmware-flash-playbook.md | `$SKILL_ROOT/references/repo-firmware-flash-playbook.md` | 仓库信息定位方法和配置模板 |
+
+执行固件刷写时，先提取 `$SKILL_ROOT`，再用 `python "$SKILL_ROOT/scripts/repo_flash.py" ...` 调用。
+
+---
+
 ## 何时使用
 
 - 仓库里已经有升级链路，但 `VID/PID`、固件产物、OTA 指令、ACK 帧格式不能靠猜，必须先从代码里查。
