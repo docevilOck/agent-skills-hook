@@ -26,7 +26,7 @@ description: 在代码修改前需要编写实现架构文档且应优先用图�
 
 图怎么画、怎么命名、怎么渲染、怎么同步维护，统一遵循 [diagram-workflow](../diagram-workflow/SKILL.md)。
 
-架构文档默认落到 `docs/plans/YY-MM-DD_name/architecture/<feature-name>.puml` 和 `docs/plans/YY-MM-DD_name/architecture/<feature-name>.md`。
+架构文档默认落到 `docs/plans/YY-MM-DD_name/architecture/<feature-name>.md`。
 
 默认优先用于嵌入式 C / 纯 C / Rust / HTML 的改动，尤其是 BSP、驱动、协议、板级初始化和静态页面这类需要看边界的工作。
 
@@ -36,7 +36,7 @@ description: 在代码修改前需要编写实现架构文档且应优先用图�
 
 1. 如果仓库存在 `docs/architecture/`，先阅读 `01_架构总览.md` 和相关模块文档，确认本次改动是否在项目级架构规范允许范围内。
 2. 先出本次实现架构图，并标出遵守了哪些项目级约束。
-3. 再交给 `diagram-workflow`，细化同一份图，并决定哪些图可以自动 ASCII，哪些图必须手写 ASCII。
+3. 再交给 `diagram-workflow`，按规范手写 ASCII 图到 `.md`。
 4. 图确认后，再进入 `writing-plans`，把已确认设计拆成执行计划。
 5. 实现完成并拿到验证证据后，默认进入 `implementation-final-gate`，按图对照代码实现是否一致。
 
@@ -53,9 +53,9 @@ description: 在代码修改前需要编写实现架构文档且应优先用图�
    - 是否改变公共接口、外部行为或状态所有权
    - 是否触发项目级"架构变更门禁"
 3. 先出图，后补文。
-4. 按 `diagram-workflow` 选图策略：复杂图默认手写 ASCII，简单图才可参考自动 ASCII 渲染。
+4. 按 `diagram-workflow` 绘制规范手写所有 ASCII 图。
 5. 检查是否做到“看图即可理解主信息”。
-6. 在每张 ASCII 图附近标注对应 `.puml` 源路径。
+6. 在每张 ASCII 图上方标注图的用途和来源。
 7. 如果看不清，优先重画，不优先补长文。
 
 ## C 代码设计约束前置
@@ -100,7 +100,7 @@ description: 在代码修改前需要编写实现架构文档且应优先用图�
 - 接到哪里
 - 主流程怎么走
 - 前后差了什么
-- 每张 ASCII 图对应的 `.puml` 在哪
+- 每张 ASCII 图是否按 diagram-workflow 规范绘制
 
 如果仓库存在 `docs/architecture/`，还必须讲清楚：
 

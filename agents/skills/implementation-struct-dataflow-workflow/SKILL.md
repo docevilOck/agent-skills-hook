@@ -36,7 +36,6 @@ detail 文档默认采用“图优先，文辅佐”表达，只写本次改动�
 - `structures/<name>.md`
 - `dataflow/<name>.md`
 - `flows/<name>.md`
-- `flows/<name>.puml`（如保留图源）
 
 `overview` / `index` 类总览文档必须放在 `detail/` 根目录，不要放进 `structures/`、`dataflow/` 或 `flows/`。子目录只放对应职责的详述文档和图源。
 
@@ -94,7 +93,6 @@ detail 文档默认采用“图优先，文辅佐”表达，只写本次改动�
 2. `detail/structures/*.md`
 3. `detail/dataflow/*.md`
 4. `detail/flows/*.md`
-5. `detail/flows/*.puml`
 
 `detail/<name>-overview.md` 必须索引所有子文档。`dataflow` 和 `flows` 文档必须引用对应结构体文档名，保证后续 `implementation-final-gate` 能做一一映射。总览先给图，再给一句话导航。
 
@@ -158,7 +156,6 @@ detail 文档默认采用“图优先，文辅佐”表达，只写本次改动�
 
 - `flows/<name>-main.md`
 - `flows/<name>-exceptions.md`
-- `flows/<name>-main.puml`
 
 其中：
 
@@ -205,7 +202,6 @@ detail/
 └── flows/
     ├── main.md                    # 主流程图与简述
     ├── exceptions.md              # 异常路径流程
-    └── main.puml                  # 主流程图源
 
 阅读顺序：overview -> structures/job-context -> dataflow/rx-details -> flows/main
 ```
@@ -219,8 +215,7 @@ detail/
 
 如果图本身就复杂到需要独立维护，则采用：
 
-- `.puml` 只存图源
-- `.md` 只放 ASCII 图、用途说明、阅读提示和关联文档
+- `.md` 只放 ASCII 图和用途说明
 
 不要把几十行图源、ASCII 图和长篇解释混在同一个 markdown 里。
 

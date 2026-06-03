@@ -36,7 +36,7 @@ description: 用户需要为新项目或现有项目初始化项目级架构规�
 1. 按"探索要求"探索仓库，形成模块候选、职责候选和依赖候选
 2. 写架构总览 `01_架构总览.md`，按"架构总览模板"编写
 3. 为每个模块写独立规范文档，放入 `modules/` 目录，按"模块规范模板"编写
-4. 需要图示时，保留 `.puml` 图源到 `diagrams/`；最终展示优先 ASCII，复杂图默认手写 ASCII，并在图附近标注源文件路径
+4. 需要图示时，按 diagram-workflow 规范手写 ASCII 到 `.md`，图附近标注用途说明
 5. 创建或更新仓库根目录的 `AGENTS.md`，写入架构规范读取和变更门禁规则（见下方"AGENTS.md 规则注入"）
 6. 全部完成后做验收检查（见"验收标准"）
 
@@ -63,8 +63,8 @@ docs/architecture/
 │   ├── 02_<模块名>.md        # 按序号命名，子模块用 02-01_<子模块名>.md
 │   ├── 03_<模块名>.md
 │   └── ...
-└── diagrams/                 # PlantUML 源文件（保留结构化图源，即使最终展示是手写 ASCII）
-    └── *.puml
+└── diagrams/                 # 架构图文件（手写 ASCII 到 .md）
+    └── *.md
 ```
 
 ## AGENTS.md 规则注入
@@ -124,7 +124,7 @@ docs/architecture/
 - <原则2：例如 设备状态只归 Driver Context 持有>
 
 ## 模块全景图
-<!-- 展示最终 ASCII 图；复杂总览图默认手写；图前或图后标注 Source: diagrams/<file>.puml -->
+<!-- 展示最终 ASCII 图；图前标注用途 -->
 
 ## 模块列表
 
@@ -198,10 +198,10 @@ docs/architecture/
 - 必须先更新架构文档再改：<职责迁移/依赖新增/状态所有权变化>
 
 ## 架构图
-<!-- 展示最终 ASCII 图；复杂图默认手写；图前或图后标注 Source: diagrams/<file>.puml -->
+<!-- 展示最终 ASCII 图；遵循 diagram-workflow 规范 -->
 
 ## 关键流程
-<!-- 核心业务/数据流程，一图一事；复杂图默认手写 ASCII；图前或图后标注 Source: diagrams/<file>.puml -->
+<!-- 核心业务/数据流程，一图一事；遵循 diagram-workflow 规范 -->
 
 ## 主要数据结构
 <!-- 模块内关键结构体、类、接口，每个附简要说明 -->
@@ -223,9 +223,7 @@ docs/architecture/
 
 ## 图怎么画
 
-使用 `plantuml-ascii` 辅助维护图源与简单图预览。`plantuml.jar` 在 `plantuml-ascii` skill 的同级目录下。
-
-**默认规则：** 项目总览图、模块关系全景图、带多个侧挂节点或长标签的复杂图，不使用 PlantUML `-txt/-utxt` 自动渲染结果作为最终展示图；最终展示改为手写 ASCII，同时保留 `.puml` 源图。
+图画法统一遵循 [diagram-workflow](../diagram-workflow/SKILL.md) 规范。所有图直接手写 ASCII 到 `.md`，不经过 PlantUML。
 
 优先画：
 
@@ -236,10 +234,9 @@ docs/architecture/
 
 画图步骤：
 
-1. 编写 `.puml` 源文件，放入 `diagrams/` 目录
-2. 判断图是否属于复杂图；复杂图直接手写 ASCII，简单图才可参考 `-txt/-utxt` 输出
-3. 从 `plantuml-ascii` skill 目录找到 `plantuml.jar`，必要时执行 `java -jar <skill目录>/plantuml.jar -utxt <file>.puml` 做预览或简单图输出
-4. 在对应架构文档里放入最终 ASCII 图，并标注 `Source: diagrams/<file>.puml`
+1. 按 diagram-workflow 选图策略确定图型
+2. 手写 ASCII 图到对应 `.md` 文档
+3. 在图上方标注用途说明
 
 ## 验收标准
 

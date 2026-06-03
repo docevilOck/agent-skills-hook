@@ -3,7 +3,7 @@
 ```markdown
 # [流程名] 流程图
 
-> 如果一张图已经覆盖多个子问题，overview 必须写到 `detail/<name>-overview.md`；本目录只放 `*-main.md`、`*-exceptions.md` 和 `.puml` 图源，不要把所有路径塞进一个文件。
+> 如果一张图已经覆盖多个子问题，overview 必须写到 `detail/<name>-overview.md`；本目录只放 `*-main.md` 和 `*-exceptions.md`，不要把所有路径塞进一个文件。
 
 ## 1. 目的
 [这条流程回答什么问题]

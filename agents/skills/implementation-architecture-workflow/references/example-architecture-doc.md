@@ -5,11 +5,10 @@
 这份示例展示的是：在真正开始实现前，这个 skill 需要产出什么样的文档。
 图形细节、命名和渲染规则统一遵循 `diagram-workflow`。
 
-## 文件对
+## 文件
 
-- `examples/26-05-03_workflow-overview.puml`
 - `examples/26-05-03_workflow-overview.md`
-- 文件名示例：`26-05-03_workflow-overview.puml`、`26-05-03_workflow-overview.md`
+- 文件名示例：`26-05-03_workflow-overview.md`
 
 ## 文档结构
 
@@ -20,8 +19,7 @@
 [一句话说明本次改动解决什么问题，以及不覆盖什么]
 
 ## 2. 架构总览
-Source: examples/26-05-03_workflow-overview.puml
-[最终展示 ASCII 图；复杂图可为手工维护版本]
+[手工 ASCII 图，遵循 diagram-workflow 规范]
 
 ## 3. 现有代码接入点
 [编号接入点图]
@@ -44,9 +42,8 @@ Source: examples/26-05-03_workflow-overview.puml
 
 ## 示例规则
 
-- `.puml` 源文件要和 `.md` 展示文档放在一起
-- 复杂图默认手工维护 ASCII，不把 PlantUML ASCII 自动输出直接作为最终展示
-- 只要 `.puml` 改了，就要检查 `.md` 中的展示图是否仍然准确
-- 不要先写展示图，再倒着猜源文件
-- 如果别人看不懂 ASCII，先判断是不是该改成手工 ASCII
-- 文档只保留实现直接需要的信息，不要写对话问答、方案说服或“当前结论/建议路线”类章节
+- 图直接手写 ASCII 到 `.md`，不保留中间源文件
+- 复杂图默认手工维护 ASCII，全部遵循 diagram-workflow 规范
+- 图有改动时直接重画整张，不局部修补
+- 如果别人看不懂 ASCII，优先重画而不是补长文
+- 文档只保留实现直接需要的信息，不要写对话问答、方案说服或”当前结论/建议路线”类章节

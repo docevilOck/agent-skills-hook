@@ -4,9 +4,8 @@
 
 这份示例展示的是：一个图文档应该怎么组织，才适合后续反复维护。
 
-## 文件对
+## 文件
 
-- `examples/26-05-03_diagram-workflow-overview.puml`
 - `examples/26-05-03_diagram-workflow-overview.md`
 
 ## 文档结构
@@ -17,10 +16,8 @@
 ## 1. 说明
 [一句话说明这张图回答什么问题]
 
-Source: examples/26-05-03_diagram-workflow-overview.puml
-
 ## 2. ASCII 图
-[最终展示 ASCII 图；复杂图可为手工维护版本]
+[遵循 diagram-workflow 规范手写的 ASCII 图]
 
 ## 3. 备注
 [必要时补少量说明或表格]
@@ -37,7 +34,6 @@ Source: examples/26-05-03_diagram-workflow-overview.puml
 [这里是人工维护的正文，不因图更新而整段重写]
 
 ## 2. 当前结构图
-Source: diagrams/module-entry.puml
 
 ```text
 [这里只替换当前图块]
@@ -47,14 +43,12 @@ Source: diagrams/module-entry.puml
 [这里是人工维护的说明、约束或表格，默认保留]
 ````
 
-这种文档在图更新时，只替换 `## 2. 当前结构图` 下的 `Source:` 和 ASCII 图代码块，不整份覆盖。
+这种文档在图更新时，只替换 `## 2. 当前结构图` 下的 ASCII 图代码块，不整份覆盖。
 
 ## 示例规则
 
-- `.puml` 源文件要和 `.md` 展示文档放在一起，便于同步维护
-- 只要调用这个 skill 修改图，就默认同时更新 `.puml` 和 `.md`，不要只改源图不改 text/ASCII 图
-- 复杂图默认手工维护 ASCII，不把 PlantUML ASCII 自动输出直接作为最终展示
-- 只要 `.puml` 改了，就要回看 `.md` 中的 ASCII 图是否仍然准确
-- 纯图展示文档可以整份刷新；带正文的图文档只替换图块和必要的 `Source:` 行
-- 不要先写展示图，再倒着猜源文件
-- 如果别人看不懂 ASCII，先判断是不是该改成手工 ASCII，而不是默认继续重渲染
+- 图直接手写 ASCII 到 `.md`，不保留中间源文件
+- 复杂图默认手工维护 ASCII，全部遵循 diagram-workflow 规范
+- 图有改动时直接重画整张，不局部补丁
+- 纯图展示文档可以整份刷新；带正文的图文档只替换图块
+- 如果别人看不懂 ASCII，优先重画而不是补长文

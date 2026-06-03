@@ -1,37 +1,32 @@
 # 图形方法示例
 
-说明：这里展示的是通用画图方法本身，业务 skill 只负责说明要画什么。
-
-Source: examples/26-05-03_diagram-workflow-overview.puml
+说明：展示 diagram-workflow 的工作流程，直接手写 ASCII 到 `.md`。
 
 ```text
-                                     Diagram Workflow Overview                                 
-                                                                                               
-         ,-.                                                                                   
-         `-'                                                                                   
-         /|\                                                                                   
-          |               ,----------------.          ,---------------.          ,------------.
-         / \              |diagram-workflow|          |PlantUML source|          |ASCII render|
-      Developer           `-------+--------'          `-------+-------'          `-----+------'
-          |   request diagram     |                           |                        |       
-          |---------------------->|                           |                        |       
-          |                       |                           |                        |       
-          |                       |       write source        |                        |       
-          |                       | ------------------------->|                        |       
-          |                       |                           |                        |       
-          |                       |----.                      |                        |       
-          |                       |    | choose diagram type  |                        |       
-          |                       |<---'                      |                        |       
-          |                       |                           |                        |       
-          |                       |                 render text diagram                |       
-          |                       | --------------------------------------------------->       
-          |                       |                           |                        |       
-          |  review and refine    |                           |                        |       
-          |<- - - - - - - - - - - |                           |                        |       
-      Developer           ,-------+--------.          ,-------+-------.          ,-----+------.
-         ,-.              |diagram-workflow|          |PlantUML source|          |ASCII render|
-         `-'              `----------------'          `---------------'          `------------'
-         /|\                                                                                   
-          |                                                                                    
+                                    Diagram Workflow Overview
+
+         ,-.
+         `-'
+         /|\
+          |               ,----------------.          ,-------------.
+         / \              |diagram-workflow|          |  final .md  |
+      Developer           `-------+--------'          `------+------'
+          |   request diagram     |                          |
+          |---------------------->|                          |
+          |                       |                          |
+          |                       |----.                     |
+          |                       |    | choose diagram type |
+          |                       |<---'                     |
+          |                       |                          |
+          |                       |   hand-draw ASCII        |
+          |                       |------------------------->|
+          |                       |                          |
+          |  review and refine    |                          |
+          |<- - - - - - - - - - - |                          |
+      Developer           ,-------+--------.          ,------+------.
+         ,-.              |diagram-workflow|          |  final .md  |
+         `-'              `----------------'          `-------------'
+         /|\
+          |
          / \
 ```
