@@ -82,7 +82,33 @@ def convert_file(filepath, use_bom=True):
     print(f"Converted: {filepath} ({enc} -> utf-8{'-sig' if use_bom else ''})")
 
 
+def _sanitize_comment(text):
+    """移除注释文本中可能导致换行的实际 CR/LF 字节，防止破坏单行宏格式。"""
+    if not text:
+        return ""
+    return text.replace("\r\n", " ").replace("\r", " ").replace("\n", " ")
+
+
+def _sanitize_macro_value(value):
+    """确保宏值中不含真实的 CR/LF 控制字节。
+
+    宏值来自命令行 --macro-value，通常已经包含合法的 C 转义序列
+    （如 \\xB2、\\n、\\r）。本函数只处理漏网的真实控制字符：
+    - 真实 CR (0x0D) → \\r
+    - 真实 LF (0x0A) → \\n
+    不触碰已有的反斜杠转义序列。
+    """
+    if not value:
+        return value
+    # 仅替换真实控制字节，不碰反斜杠
+    value = value.replace("\r", "\\r")
+    value = value.replace("\n", "\\n")
+    return value
+
+
 def create_macro_header(filepath, macro_name, macro_value, macro_comment):
+    comment = _sanitize_comment(macro_comment or macro_name)
+    value = _sanitize_macro_value(macro_value)
     content = "\r\n".join(
         [
             "#ifndef _TEXT_H",
@@ -95,7 +121,7 @@ def create_macro_header(filepath, macro_name, macro_value, macro_comment):
             " */",
             "",
             "/* ===== 运行期中文文本 ===== */",
-            f'#define {macro_name}  "{macro_value}"  /* {macro_comment} */',
+            f'#define {macro_name}  "{value}"  /* {comment} */',
             "",
             "#endif /* _TEXT_H */",
             "",

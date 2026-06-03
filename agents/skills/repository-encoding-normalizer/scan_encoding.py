@@ -73,21 +73,76 @@ def is_chinese_char(ch):
     return (0x4E00 <= cp <= 0x9FFF) or (0x3400 <= cp <= 0x4DBF) or (0xF900 <= cp <= 0xFAFF)
 
 
+# 编码敏感的特殊符号：这些字符在 GBK/UTF-8 间有不同的字节表示，
+# 编码转换时容易遗漏或损坏。涵盖度数、数学、希腊字母、箭头、货币等。
+_SPECIAL_RANGES = [
+    (0x00A0, 0x00FF),   # Latin-1 Supplement: ° ± ² ³ ´ µ ¶ · × ÷ £ ¥ § © ®
+    (0x0370, 0x03FF),   # Greek: Α Β Γ Δ ... Ω α β γ δ ... ω
+    (0x2000, 0x206F),   # General Punctuation: – — … ※
+    (0x2070, 0x209F),   # Superscripts/Subscripts: ⁰ ⁱ ⁴ ₀ ₁
+    (0x20A0, 0x20CF),   # Currency Symbols: € ₠ ₡ ₢ ₣ ₤ ₥ ₦ ₧ ₨ ₩ ₪ ₫
+    (0x2100, 0x214F),   # Letterlike Symbols: ℃ ℉ № ℡
+    (0x2150, 0x218F),   # Number Forms: ⅓ ⅔ ⅛ ⅜
+    (0x2190, 0x21FF),   # Arrows: ← ↑ → ↓ ↔ ↕
+    (0x2200, 0x22FF),   # Mathematical Operators: ∀ ∂ ∃ ∀ ∑ − ∕ ∙ √ ∞ ∟ ∠ ∣ ∥
+    (0x2260, 0x22FF),   # (subset of math ops, covered above)
+    (0x2300, 0x23FF),   # Miscellaneous Technical: ⌂ ⌃ ⌄
+    (0x2460, 0x24FF),   # Enclosed Alphanumerics: ① ② ③
+    (0x2500, 0x257F),   # Box Drawing: ─ │ ┌ ┐
+    (0x2580, 0x259F),   # Block Elements: ▀ ▄ █ ▌
+    (0x25A0, 0x25FF),   # Geometric Shapes: ■ □ ▪ ▫ ▬ ▭ ▮ ▯ ▰ ▱ ▲ △ ▴ ▵ ▶ ▷
+    (0x2600, 0x26FF),   # Miscellaneous Symbols: ☀ ☁ ★ ☆ ☎ ☏ ☐
+    (0x3000, 0x303F),   # CJK Symbols/Punctuation: 、 。 〃 々 〆
+    (0xFF00, 0xFFEF),   # Halfwidth/Fullwidth Forms: ！ ＂ ＃ ＄ ％ ＆ ＇
+]
+
+# 额外点状列表（不在范围覆盖内的常用单字符）
+_EXTRA_SPECIAL_CHARS = set("～‖〓")
+
+def is_special_char(ch):
+    """检测编码敏感的非 ASCII 特殊符号（非 CJK 汉字）。"""
+    cp = ord(ch)
+    if cp <= 0x7F:
+        return False
+    # 排除 CJK 汉字本体（由 is_chinese_char 单独识别）
+    if is_chinese_char(ch):
+        return False
+    # 排除全角 CJK 标点范围内的常见中文标点（这些跟汉字一样处理）
+    if 0x3000 <= cp <= 0x303F:
+        return False
+    if 0xFF00 <= cp <= 0xFF5E:  # 全角字母数字（Ｆｕｌｌｗｉｄｔｈ）
+        return False
+    # 检查是否在编码敏感范围内
+    for lo, hi in _SPECIAL_RANGES:
+        if lo <= cp <= hi:
+            return True
+    return ch in _EXTRA_SPECIAL_CHARS
+
+
+def is_notable_char(ch):
+    """综合检测：中文 或 编码敏感特殊符号。"""
+    return is_chinese_char(ch) or is_special_char(ch)
+
+
 def classify_file(summary):
     has_comment = summary["comment"] > 0
     has_string = summary["string"] > 0
     has_code = summary["code"] > 0
-    if has_string and has_comment:
+    has_special_string = summary.get("special_string", 0) > 0
+    has_special_comment = summary.get("special_comment", 0) > 0
+    has_special_code = summary.get("special_code", 0) > 0
+    # 特殊符号在运行期字符串中同样重要
+    if (has_string or has_special_string) and (has_comment or has_special_comment):
         return "mixed_comment_and_runtime"
-    if has_string:
+    if has_string or has_special_string:
         return "string_or_runtime"
-    if has_comment and has_code:
+    if (has_comment or has_special_comment) and (has_code or has_special_code):
         return "mixed_comment_and_code"
-    if has_comment:
+    if has_comment or has_special_comment:
         return "comment_only"
-    if has_code:
+    if has_code or has_special_code:
         return "code_only_needs_review"
-    return "no_chinese"
+    return "no_notable_chars"
 
 
 def finalize_line(lines, line_no, chars):
@@ -117,6 +172,8 @@ def analyze_line_text(text):
                 quote = ch
             elif is_chinese_char(ch):
                 results.append((i, ch, "code"))
+            elif is_special_char(ch):
+                results.append((i, ch, "special_code"))
         elif state == "string":
             if ch == "\\" and i + 1 < len(text):
                 i += 1
@@ -125,22 +182,29 @@ def analyze_line_text(text):
                 quote = None
             elif is_chinese_char(ch):
                 results.append((i, ch, "string"))
+            elif is_special_char(ch):
+                results.append((i, ch, "special_string"))
         elif state == "line_comment":
             if is_chinese_char(ch):
                 results.append((i, ch, "comment"))
+            elif is_special_char(ch):
+                results.append((i, ch, "special_comment"))
         elif state == "block_comment":
             if ch == "*" and nxt == "/":
                 state = "code"
                 i += 1
             elif is_chinese_char(ch):
                 results.append((i, ch, "comment"))
+            elif is_special_char(ch):
+                results.append((i, ch, "special_comment"))
         i += 1
     return results
 
 
 def analyze_text(text):
     lines = []
-    summary = {"comment": 0, "string": 0, "code": 0}
+    summary = {"comment": 0, "string": 0, "code": 0,
+               "special_comment": 0, "special_string": 0, "special_code": 0}
     state = "code"
     quote = None
     current_line = []
@@ -164,6 +228,9 @@ def analyze_text(text):
             elif is_chinese_char(ch):
                 line_hits.append((len(current_line) - 1, ch, "code"))
                 summary["code"] += 1
+            elif is_special_char(ch):
+                line_hits.append((len(current_line) - 1, ch, "special_code"))
+                summary["special_code"] += 1
         elif state == "string":
             if ch == "\\" and i + 1 < len(text):
                 current_line.append(nxt)
@@ -174,16 +241,25 @@ def analyze_text(text):
             elif is_chinese_char(ch):
                 line_hits.append((len(current_line) - 1, ch, "string"))
                 summary["string"] += 1
+            elif is_special_char(ch):
+                line_hits.append((len(current_line) - 1, ch, "special_string"))
+                summary["special_string"] += 1
         elif state == "line_comment":
             if is_chinese_char(ch):
                 line_hits.append((len(current_line) - 1, ch, "comment"))
                 summary["comment"] += 1
+            elif is_special_char(ch):
+                line_hits.append((len(current_line) - 1, ch, "special_comment"))
+                summary["special_comment"] += 1
         elif state == "block_comment":
             if ch == "*" and nxt == "/":
                 state = "code"
             elif is_chinese_char(ch):
                 line_hits.append((len(current_line) - 1, ch, "comment"))
                 summary["comment"] += 1
+            elif is_special_char(ch):
+                line_hits.append((len(current_line) - 1, ch, "special_comment"))
+                summary["special_comment"] += 1
 
         if ch == "\n":
             if line_hits:
@@ -198,9 +274,9 @@ def analyze_text(text):
     if current_line and line_hits:
         lines.append((line_no, "".join(current_line).rstrip("\r"), list(line_hits)))
 
-    has_chinese = any(summary.values())
+    has_notable = any(summary.values())
     return {
-        "has_chinese": has_chinese,
+        "has_notable": has_notable,
         "lines": lines,
         "summary": summary,
         "file_class": classify_file(summary),
@@ -210,21 +286,27 @@ def analyze_text(text):
 def write_markdown_report(results, out_path):
     with open(out_path, "w", encoding="utf-8") as fh:
         fh.write("# 仓库原始编码审计\n\n")
-        fh.write("| 文件路径 | 原始编码 | 文件分类 | 包含中文行数 | 字符串字面量 | 注释 | 代码区 |\n")
-        fh.write("|---|---|---|---|---|---|---|\n")
+        fh.write("| 文件路径 | 原始编码 | 文件分类 | 含中文+特殊符号行数 | 中文:字符串/注释/代码 | 特殊符号:字符串/注释/代码 |\n")
+        fh.write("|---|---|---|---|---|---|\n")
         for result in results:
             summary = result["summary"]
+            spe_str = summary.get("special_string", 0)
+            spe_cmt = summary.get("special_comment", 0)
+            spe_cod = summary.get("special_code", 0)
             fh.write(
                 f"| {result['path']} | {result['encoding']} | {result['file_class']} | "
-                f"{len(result['lines'])} | {summary['string']} | {summary['comment']} | {summary['code']} |\n"
+                f"{len(result['lines'])} | {summary['string']}/{summary['comment']}/{summary['code']} | "
+                f"{spe_str}/{spe_cmt}/{spe_cod} |\n"
             )
 
         fh.write("\n\n## 文件分类说明\n\n")
-        fh.write("- `comment_only`: 只有注释含中文，可优先视为注释保留类文件。\n")
-        fh.write("- `string_or_runtime`: 含字符串字面量中文，优先视为运行期文本候选。\n")
-        fh.write("- `mixed_comment_and_runtime`: 同时含注释中文和字符串中文。\n")
-        fh.write("- `mixed_comment_and_code`: 注释区和代码区均有中文，需人工复核。\n")
-        fh.write("- `code_only_needs_review`: 中文落在代码区，通常异常，需人工复核。\n")
+        fh.write("- `comment_only`: 只有注释含中文或特殊符号，可优先视为注释保留类文件。\n")
+        fh.write("- `string_or_runtime`: 含字符串字面量中文或编码敏感的特殊符号(如℃°±→)，优先视为运行期文本候选。\n")
+        fh.write("- `mixed_comment_and_runtime`: 同时含注释中文/特殊符号和字符串中文/特殊符号。\n")
+        fh.write("- `mixed_comment_and_code`: 注释区和代码区均有中文或特殊符号，需人工复核。\n")
+        fh.write("- `code_only_needs_review`: 中文或特殊符号落在代码区，通常异常，需人工复核。\n")
+        fh.write("\n> **注意**: 特殊符号列统计的是编码敏感的非 ASCII 符号，如 ℃、°、±、×、÷、μ、Ω、→、★ 等。\n")
+        fh.write("> 这些符号在 GBK/UTF-8 间字节表示不同，编码转换时需同步处理。\n")
 
         fh.write("\n## 详细清单\n\n")
         for result in results:
@@ -274,7 +356,7 @@ def main():
             print(f"WARN: cannot decode {rel} with {encoding}: {exc}")
             continue
         analyzed = analyze_text(text)
-        if analyzed["has_chinese"]:
+        if analyzed["has_notable"]:
             results.append(
                 {
                     "path": rel.replace("\\", "/"),
@@ -289,7 +371,7 @@ def main():
     write_markdown_report(results, out_path)
     if args.json_out:
         write_json_report(results, Path(repo_root) / args.json_out)
-    print(f"Scanned {len(files)} files, found {len(results)} files with Chinese characters.")
+    print(f"Scanned {len(files)} files, found {len(results)} files with Chinese characters or special symbols.")
     print(f"Report written to {out_path}")
 
 
