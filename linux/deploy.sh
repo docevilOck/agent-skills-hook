@@ -34,27 +34,6 @@ if [ ! -f "$OPENCODE_CONFIG/opencode.json" ]; then
   exit 1
 fi
 
-merge_missing_skills() {
-  local src="$1"
-  local real="$src"
-  [ -e "$src" ] || return 0
-  if [ -L "$src" ]; then
-    real="$(readlink -f "$src" 2>/dev/null || true)"
-  fi
-  [ -d "$real" ] || return 0
-
-  shopt -s nullglob dotglob
-  for item in "$real"/*; do
-    [ -e "$item" ] || continue
-    local name
-    name="$(basename "$item")"
-    if [ ! -e "$REPO_SKILLS/$name" ]; then
-      cp -a "$item" "$REPO_SKILLS/"
-    fi
-  done
-  shopt -u nullglob dotglob
-}
-
 safe_link() {
   local link_path="$1"
   local target_path="$2"
@@ -175,10 +154,6 @@ if [ "$TARGET" = "codex" ] || [ "$TARGET" = "all" ]; then
   cp -a "$CONFIG_ROOT/codex/AGENTS.md" "$HOME/.codex/AGENTS.md"
   safe_link "$HOME/.codex/agents" "$CODEX_AGENTS"
 
-  # 合并 skills
-  merge_missing_skills "$HOME/.codex/skills"
-
-  # 创建软链接
   safe_link "$HOME/.codex/skills" "$REPO_SKILLS"
 
   if [ -e "$HOME/.agents/skills" ]; then
@@ -205,11 +180,6 @@ if [ "$TARGET" = "opencode" ] || [ "$TARGET" = "all" ]; then
   cp -a "$CONFIG_ROOT/opencode/AGENTS.md" "$HOME/.config/opencode/AGENTS.md"
   merge_json_config "$OPENCODE_CONFIG/opencode.json" "$HOME/.config/opencode/opencode.json"
 
-  # 合并 skills
-  merge_missing_skills "$HOME/.config/opencode/skills"
-  merge_missing_skills "$HOME/.claude/skills"
-
-  # 创建软链接
   safe_link "$HOME/.config/opencode/skills" "$REPO_SKILLS"
   safe_link "$HOME/.claude/skills" "$HOME/.config/opencode/skills"
 
@@ -236,10 +206,6 @@ if [ "$TARGET" = "claude" ] || [ "$TARGET" = "all" ]; then
   cp -a "$CONFIG_ROOT/AGENTS.md" "$HOME/.claude/AGENTS.md"
   cp -a "$CONFIG_ROOT/claude/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
 
-  # 合并 skills
-  merge_missing_skills "$HOME/.claude/skills"
-
-  # 创建软链接
   safe_link "$HOME/.claude/skills" "$REPO_SKILLS"
 
   echo "Claude Code deployed. Backup: $BACKUP_CL"

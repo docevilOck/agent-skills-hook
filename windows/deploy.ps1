@@ -76,20 +76,6 @@ function Safe-Link {
     Write-Host "Linked: $LinkPath -> $TargetPath"
 }
 
-function Merge-MissingSkills {
-    param([string]$ExistingPath)
-
-    if (-not (Test-Path $ExistingPath)) { return }
-
-    Get-ChildItem $ExistingPath -Directory -ErrorAction SilentlyContinue | ForEach-Object {
-        $target = Join-Path $RepoSkills $_.Name
-        if (-not (Test-Path $target)) {
-            Copy-Item $_.FullName $target -Recurse -Force
-            Write-Host "Merged missing skill: $($_.Name)"
-        }
-    }
-}
-
 function Copy-DirectoryTree {
     param(
         [string]$Src,
@@ -230,7 +216,6 @@ if ($Target -eq "codex" -or $Target -eq "all") {
     # 部署配置（从 config/ 复制）
     Safe-Copy "$ConfigRoot\codex\AGENTS.md" "$CodexDir\AGENTS.md"
     Safe-Copy $CodexAgents "$CodexDir\agents"
-    Merge-MissingSkills "$CodexDir\skills"
     Safe-Link "$CodexDir\skills" $RepoSkills
     if (Test-Path "$env:USERPROFILE\.agents\skills") {
         Write-Host "Legacy Codex skill root detected at $env:USERPROFILE\.agents\skills. Archive or remove it to avoid duplicate skill scanning."
@@ -255,9 +240,7 @@ if ($Target -eq "opencode" -or $Target -eq "all") {
     New-Item -ItemType Directory -Path "$OpenCodeDir" -Force | Out-Null
     Safe-Copy "$ConfigRoot\opencode\AGENTS.md" "$OpenCodeDir\AGENTS.md"
     Merge-JsonConfig "$ConfigRoot\opencode\opencode.json" "$OpenCodeDir\opencode.json"
-    Merge-MissingSkills "$OpenCodeDir\skills"
     Safe-Link "$OpenCodeDir\skills" $RepoSkills
-    Merge-MissingSkills "$env:USERPROFILE\.claude\skills"
     Safe-Link "$env:USERPROFILE\.claude\skills" "$OpenCodeDir\skills"
     if (Test-Path "$env:USERPROFILE\.agents\skills") {
         Write-Host "Legacy shared skill root detected at $env:USERPROFILE\.agents\skills. OpenCode now uses $OpenCodeDir\skills as the primary user skill root."
@@ -282,7 +265,6 @@ if ($Target -eq "claude" -or $Target -eq "all") {
     New-Item -ItemType Directory -Path "$ClaudeDir" -Force | Out-Null
     Safe-Copy "$ConfigRoot\AGENTS.md" "$ClaudeDir\AGENTS.md"
     Safe-Copy "$ConfigRoot\claude\CLAUDE.md" "$ClaudeDir\CLAUDE.md"
-    Merge-MissingSkills "$ClaudeDir\skills"
     Safe-Link "$ClaudeDir\skills" $RepoSkills
     
     Write-Host "Claude Code deployed. Backup: $BackupCL"
