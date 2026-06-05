@@ -7,6 +7,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="${REPO_ROOT:-$(dirname "$SCRIPT_DIR")}"
 TARGET="${TARGET:-all}"
+SKIP_CONTEXT_MODE="${SKIP_CONTEXT_MODE:-0}"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 
 # Skills 位于仓库根目录
@@ -19,7 +20,7 @@ OPENCODE_CONFIG="$CONFIG_ROOT/opencode"
 SHARED_CONFIG_ROOT="$CONFIG_ROOT/shared"
 
 if [ ! -d "$REPO_SKILLS" ]; then
-  echo "ERROR: $REPO_SKILLS missing. Run 'git submodule update --init --recursive agents/skills' first." >&2
+  echo "ERROR: $REPO_SKILLS missing. Skills directory not found." >&2
   exit 1
 fi
 
@@ -147,6 +148,17 @@ show_codegraph_reminder() {
 ensure_codegraph_installed
 show_codegraph_reminder
 
+# Context Mode 部署（默认开启）
+if [ "$SKIP_CONTEXT_MODE" != "1" ]; then
+  echo "Deploying context-mode..."
+  if command -v context-mode >/dev/null 2>&1; then
+    echo "context-mode already installed: $(command -v context-mode)"
+  else
+    echo "Installing context-mode via npm..."
+    npm install -g context-mode
+  fi
+fi
+
 # Codex 部署
 if [ "$TARGET" = "codex" ] || [ "$TARGET" = "all" ]; then
   BACKUP_C="$HOME/.codex-backups/agent-skills-hook-$STAMP"
@@ -232,26 +244,5 @@ if [ "$TARGET" = "claude" ] || [ "$TARGET" = "all" ]; then
 
   echo "Claude Code deployed. Backup: $BACKUP_CL"
 fi
-
-# Qoder 部署（默认行为，每次运行无条件执行）
-BACKUP_Q="$HOME/.qoder-backups/agent-skills-hook-$STAMP"
-mkdir -p "$BACKUP_Q/qoder" "$BACKUP_Q/repo"
-
-# 备份现有配置
-[ -f "$HOME/.qoder/AGENTS.md" ] && cp -a "$HOME/.qoder/AGENTS.md" "$BACKUP_Q/qoder/AGENTS.md"
-[ -e "$HOME/.qoder/skills" ] && cp -a "$HOME/.qoder/skills" "$BACKUP_Q/qoder/"
-cp -a "$REPO_SKILLS" "$BACKUP_Q/repo/"
-
-# 部署配置（从 config/qoder/ 复制）
-mkdir -p "$HOME/.qoder"
-cp -a "$CONFIG_ROOT/qoder/AGENTS.md" "$HOME/.qoder/AGENTS.md"
-
-# 合并 skills
-merge_missing_skills "$HOME/.qoder/skills"
-
-# 创建软链接
-safe_link "$HOME/.qoder/skills" "$REPO_SKILLS"
-
-echo "Qoder deployed. Backup: $BACKUP_Q"
 
 echo "Deployment complete."

@@ -7,25 +7,57 @@
   - 技能来源（`~/.claude/skills`）
   - 可选指令文件（`~/.claude/settings.json`）若存在
 
+## 工具路由
+
+CodeGraph（`codegraph_*`）用于**结构查询**，Context Mode（`ctx_*` + `/context-mode:ctx-*`）用于**上下文保护**。能用结构化工具不先用通用命令；Shell 仅限 `git`/`mkdir`/`rm`/`mv`/`ls`/`npm install`/`pip install`，输出 >20 行须经 `ctx_execute` 包裹。
+
+### 统一工具映射表
+| 场景 | 工具 |
+|---|---|
+| 理解功能/架构 | `codegraph_context` / `codegraph_files` |
+| 找符号定义/定位 | `codegraph_search` / `codegraph_node` |
+| 追踪调用链 | `codegraph_trace` / `codegraph_callers` / `codegraph_callees` |
+| 评估改动影响 | `codegraph_impact` |
+| 查看多个符号源码 | `codegraph_explore` |
+| 字面量/文本搜索 | grep（≤20 行直接用；大输出用 `ctx_execute(language: "shell")`） |
+| 分析/统计/过滤/处理数据 | `ctx_execute`（沙箱，仅 `console.log()` 入上下文） |
+| 文件内容分析（非编辑） | `ctx_execute_file` |
+| 批量命令 + 自动索引 | `ctx_batch_execute` |
+| 网页抓取 | `ctx_fetch_and_index` |
+| 会话记忆/内容搜索 | `ctx_search` |
+| 内容索引存储 | `ctx_index` |
+| 诊断插件状态 | `/context-mode:ctx-doctor` |
+| 查看节省统计 | `/context-mode:ctx-stats` |
+| 升级/清理 | `/context-mode:ctx-upgrade` / `/context-mode:ctx-purge` |
+
+### 执行决策树
+```
+任务
+├─ 结构查询（符号/调用/架构）？
+│   ├─ 先 codegraph_context / codegraph_files 定位入口
+│   ├─ 未索引则 codegraph init -i <repo>
+│   └─ 禁止直接用 grep/Read 找定义
+│
+├─ 精确字符串匹配/穷举/快速确认？
+│   ├─ 输出 ≤20 行 → grep
+│   └─ 输出 >20 行 → ctx_execute(language: "shell")
+│
+├─ 数据处理/分析/网页/大输出？
+│   └─ 按上表选 ctx_* 或 /context-mode:ctx-* 工具
+│
+└─ 基础设施 shell（git/mkdir/rm/npm/pip）？
+    └─ 直接执行
+```
+
+### 阻断规则
+- **curl / wget** → 阻断。用 `ctx_execute(language: "javascript", code: "const r = await fetch(...)")` 或 `ctx_fetch_and_index`
+- **内联 HTTP**（`fetch(`、`requests.get`、`http.get`）→ 重定向到 `ctx_execute`
+- **grep 搜符号/定义** → 禁止。用 `codegraph_search` / `codegraph_context`
+- **Read 理解架构** → 禁止。用 `codegraph_context`；分析文件内容用 `ctx_execute_file`
+- **假设索引已存在** → 禁止。进入新仓库先 `codegraph init -i <repo>`
+
 ## 技能强制评估（每个用户请求）
 - 开始任何工作前，始终运行 `Skill(skill-forced-eval)` 并遵循其步骤。
-
-## Code Search
-- 需要按意图找代码、定位实现、理解某个功能怎么工作、或从已知位置继续找相关代码时，优先使用 `CodeGraph`，不要先用纯文本 grep。
-- 优先使用当前运行时提供的 `codegraph_*` 原生工具；先看 `codegraph_context` / `codegraph_files`，再按需用 `codegraph_node`、`codegraph_callers`、`codegraph_callees`、`codegraph_trace` 深挖。
-- 只有在需要精确字符串匹配、穷举字面量、或对搜索结果做快速确认时，才回退到 grep。
-- 若原生 `codegraph_*` 工具不可用，回退到 `PATH` 中的 `codegraph` CLI；优先使用 `codegraph init -i <path>`、`codegraph query`、`codegraph files`、`codegraph context`、`codegraph callers`、`codegraph callees`。
-- 不得假设任意 `CodeGraph` 索引已预先存在；进入新仓库时，先检查是否已初始化，必要时再执行 `codegraph init -i <repo>`。
-
-### Workflow
-- 先用 `codegraph_context` 或 `codegraph_files` 定位入口和相关文件。
-- 只有当结构化结果上下文不足时，才打开整个文件。
-- 找到关键符号后，继续用 `codegraph_node`、`codegraph_callers`、`codegraph_callees` 或 `codegraph_trace` 扩展到相关实现。
-
-## 工具选择
-- 优先使用当前运行时提供的原生工具或 MCP 工具；只有在原生工具或 MCP 工具不可用、能力不匹配、或明显低效时，才回退到命令行。
-- 能用结构化工具完成的任务，不要先用通用 shell 命令绕过它；尤其是搜索、浏览、提取和平台交互类任务。
-- 需要命令行回退时，只使用最小必要命令完成目标，并保留可复核的结果证据。
 
 ## 子代理路由
 - 开始实际执行前，先判断是否适合使用 Claude Code 内置子代理；默认提高分发倾向。

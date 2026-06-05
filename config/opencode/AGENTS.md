@@ -7,26 +7,12 @@
   - 技能来源（`~/.config/opencode/skills`）
   - 可选指令文件（`~/.config/opencode/opencode.json`）若存在
 
-## 技能强制评估（每个用户请求）
-- 开始任何工作前，始终运行 `skill` 工具加载 `skill-forced-eval` 并遵循其步骤。
+## 工具路由
 
-## Code Search（强制决策树）
+CodeGraph（`codegraph_*`）用于**结构查询**，Context Mode（`ctx_*`）用于**上下文保护**。能用结构化工具不先用通用命令；Shell 仅限 `git`/`mkdir`/`rm`/`mv`/`ls`/`npm install`/`pip install`，输出 >20 行须经 `ctx_execute` 包裹。
 
-### 执行流程
-```
-代码搜索请求
-├─ 结构查询（符号/调用/架构）？
-│   ├─ 先检查：codegraph_status
-│   │   ├─ 已初始化 → 选择工具（见下表）
-│   │   └─ 未初始化 → 询问用户是否初始化
-│   └─ 禁止直接用 grep/Read
-│
-└─ 字面量搜索（字符串/注释/日志）？
-    └─ 使用 grep
-```
-
-### 工具映射表
-| 需求 | 工具 |
+### 统一工具映射表
+| 场景 | 工具 |
 |---|---|
 | 找符号定义 | `codegraph_search` |
 | 理解功能/架构 | `codegraph_context` |
@@ -34,19 +20,49 @@
 | 查看调用者/被调用 | `codegraph_callers` / `codegraph_callees` |
 | 评估改动影响 | `codegraph_impact` |
 | 查看多个符号源码 | `codegraph_explore` |
-| 列出文件 | `codegraph_files` |
+| 列出项目文件 | `codegraph_files` |
+| 字面量/文本搜索 | grep（≤20 行直接用；大输出用 `ctx_execute(language: "shell")`） |
+| 分析/统计/过滤/处理数据 | `ctx_execute`（沙箱，仅 `console.log()` 入上下文） |
+| 文件内容分析（非编辑） | `ctx_execute_file` |
+| 批量命令 + 自动索引 | `ctx_batch_execute` |
+| 网页抓取 | `ctx_fetch_and_index` |
+| 会话记忆/内容搜索 | `ctx_search` |
+| 内容索引存储 | `ctx_index` |
+| 查看节省统计 | `ctx_stats` |
+| 诊断/升级/清理 | `ctx_doctor` / `ctx_upgrade` / `ctx_purge` |
 
-### 禁止行为
-- ❌ 未检查状态就用 grep 搜索符号
-- ❌ CodeGraph 可用时用 grep 搜索定义
-- ❌ 用 Read 逐个打开文件理解架构（应用 `codegraph_context`）
-- ❌ 用 grep 验证 CodeGraph 结果（信任 AST 解析）
-- ❌ 假设索引已存在（每次先检查状态）
+### 执行决策树
+```
+任务
+├─ 结构查询（符号/调用/架构）？
+│   ├─ 先 codegraph_status → 未初始化则询问用户
+│   ├─ 已初始化 → 按上表选 codegraph_* 工具
+│   └─ 禁止直接用 grep/Read 找定义
+│
+├─ 字面量/文本搜索？
+│   ├─ 输出 ≤20 行 → grep
+│   └─ 输出 >20 行 → ctx_execute(language: "shell")
+│
+├─ 数据处理/分析/网页/大输出？
+│   └─ 按上表选 ctx_* 工具
+│
+└─ 基础设施 shell（git/mkdir/rm/npm/pip）？
+    └─ 直接执行
+```
 
-## 工具选择
-- 优先使用当前运行时提供的原生工具或 MCP 工具；只有在原生工具或 MCP 工具不可用、能力不匹配、或明显低效时，才回退到命令行。
-- 能用结构化工具完成的任务，不要先用通用 shell 命令绕过它；尤其是搜索、浏览、提取和平台交互类任务。
-- 需要命令行回退时，只使用最小必要命令完成目标，并保留可复核的结果证据。
+### 阻断规则
+- **curl / wget** → 阻断。用 `ctx_execute(language: "javascript", code: "const r = await fetch(...)")` 或 `ctx_fetch_and_index`
+- **内联 HTTP**（`fetch(`、`requests.get`、`http.get`）→ 阻断。用 `ctx_execute`
+- **grep 搜符号** → 禁止。用 `codegraph_search`
+- **Read 理解架构** → 禁止。用 `codegraph_context`；分析文件内容用 `ctx_execute_file`
+- **假设索引已存在** → 禁止。每次先 `codegraph_status`
+- **grep 验证 CodeGraph 结果** → 禁止。信任 AST 解析
+
+### 会话连续性
+- 压缩/恢复后先用 `ctx_search` 搜索记忆，再问用户
+
+## 技能强制评估（每个用户请求）
+- 开始任何工作前，始终运行 `skill` 工具加载 `skill-forced-eval` 并遵循其步骤。
 
 ## 技能工具优先（强制）
 

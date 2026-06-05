@@ -1,9 +1,10 @@
 # agent-skills-hook Windows 部署脚本
-# 使用复制方式部署配置
+# 使用 Junction 目录链接部署 skills，配置使用复制方式
 
 param(
     [string]$Target = "all",
-    [string]$RepoRoot = ""
+    [string]$RepoRoot = "",
+    [switch]$SkipContextMode
 )
 
 if ($RepoRoot -eq "") {
@@ -20,7 +21,7 @@ $SharedConfigRoot = Join-Path $ConfigRoot "shared"
 
 # 验证 skills 目录存在
 if (-not (Test-Path $RepoSkills)) {
-    Write-Error "ERROR: $RepoSkills missing. Run 'git submodule update --init --recursive agents/skills' first."
+    Write-Error "ERROR: $RepoSkills missing. Skills directory not found."
     exit 1
 }
 
@@ -50,6 +51,43 @@ function Safe-Copy {
     }
     
     Copy-Item $Src $Dest -Recurse -Force
+}
+
+function Safe-Link {
+    param(
+        [string]$LinkPath,
+        [string]$TargetPath
+    )
+
+    $ParentDir = Split-Path $LinkPath -Parent
+    if ($ParentDir -and -not (Test-Path $ParentDir)) {
+        New-Item -ItemType Directory -Path $ParentDir -Force | Out-Null
+    }
+
+    if (Test-Path $LinkPath) {
+        $item = Get-Item $LinkPath -Force
+        if ($item.LinkType -and $item.Target -eq $TargetPath) {
+            return
+        }
+        Remove-Item $LinkPath -Recurse -Force
+    }
+
+    New-Item -ItemType Junction -Path $LinkPath -Target $TargetPath -Force | Out-Null
+    Write-Host "Linked: $LinkPath -> $TargetPath"
+}
+
+function Merge-MissingSkills {
+    param([string]$ExistingPath)
+
+    if (-not (Test-Path $ExistingPath)) { return }
+
+    Get-ChildItem $ExistingPath -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+        $target = Join-Path $RepoSkills $_.Name
+        if (-not (Test-Path $target)) {
+            Copy-Item $_.FullName $target -Recurse -Force
+            Write-Host "Merged missing skill: $($_.Name)"
+        }
+    }
 }
 
 function Copy-DirectoryTree {
@@ -164,6 +202,19 @@ function Show-CodeGraphReminder {
 Ensure-CodeGraphInstalled
 Show-CodeGraphReminder
 
+# Context Mode 部署（默认开启）
+if (-not $SkipContextMode) {
+    Write-Host "Deploying context-mode..."
+
+    $cm = Get-Command context-mode -ErrorAction SilentlyContinue
+    if (-not $cm) {
+        Write-Host "Installing context-mode via npm..."
+        npm install -g context-mode
+    } else {
+        Write-Host "context-mode already installed: $($cm.Source)"
+    }
+}
+
 # Codex 部署
 if ($Target -eq "codex" -or $Target -eq "all") {
     $BackupC = Join-Path $env:USERPROFILE ".codex-backups\agent-skills-hook-$Stamp"
@@ -179,7 +230,8 @@ if ($Target -eq "codex" -or $Target -eq "all") {
     # 部署配置（从 config/ 复制）
     Safe-Copy "$ConfigRoot\codex\AGENTS.md" "$CodexDir\AGENTS.md"
     Safe-Copy $CodexAgents "$CodexDir\agents"
-    Safe-Copy $RepoSkills "$CodexDir\skills"
+    Merge-MissingSkills "$CodexDir\skills"
+    Safe-Link "$CodexDir\skills" $RepoSkills
     if (Test-Path "$env:USERPROFILE\.agents\skills") {
         Write-Host "Legacy Codex skill root detected at $env:USERPROFILE\.agents\skills. Archive or remove it to avoid duplicate skill scanning."
     }
@@ -203,8 +255,10 @@ if ($Target -eq "opencode" -or $Target -eq "all") {
     New-Item -ItemType Directory -Path "$OpenCodeDir" -Force | Out-Null
     Safe-Copy "$ConfigRoot\opencode\AGENTS.md" "$OpenCodeDir\AGENTS.md"
     Merge-JsonConfig "$ConfigRoot\opencode\opencode.json" "$OpenCodeDir\opencode.json"
-    Safe-Copy $RepoSkills "$OpenCodeDir\skills"
-    Safe-Copy $RepoSkills "$env:USERPROFILE\.claude\skills"
+    Merge-MissingSkills "$OpenCodeDir\skills"
+    Safe-Link "$OpenCodeDir\skills" $RepoSkills
+    Merge-MissingSkills "$env:USERPROFILE\.claude\skills"
+    Safe-Link "$env:USERPROFILE\.claude\skills" "$OpenCodeDir\skills"
     if (Test-Path "$env:USERPROFILE\.agents\skills") {
         Write-Host "Legacy shared skill root detected at $env:USERPROFILE\.agents\skills. OpenCode now uses $OpenCodeDir\skills as the primary user skill root."
     }
@@ -228,26 +282,10 @@ if ($Target -eq "claude" -or $Target -eq "all") {
     New-Item -ItemType Directory -Path "$ClaudeDir" -Force | Out-Null
     Safe-Copy "$ConfigRoot\AGENTS.md" "$ClaudeDir\AGENTS.md"
     Safe-Copy "$ConfigRoot\claude\CLAUDE.md" "$ClaudeDir\CLAUDE.md"
-    Safe-Copy $RepoSkills "$ClaudeDir\skills"
+    Merge-MissingSkills "$ClaudeDir\skills"
+    Safe-Link "$ClaudeDir\skills" $RepoSkills
     
     Write-Host "Claude Code deployed. Backup: $BackupCL"
 }
-
-# Qoder 部署（默认行为，每次运行无条件执行）
-$BackupQ = Join-Path $env:USERPROFILE ".qoder-backups\agent-skills-hook-$Stamp"
-New-Item -ItemType Directory -Path "$BackupQ\qoder", "$BackupQ\repo" -Force | Out-Null
-
-# 备份现有配置
-$QoderDir = Join-Path $env:USERPROFILE ".qoder"
-if (Test-Path "$QoderDir\AGENTS.md") { Copy-Item "$QoderDir\AGENTS.md" "$BackupQ\qoder\AGENTS.md" -Force }
-if (Test-Path "$QoderDir\skills") { Copy-DirectoryTree "$QoderDir\skills" "$BackupQ\qoder\skills" }
-Copy-DirectoryTree $RepoSkills "$BackupQ\repo\skills"
-
-# 部署配置（从 config/qoder/ 复制）
-New-Item -ItemType Directory -Path "$QoderDir" -Force | Out-Null
-Safe-Copy "$ConfigRoot\qoder\AGENTS.md" "$QoderDir\AGENTS.md"
-Safe-Copy $RepoSkills "$QoderDir\skills"
-
-Write-Host "Qoder deployed. Backup: $BackupQ"
 
 Write-Host "Deployment complete."

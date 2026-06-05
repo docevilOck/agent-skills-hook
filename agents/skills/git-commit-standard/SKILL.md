@@ -5,6 +5,10 @@ description: Use only when the user explicitly requests this skill or AGENTS.md 
 
 # git-commit-standard
 
+## 强制依赖
+
+**加载本 skill 时必须同时加载 `git-commit-template` 并严格遵循其书写规范。** 本 skill 定义提交流程和门禁，`git-commit-template` 定义 commit message 的模板、字段和写作风格。
+
 ## Overview
 
 用于执行仓库约定的提交、版本、固件产物归档和 changelog/release record 同步。核心原则：**提交前先确认仓库规则，再默认检查并同步版本元数据、README/changelog、固件产物和发布记录，最后 commit**。
@@ -152,38 +156,12 @@ description: Use only when the user explicitly requests this skill or AGENTS.md 
 
 ## Commit Message Rules
 
-默认提交正文模板如下；若仓库已有模板，按仓库模板：
+提交正文的模板、字段定义、写作风格和正反示例由 `git-commit-template` 定义。使用本 skill 时必须同时遵循 `git-commit-template` 的所有书写规范。关键约束摘要：
 
-```text
-版本：<artifact-or-release-version>
-时间：<date>
-修改者：<git config user.name>
-更改点：
-1）修改原因：
-   1. <why-1>
-   2. <why-2>
-2）修改依据：
-   1. <basis-1>
-   2. <basis-2>
-3）修改方法：
-   1. <how-1>
-   2. <how-2>
-4）修改影响：
-   1. <impact-1>
-   2. <impact-2>
-```
-
-要求：
-
-- 标题聚焦本次提交目的，不把长版本信息塞进标题，除非历史就是这样。
+- 标题聚焦本次提交目的，不把长版本信息塞进标题。
 - 正文必须和版本头、README/changelog、归档产物一致。
 - 正文只描述本次真实业务、代码、文档、兼容性和影响变化；不要写提交流程、是否递进版本、是否归档固件、后续应该做什么等流程话术。
-- 若提交正文或版本履历引用 `修改原因 / 修改依据 / 修改方法 / 修改影响` 结构，默认沿用精简版摘要写法：短句、少点、发布说明风格，不展开函数级/协议级/状态级实现细节；每个一级字段下默认允许 `1.` `2.` `3.` 这类子点，最多 3 条；除非用户明确要求详细版。
-- 同一一级字段下如果存在两个及以上独立主题，优先拆成 `1.` `2.` `3.` 子点，不要把多个主题塞进一个长句、分号串联句或并列从句里。
-- 默认禁止“一整段说明式写法”：即在 `修改原因 / 修改依据 / 修改方法 / 修改影响` 后直接跟一大句完整说明而不分点；除非仓库历史模板明确要求单段写法。
-- 推荐示例：`3）修改方法： 1. 收口提交正文模板 2. 增加最多 3 点约束 3. 补充正反示例`。
-- 不推荐示例：`3）修改方法：收口提交正文模板并增加最多 3 点约束，同时补充正反示例，避免提交时继续输出整段长句。`
-- 不要把“已按默认流程检查/同步固件和 README/changelog”写成 commit message 的变更点或原因；默认流程是否执行，记录在任务汇报或内部检查中即可。
+- 不要把"已按默认流程检查/同步固件和 README/changelog"写成 commit message 的变更点或原因。
 
 ## Operating Pattern
 
@@ -240,7 +218,7 @@ description: Use only when the user explicitly requests this skill or AGENTS.md 
 提交前至少确认：
 
 - [ ] 已确认用户要求提交。
-- [ ] 已加载并遵循本 skill。
+- [ ] 已加载本 skill 和 `git-commit-template`（强制依赖）。
 - [ ] 已读取仓库 release/commit 规则，而不是套用其它仓库路径。
 - [ ] 已分别判断本次是否递增版本、是否更新 README/changelog、是否更新固件产物；未把“不递进版本”作为跳过依据。
 - [ ] 若有代码改动，已先重新构建并更新最新固件产物；若跳过，已有用户/规则/历史证据。
@@ -252,5 +230,5 @@ description: Use only when the user explicitly requests this skill or AGENTS.md 
 - [ ] README/changelog 和 commit message 未包含“不递进版本”“不修改版本宏”“不归档固件产物”“后续应该”等流程话术。
 - [ ] 固件产物文件名、目录和构建宏与历史规则一致。
 - [ ] 已运行必要验证并记录结果。
-- [ ] commit message 与版本/README/产物一致。
+- [ ] commit message 与版本/README/产物一致，且符合 `git-commit-template` 规范。
 - [ ] 提交后工作区状态和 Change-Id（如适用）已验证。

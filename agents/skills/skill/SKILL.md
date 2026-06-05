@@ -314,7 +314,7 @@ Project-only skills (2):
 
 Common skills (3):
   - frontend-ui-ux
-  - git-master
+  - git-commit-template
   - planner
 
 Options:

@@ -1,6 +1,6 @@
 # agent-skills-hook 仓库总则
 
-本仓库用于维护 Claude Code、Codex、OpenCode 和 Qoder 的协作提示词、配置和相关文档。
+本仓库用于维护 Claude Code、Codex 和 OpenCode 的协作提示词、配置和相关文档。
 
 ## 使用原则
 
@@ -22,6 +22,12 @@
 - 优先使用结构化的 `codegraph_*` 工具完成代码理解、调用链追踪和影响面分析，不要先退回纯文本搜索
 - 若运行时没有 `codegraph_*` 工具，才回退到 `codegraph` CLI；进入新仓库时先检查索引状态，必要时执行 `codegraph init -i <repo>`
 - 不得假设任意仓库天然已有 `.codegraph/`；没有索引时应先初始化，再继续查询
+
+## Context Mode 约束
+
+- 若运行时已安装 `context-mode` 插件（`npm install -g context-mode`，OpenCode 在 `opencode.json` 的 `plugin` 数组中注册），所有上下文管理（压缩、索引、路由）应优先通过 `ctx_*` 工具完成
+- context-mode 的 OpenCode 插件（TypeScript in-process）在 `opencode.json` 的 `plugin` 数组中声明后由 OpenCode 自动加载，无需手动配置 MCP 或路由
+- 验证部署状态：在 OpenCode/Codex 中运行 `ctx stats`，在 Claude Code 中运行 `/context-mode:ctx-doctor`
 
 ## 产出要求
 

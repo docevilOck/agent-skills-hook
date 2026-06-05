@@ -24,5 +24,4 @@ docs/
 **/*.pyd
 .worktrees/
 .omx/
-.qoder/
 .context-mode-vendor/
