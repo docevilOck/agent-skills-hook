@@ -30,8 +30,6 @@ agent-skills-hook/
 ├── linux/deploy.sh          # Linux 部署脚本（软链接）
 ├── windows/deploy.ps1       # Windows 部署脚本（Junction 链接）
 ├── scripts/
-│   ├── deploy-context-mode.ps1  # context-mode 部署（Windows）
-│   ├── deploy-context-mode.sh   # context-mode 部署（Linux）
 │   └── deploy-codegraph.ps1     # CodeGraph 索引部署
 ├── agents/skills/           # 共享技能库
 │
@@ -59,16 +57,13 @@ git clone <repo-url>
 cd linux
 chmod +x deploy.sh
 
-# 默认部署所有运行时（含 context-mode）
+# 默认部署所有运行时
 ./deploy.sh TARGET=all
 
 # 指定目标
 ./deploy.sh TARGET=codex
 ./deploy.sh TARGET=opencode
 ./deploy.sh TARGET=claude
-
-# 跳过 context-mode
-SKIP_CONTEXT_MODE=1 ./deploy.sh TARGET=all
 ```
 
 #### Windows
@@ -76,16 +71,13 @@ SKIP_CONTEXT_MODE=1 ./deploy.sh TARGET=all
 ```powershell
 cd windows
 
-# 默认部署所有运行时（含 context-mode）
+# 默认部署所有运行时
 .\deploy.ps1 -Target "all"
 
 # 指定目标
 .\deploy.ps1 -Target "codex"
 .\deploy.ps1 -Target "opencode"
 .\deploy.ps1 -Target "claude"
-
-# 跳过 context-mode
-.\deploy.ps1 -SkipContextMode
 ```
 
 ### 3. 重启运行时
@@ -138,57 +130,11 @@ cd windows
 - 代码检索相关提示词与使用约束已写入对应运行时的 `AGENTS.md`
 - 注意：部署不会替每个仓库自动创建索引；进入新仓库时仍需执行 `codegraph init -i <repo>`
 
-## Context Mode 部署
+### 验证部署
 
-`context-mode` 是一个上下文管理插件，为 agent 提供压缩、索引和路由能力。
-
-### 部署方式
-
-`context-mode` 部署通过 `deploy-context-mode` 脚本实现，已集成到主部署脚本中：
-
-```bash
-# Linux — 默认开启，可通过环境变量跳过
-./deploy.sh                                 # 含 context-mode
-SKIP_CONTEXT_MODE=1 ./deploy.sh             # 跳过 context-mode
-
-# Windows — 默认开启，可通过参数跳过
-.\deploy.ps1                                # 含 context-mode
-.\deploy.ps1 -SkipContextMode               # 跳过 context-mode
-```
-
-也可独立运行：
-
-```bash
-# Linux
-./scripts/deploy-context-mode.sh
-./scripts/deploy-context-mode.sh --tool opencode   # 仅指定工具
-
-# Windows
-.\scripts\deploy-context-mode.ps1
-.\scripts\deploy-context-mode.ps1 -Tool opencode
-```
-
-### 部署内容
-
-- 全局安装 `context-mode` npm 包
-- 为各 agent 配置 MCP 服务器/插件注册
-- 将路由指令注入到各运行时的入口文件（AGENTS.md / CLAUDE.md）
-- 为 Codex CLI 配置 hooks
+当前各运行时都会使用自己的用户级配置目录：Codex 部署 `AGENTS.md`、`agents/`、`skills/`，OpenCode 部署 `AGENTS.md`、`opencode.json`、`skills/`，并同步 `~/.claude/skills`，Claude Code 部署 `AGENTS.md`、`CLAUDE.md`、`skills/`。
 
 ### 验证
-
-```bash
-# Claude Code: 运行 /context-mode:ctx-doctor 或 ctx stats
-# OpenCode / Codex: 运行 ctx stats
-```
-
-### 回滚
-
-```bash
-# 移除路由指令（从 AGENTS.md / CLAUDE.md 中删除 context-mode 标记块）
-# 卸载 npm 包
-npm uninstall -g context-mode
-```
 
 **Linux（skills/agents 软链接，配置文件复制或合并）**：
 ```bash
@@ -237,8 +183,6 @@ Copy-Item "$env:USERPROFILE\.codex-backups\agent-skills-hook-<timestamp>\codex\*
 | `config/opencode/opencode.json` | OpenCode 主配置 |
 | `linux/deploy.sh` | Linux 部署脚本（软链接方式） |
 | `windows/deploy.ps1` | Windows 部署脚本（Junction 链接方式） |
-| `scripts/deploy-context-mode.ps1` | context-mode 部署（Windows） |
-| `scripts/deploy-context-mode.sh` | context-mode 部署（Linux） |
 
 ## 维护说明
 

@@ -3,8 +3,7 @@
 
 param(
     [string]$Target = "all",
-    [string]$RepoRoot = "",
-    [switch]$SkipContextMode
+    [string]$RepoRoot = ""
 )
 
 if ($RepoRoot -eq "") {
@@ -187,19 +186,6 @@ function Show-CodeGraphReminder {
 
 Ensure-CodeGraphInstalled
 Show-CodeGraphReminder
-
-# Context Mode 部署（默认开启）
-if (-not $SkipContextMode) {
-    Write-Host "Deploying context-mode..."
-
-    $cm = Get-Command context-mode -ErrorAction SilentlyContinue
-    if (-not $cm) {
-        Write-Host "Installing context-mode via npm..."
-        npm install -g context-mode
-    } else {
-        Write-Host "context-mode already installed: $($cm.Source)"
-    }
-}
 
 # Codex 部署
 if ($Target -eq "codex" -or $Target -eq "all") {

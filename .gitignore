@@ -24,4 +24,3 @@ docs/
 **/*.pyd
 .worktrees/
 .omx/
-.context-mode-vendor/

@@ -25,8 +25,7 @@ agent-skills-hook/
 ```bash
 git clone <repo-url>
 cd linux && chmod +x deploy.sh
-./deploy.sh TARGET=all                 # 含 context-mode
-SKIP_CONTEXT_MODE=1 ./deploy.sh        # 跳过 context-mode
+./deploy.sh TARGET=all
 ```
 
 ### Windows
@@ -34,12 +33,10 @@ SKIP_CONTEXT_MODE=1 ./deploy.sh        # 跳过 context-mode
 ```powershell
 git clone <repo-url>
 cd windows
-.\deploy.ps1 -Target "all"             # 含 context-mode
-.\deploy.ps1 -SkipContextMode          # 跳过 context-mode
+.\deploy.ps1 -Target "all"
 ```
 
 部署将：
-- 安装 `context-mode`（npm 全局包，为 OpenCode 提供 `ctx_*` 上下文管理工具）
 - `AGENTS.md` 和 `CLAUDE.md` 复制到各运行时用户目录
 - `skills/` 通过 Junction（Windows）或软链接（Linux）指向仓库 `agents/skills/`
 - `opencode.json` 深合并到 `~/.config/opencode/opencode.json`

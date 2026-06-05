@@ -9,7 +9,7 @@
 
 ## 工具路由
 
-CodeGraph（`codegraph_*`）用于**结构查询**，Context Mode（`ctx_*`）用于**上下文保护**。能用结构化工具不先用通用命令；Shell 仅限 `git`/`mkdir`/`rm`/`mv`/`ls`/`npm install`/`pip install`，输出 >20 行须经 `ctx_execute` 包裹。
+CodeGraph（`codegraph_*`）用于**结构查询**。能用结构化工具不先用通用命令；Shell 仅限 `git`/`mkdir`/`rm`/`mv`/`ls`/`npm install`/`pip install`。
 
 ### 统一工具映射表
 | 场景 | 工具 |
@@ -21,15 +21,7 @@ CodeGraph（`codegraph_*`）用于**结构查询**，Context Mode（`ctx_*`）�
 | 评估改动影响 | `codegraph_impact` |
 | 查看多个符号源码 | `codegraph_explore` |
 | 列出项目文件 | `codegraph_files` |
-| 字面量/文本搜索 | grep（≤20 行直接用；大输出用 `ctx_execute(language: "shell")`） |
-| 分析/统计/过滤/处理数据 | `ctx_execute`（沙箱，仅 `console.log()` 入上下文） |
-| 文件内容分析（非编辑） | `ctx_execute_file` |
-| 批量命令 + 自动索引 | `ctx_batch_execute`（I/O 密集 4-8 并发，CPU 密集 1 并发；GitHub API `gh` 最多 4 并发） |
-| 网页抓取 | `ctx_fetch_and_index` |
-| 会话记忆/内容搜索 | `ctx_search` |
-| 内容索引存储 | `ctx_index` |
-| 查看节省统计 | `ctx_stats` |
-| 诊断/升级/清理 | `ctx_doctor` / `ctx_upgrade` / `ctx_purge` |
+| 字面量/文本搜索 | grep |
 
 ### 执行决策树
 ```
@@ -40,26 +32,17 @@ CodeGraph（`codegraph_*`）用于**结构查询**，Context Mode（`ctx_*`）�
 │   └─ 禁止直接用 grep/Read 找定义
 │
 ├─ 字面量/文本搜索？
-│   ├─ 输出 ≤20 行 → grep
-│   └─ 输出 >20 行 → ctx_execute(language: "shell")
-│
-├─ 数据处理/分析/网页/大输出？
-│   └─ 按上表选 ctx_* 工具
+│   └─ grep
 │
 └─ 基础设施 shell（git/mkdir/rm/npm/pip）？
     └─ 直接执行
 ```
 
 ### 阻断规则
-- **curl / wget** → 禁止。用 `ctx_execute(language: "javascript", code: "const r = await fetch(...)")` 或 `ctx_fetch_and_index`
-- **内联 HTTP**（`node -e "fetch(...)"`、`python -c "requests.get(...)"`）→ 禁止。用 `ctx_execute`
 - **grep 搜符号** → 禁止。用 `codegraph_search`
-- **Read 理解架构** → 禁止。用 `codegraph_context`；分析文件内容用 `ctx_execute_file`
+- **Read 理解架构** → 禁止。用 `codegraph_context`
 - **假设索引已存在** → 禁止。每次先 `codegraph_status`
 - **grep 验证 CodeGraph 结果** → 禁止。信任 AST 解析
-
-### 会话连续性
-- 压缩/恢复后先用 `ctx_search` 搜索记忆，再问用户
 
 ## 技能强制评估（每个用户请求）
 - 开始任何工作前，使用 Codex 原生技能机制判断是否有可匹配的技能。

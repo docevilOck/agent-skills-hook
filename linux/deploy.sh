@@ -7,7 +7,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="${REPO_ROOT:-$(dirname "$SCRIPT_DIR")}"
 TARGET="${TARGET:-all}"
-SKIP_CONTEXT_MODE="${SKIP_CONTEXT_MODE:-0}"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 
 # Skills 位于仓库根目录
@@ -126,17 +125,6 @@ show_codegraph_reminder() {
 
 ensure_codegraph_installed
 show_codegraph_reminder
-
-# Context Mode 部署（默认开启）
-if [ "$SKIP_CONTEXT_MODE" != "1" ]; then
-  echo "Deploying context-mode..."
-  if command -v context-mode >/dev/null 2>&1; then
-    echo "context-mode already installed: $(command -v context-mode)"
-  else
-    echo "Installing context-mode via npm..."
-    npm install -g context-mode
-  fi
-fi
 
 # Codex 部署
 if [ "$TARGET" = "codex" ] || [ "$TARGET" = "all" ]; then

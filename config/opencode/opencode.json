@@ -22,7 +22,6 @@
   },
   "plugin": [
     "@tarquinen/opencode-dcp@latest",
-    "opencode-pty",
-    "context-mode"
+    "opencode-pty"
   ]
 }
