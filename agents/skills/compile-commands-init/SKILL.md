@@ -109,10 +109,20 @@ python <skill-dir>/scripts/CompilerGen.py <compiler>
 | `armclang` | armclang / armclang.exe |
 | `gcc` | gcc / arm-none-eabi-gcc |
 
+注意：传给 `CompilerGen.py` 的编译器名必须和 `build_log.txt` 里的真实编译器一致。
+如果日志里是 `armcc.exe -c ...`，就传 `armcc`；不要误传 `armclang`。
+
 脚本自动生成 `compile_commands.json` 和 `.clangd`，并在成功后默认清理 `build_log.txt` 这类脚本临时产物。
 生成 `compile_commands.json` 时，脚本会扫描每个源码文件直接 `#include "..."` 的本地头文件，
 并为可解析到的 `.h/.hpp/.hh/.hxx` 头文件补充 `-x c-header` 或 `-x c++-header` 显式条目，
 避免 clangd 只能用错误或残缺的推断上下文解析头文件。
+
+对于 ARMCC / ARMCLANG 日志，脚本会尽量保留真实预包含语义，把 `--preinclude` / `-include`
+转换成 clangd 可识别的 `-include <header>`。
+
+如果项目存在 `out/.../gbk_src/...` 这类构建副本源文件，生成器可以尝试回写到原始源路径；
+但这类映射不一定对所有仓库都能 100% 自动判断，所以 agent 在生成后必须额外做一次验证，
+确认数据库没有把副本源重复喂给 clangd。
 
 如需保留 `build_log.txt`：
 
@@ -147,6 +157,8 @@ which clangd && clangd --version || echo "clangd 未安装，可后续安装验�
 
 - `compile_commands.json` 条目数是否明显过少；若只有少量文件，优先怀疑 clean/rebuild 不完整
 - `compile_commands.json` 是否包含关键头文件条目；例如 `ssl_tls13_keys.h` 这类被源码直接包含的头文件应有自己的 `file` 条目
+- 检查关键预包含头是否仍存在；例如 ARMCC 项目应能看到 `-include xxx_cfg.h`
+- 检查是否仍残留 `out/.../gbk_src/...` 这类副本 `file` 条目；若有，agent 必须去重或回写到原始源码路径后再交付
 - `.clangd` 中不应出现全局 `CompileFlags.Add` 注入目标架构参数
 - 如果未传 `--keep-build-log`，确认 `build_log.txt` 已被自动清理
 

@@ -4,6 +4,8 @@ import json
 import sys
 from pathlib import Path
 
+GBK_SOURCE_CACHE = {}
+
 # 支持的编译器正则表达式
 COMPILER_PATTERNS = {
     "armcc": r'(?:armcc|armcc\.exe)\s+(.*?)\s+-o\s+(\S+\.o)',
@@ -17,7 +19,6 @@ ARMCC_SPECIFIC_FLAGS = [
     '--multibyte_chars',
     '--diag_error=warning',
     '--depend',
-    '--preinclude',
     '--via',
     '--pd',
     '--split_sections',
@@ -55,6 +56,51 @@ COMPILER_EXECUTABLE_PATTERNS = {
 
 LOG_COMPILER_PRIORITY = ["armclang", "armcc", "gcc"]
 
+
+def strip_wrapping_quotes(value):
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+        return value[1:-1]
+    return value
+
+
+def try_convert_preinclude_arg(arg, next_arg=None):
+    if arg.startswith("--preinclude="):
+        return ["-include", strip_wrapping_quotes(arg.split("=", 1)[1])], False
+
+    if arg == "--preinclude" and next_arg:
+        return ["-include", strip_wrapping_quotes(next_arg)], True
+
+    if arg == "-include" and next_arg:
+        return ["-include", strip_wrapping_quotes(next_arg)], True
+
+    if arg.startswith("-include") and len(arg) > len("-include"):
+        return ["-include", strip_wrapping_quotes(arg[len("-include"):])], False
+
+    return None, False
+
+
+def convert_arm_cpu_flag(arg):
+    if not arg.startswith("--cpu="):
+        return None
+
+    raw_cpu = strip_wrapping_quotes(arg.split("=", 1)[1]).lower()
+    suffixes = raw_cpu.split(".")
+    base_cpu = suffixes[0]
+    converted = [f"-mcpu={base_cpu}"]
+
+    if ".fp" in raw_cpu:
+        fpu_map = {
+            "cortex-m4": "fpv4-sp-d16",
+            "cortex-m7": "fpv5-d16",
+            "cortex-r4": "vfpv3-d16",
+            "cortex-r5": "vfpv3-d16",
+        }
+        fpu = fpu_map.get(base_cpu)
+        if fpu:
+            converted.extend([f"-mfpu={fpu}", "-mfloat-abi=softfp"])
+
+    return converted
+
 def convert_to_clang_flags(args_str):
     """
     将任意编译器的标志转换为 clang 兼容格式
@@ -66,6 +112,15 @@ def convert_to_clang_flags(args_str):
     while i < len(args):
         arg = args[i]
         skip = False
+
+        converted_preinclude, consume_next = try_convert_preinclude_arg(
+            arg,
+            args[i + 1] if i + 1 < len(args) else None,
+        )
+        if converted_preinclude:
+            clang_args.extend(converted_preinclude)
+            i += 2 if consume_next else 1
+            continue
         
         # 处理需要移除的ARMCC特定参数
         for flag in ARMCC_SPECIFIC_FLAGS:
@@ -81,9 +136,9 @@ def convert_to_clang_flags(args_str):
             continue
             
         # 转换常见标志
-        if arg.startswith("--cpu="):
-            cpu = arg.split("=", 1)[1].lower()
-            clang_args.append(f"-mcpu={cpu}")
+        converted_cpu = convert_arm_cpu_flag(arg)
+        if converted_cpu:
+            clang_args.extend(converted_cpu)
         elif arg.startswith("--fpu="):
             fpu = arg.split("=", 1)[1]
             clang_args.append(f"-mfpu={fpu}")
@@ -109,6 +164,10 @@ def convert_to_clang_flags(args_str):
         elif arg == "-D" and i + 1 < len(args):
             # -D DEFINE 格式
             clang_args.extend([arg, args[i+1]])
+            i += 1
+        elif arg == "-c" and i + 1 < len(args):
+            i += 1
+        elif arg == "-o" and i + 1 < len(args):
             i += 1
         elif arg.startswith("-I") and len(arg) > 2:
             # -Ipath 格式
@@ -166,7 +225,7 @@ def parse_compile_command(log_line, compiler_name):
     if not source_match:
         return None
 
-    source_file = source_match.group(1)
+    source_file = remap_gbk_source(source_match.group(1), os.getcwd())
 
     # 构建 clang 兼容命令
     command = ["clang", "-c", source_file, "-o", output_file]
@@ -267,7 +326,6 @@ def generate_clangd_config(compiler_name=None, log_lines=None):
         "    - --multibyte_chars",
         "    - --diag_error=warning",
         "    - --depend=*",
-        "    - --preinclude=*",
         "    - --via=*",
         "    - --pd=*",
         "    - --split_sections",
@@ -376,6 +434,45 @@ def source_language_flag(source_file):
 
 def normalize_path_for_db(path):
     return Path(path).as_posix()
+
+
+def remap_gbk_source(source_file, directory):
+    normalized = normalize_path_for_db(source_file)
+    marker = "/gbk_src/"
+    if marker not in normalized:
+        return normalized
+
+    cached = GBK_SOURCE_CACHE.get(normalized)
+    if cached:
+        return cached
+
+    suffix = Path(normalized.split(marker, 1)[1])
+    search_root = Path(directory).resolve()
+
+    for candidate in search_root.rglob(suffix.name):
+        candidate_posix = candidate.as_posix()
+        if "/gbk_src/" in candidate_posix:
+            continue
+
+        candidate_parts = candidate.parts
+        if len(candidate_parts) < len(suffix.parts):
+            continue
+
+        if tuple(candidate_parts[-len(suffix.parts):]) != suffix.parts:
+            continue
+
+        try:
+            remapped = normalize_path_for_db(candidate.relative_to(search_root))
+        except ValueError:
+            remapped = candidate_posix
+
+        GBK_SOURCE_CACHE[normalized] = remapped
+        print(f"GBK 源映射: {normalized} -> {remapped}")
+        return remapped
+
+    GBK_SOURCE_CACHE[normalized] = normalized
+    print(f"[WARN] 未找到 GBK 源对应原始文件，保留原路径: {normalized}")
+    return normalized
 
 def resolve_header(include_name, source_file, include_dirs, directory):
     candidates = []

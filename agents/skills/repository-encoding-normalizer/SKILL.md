@@ -1,459 +1,355 @@
 ---
 name: repository-encoding-normalizer
-description: 仅当用户明确要求规范化源码仓库文件编码、保留历史非 UTF-8 运行期文本的原始字节语义、处理 armcc/armclang 嵌入式 C/C++ 项目中 UTF-8 与历史本地编码混合源码时使用；若用户没有明确要求，禁止使用。
+description: 源码仓库编码规范化（UTF-8 统一 + 编译时 GBK 自动转换）。仅当用户明确要求规范化源码仓库文件编码时使用；若用户没有明确要求，禁止使用。
 ---
 
 # 仓库编码规范化
 
 ## 核心原则
 
-先记录原始编码，再做转换；先确认运行期字节语义，再改源码文本形态。不要根据“转换后的编码”判断中文能否原地保留，必须根据文件**转换前的原始编码**判断。
+源码统一为 **UTF-8 with BOM**，中文运行期字面量保留在源码中，编译时由 `gbk_encode.exe` / `gbk_build.py` 自动检测含 CJK 字面量的文件并生成 GBK 编码副本供编译器使用。
 
-对于原本不是 UTF-8 的源码，关键语义通常是 **原始编码下的运行期文本字节**，不是 Unicode 文本。迁移时不能把这类运行期字符串误变成 UTF-8 运行期字符串。
+> 历史方案：早期曾将中文提取到宏头文件用 `\xB4\xF2...` 字节转义，已废弃。
+
+## 新方案架构
+
+```
+源码 (UTF-8 BOM)                      构建输出
+──────                                ──────
+src/                                   build/objs/
+  ├── ui/menu.c ───────────┐            gbk_src/
+  ├── core/init.c          │             ├── ui/menu.c          (GBK)
+  ├── misc/event.c ───┐    │             ├── misc/event.c       (GBK)
+  └── ...              │    │             └── ...
+                       │    │
+  gbk_encode.exe 扫描 ─┤    │
+  (自动检测含中文)    │    │
+                       │    │
+  Makefile ────────────┤────┘
+  (resolve_gbk 路由)   │
+                        │
+  UTF-8 源文件 ←───────┘ (无中文)
+```
+
+## ⛔ 强制脚本使用规则
+
+**本 skill 附带了四个专用脚本，调用本 skill 后必须严格按顺序使用它们，禁止自行编写替代脚本。**
+
+| 违规行为 | 正确做法 |
+|---|---|---|
+| 自己写编码检测逻辑 | 使用 `scan_encoding.py` |
+| 手工逐文件 `iconv` / Python 读写 | 使用 `normalize_encoding.py` |
+| 自己写乱码检查逻辑 | 使用 `check_mojibake.py` |
+| 自己写 GBK 转换工具 | 使用 `gbk_encode.exe` |
+| 在 Makefile 中自己写文件路径判断 | 使用 `resolve_gbk` 模板（见下文） |
+
+**skill 内资源：**
+
+| 资源 | 类型 | 用途 |
+|------|------|------|
+| `scan_encoding.py` | 脚本 | 编码审计扫描 |
+| `normalize_encoding.py` | 脚本 | 批量编码转换（非 UTF-8 → UTF-8 with BOM） |
+| `gbk_encode.exe` | 可执行文件 | GBK 编译时转换（独立 exe，无需 Python） |
+| `gbk_build.py` | 源码 | GBK 转换源码（备查/修改用） |
+| `check_mojibake.py` | 脚本 | 乱码巡检 |
+
+**仓库改造时**，需将 `gbk_encode.exe` 复制到仓库的 `tool/` 目录下。
+
+所有命令从仓库根目录执行，脚本使用绝对路径引用。
+
+## 🚀 推荐流程
+
+### 新仓库首次规范化
+
+```bash
+# 第一步：扫描审计
+python <skill_dir>/scan_encoding.py --root . --out encoding_audit.md --json-out encoding_audit.json
+
+# 第二步：编码转换（非 UTF-8 → UTF-8 with BOM）
+python <skill_dir>/normalize_encoding.py --root . --compiler armcc --audit-json encoding_audit.json
+
+# 第三步：部署 gbk_encode.exe 到仓库
+copy <skill_dir>/gbk_encode.exe tool/gbk_encode.exe
+
+# 第四步：改造 Makefile（见 Makefile 集成模板）
+#   - 添加 GBK_SRC_DIR、gbk_prepare、vpath、resolve_gbk
+#   - 为对象编译建立 gbk_prepare 顺序依赖
+#   - 更新 clean 使用 rmdir /s /q
+
+# 第五步：预览 GBK 转换范围
+tool/gbk_encode.exe -s <src_dir> -o <out_dir> --list
+
+# 第六步：Dry-run 验证编译路由
+make -n 2>&1 | rg "gbk_src"
+
+# 第七步：乱码复查
+python <skill_dir>/check_mojibake.py --root . --files "<变更文件列表>"
+
+# 第八步：完整编译验证
+make clean && make -j12
+```
+
+### 日常开发（已有 UTF-8 源码 + 已配置 Makefile）
+
+```bash
+# Makefile 中 gbk_prepare 已挂载到 all 依赖链，每次 make 自动执行
+# 无需额外手动步骤
+```
+
+> `<skill_dir>` = `C:/Users/DELL/.config/opencode/skills/repository-encoding-normalizer`（Windows）。
+
+## gbk_encode.exe — GBK 编译时转换
+
+### 原理
+
+扫描源码目录下所有 `.c` 和 `.h` 文件，检测双引号字符串字面量内是否含 CJK（中文字符及中文标点），命中则生成 GBK 编码副本供编译器使用。
+
+自动扫描模式下还要清理 **陈旧 GBK 副本**：如果某文件以前命中过中文、现在已不再命中，旧镜像必须删除，否则 `resolve_gbk` 仍可能继续命中旧副本。
+
+**检测跳过以下行**（不会误判注释中的中文）：
+- 以 `#` 开头的预处理指令（含 `#define` 宏）
+- `//` 注释行
+- `/*` / `*` 注释行
+
+> 源文件必须是 UTF-8 编码。非 UTF-8 源文件需先用 `normalize_encoding.py` 转为 UTF-8。
+
+### 独立 exe（推荐，无需 Python 环境）
+
+skill 目录下预置 `gbk_encode.exe`，改造仓库时复制到仓库 `tool/` 目录即可。
+
+```bash
+# 仓库改造
+copy <skill_dir>/gbk_encode.exe tool/gbk_encode.exe
+
+# 使用
+tool/gbk_encode.exe -s <src_root> -o <out_dir> [-q] [--force] [--list]
+```
+
+### Python 源码（备查/修改用）
+
+`gbk_build.py` 为 exe 的源码。如需修改逻辑，编辑后必须同时更新 exe：
+
+```bash
+# 修改逻辑
+python <skill_dir>/gbk_build.py -s <src> -o <out> --list  # 验证改动
+
+# 重新打包
+pip install pyinstaller
+pyinstaller --onefile --name gbk_encode gbk_build.py
+
+# 更新 skill 内置 exe + 各仓库中的 exe
+copy dist/gbk_encode.exe <skill_dir>/gbk_encode.exe
+copy dist/gbk_encode.exe <repo>/tool/gbk_encode.exe       # 每个使用了该工具的仓库
+```
+
+**注意**：修改源码后不更新 exe，会导致各仓库仍使用旧版本逻辑。源码和 exe 必须保持同步。
+
+**额外注意**：不要只看 `gbk_encode.exe --version`。版本号字符串相同，不代表仓库里正在使用的 exe 已经替换为最新打包产物。若现场仍出现旧行为，必须至少做其中一项：
+- 对比 `Get-FileHash <skill_dir>/gbk_encode.exe`、`Get-FileHash dist/gbk_encode.exe`、`Get-FileHash <repo>/tool/gbk_encode.exe`
+- 或先把最新打包产物复制为新文件名验证，再原位替换旧 exe
+
+已踩过的真实问题：源码和 `--version` 都显示 `1.1.0`，但仓库 `tool/gbk_encode.exe` 仍是旧哈希文件，最终导致构建继续生成脏 `gbk_src` 副本。
+
+近期已确认需要同步到 exe 的行为包括：
+- 自动扫描模式下删除陈旧 `gbk_src` 副本
+- `.c/.h` 双扩展名扫描
+- 显式 `files...` 模式不做陈旧副本清理
+
+### 命令参数
+
+| 参数 | 说明 |
+|------|------|
+| `-s DIR` | 源码根目录（必填） |
+| `-o DIR` | GBK 副本输出目录（必填） |
+| `--list` | 仅列出含中文的文件，不转换 |
+| `--force` | 忽略 mtime 检查，强制重新转换 |
+| `-q` | 静默模式（make 集成用） |
+
+## Makefile 集成模板
+
+### gbk_prepare 目标
+
+```makefile
+GBK_SRC_DIR := $(OBJDIR)gbk_src/
+
+.PHONY: gbk_prepare
+gbk_prepare:
+	tool/gbk_encode.exe -s "$(PRJDIR)" -o "$(GBK_SRC_DIR)" -q
+
+# 关键：对象编译必须先完成 gbk_prepare
+$(objc): | gbk_prepare
+```
+
+### resolve_gbk 路由（armcc / armclang 通用）
+
+```makefile
+# 注册 GBK 子目录到 vpath（后续构建生效）
+vpath %.c $(wildcard $(GBK_SRC_DIR)*/)
+vpath %.c $(GBK_SRC_DIR)
+
+# 判断是否有 GBK 副本：有则用 GBK 路径，否则用原始 UTF-8 路径
+resolve_gbk = $(if $(wildcard $(GBK_SRC_DIR)$(subst $(PRJDIR),,$1)),$(GBK_SRC_DIR)$(subst $(PRJDIR),,$1),$1)
+
+# armcc 编译配方
+%.o: %.c
+	$(CC) -c $(call resolve_gbk,$<) $(CFLAGS) -o $(OBJDIR)$(notdir $@)
+```
+
+### 全套 CheckList
+
+### clean / distclean
+
+```makefile
+ifeq ($(SHELL), cmd.exe)
+RMDIR := rmdir /s /q
+else
+RMDIR := rm -rf
+endif
+
+clean:
+	-if exist $(subst /,\,$(OBJDIR)) $(RMDIR) $(subst /,\,$(OBJDIR))
+	-$(RM) $(subst /,\,$(OUTDIR)*.*)
+```
+
+不要只删 `$(OBJDIR)*.*`。那样会漏掉 `$(OBJDIR)gbk_src/...` 子目录。
+
+将以下内容加入到仓库 Makefile：
+
+| 项目 | 说明 |
+|------|------|
+| `GBK_SRC_DIR` 变量 | 指向构建目录下的 gbk_src 子目录 |
+| `gbk_prepare` 目标 | 定义目标本身，并通过 `$(objc): | gbk_prepare` 建立顺序依赖 |
+| `vpath` 子目录注册 | `$(wildcard $(GBK_SRC_DIR)*/)` 递归覆盖 |
+| `resolve_gbk` 函数 | 编译配方中 `$<` → `$(call resolve_gbk,$<)` |
+| `clean` 递归删除 | `rmdir /s /q $(OBJDIR)` 确保清理 gbk_src |
+| 陈旧副本清理 | 自动扫描模式下删除不再命中的 `gbk_src` 镜像 |
+
+## 进阶 Makefile 集成
+
+### GBK 路由收窄
+
+- 用 `gbk_src_file` 目标变量绑定每个对象到其 GBK 副本路径，避免 `$<` 裸名导致 `resolve_gbk` 失效；编译命令中 `$(if $(wildcard $(gbk_src_file)),$(gbk_src_file),$(call resolve_gbk,$<))` 优先取绑定路径。
+- `gbk_prepare` 只做扫描转换，不要在当中用 `xcopy` 整树复制源目录——那会让不需要 GBK 的文件也被 `wildcard` 命中，误走 `gbk_src` 路径。确需普通副本时在模式规则里 `@if not exist` 按需补。
+- `$(GBK_SRC_DIR)%.c` 规则加 `| gbk_prepare` 保证整目录扫描先于单文件副本生成。
+
+### 通用 Makefile 要点
+
+- Makefile 顶部加 `.DEFAULT_GOAL := all`，避免默认目标落在首个对象文件。
+- 型号可能自定义的关键路径变量（如 `SCATTER`）用 `?=` 而非 `:=`，仅提供默认值。
+
+### 文本内联脚本
+
+用 Python 做宏→字符串内联时，`re.sub` 的替换字符串会重新解析转义，需用 lambda 传递替换值：
+
+```python
+result = re.sub(pattern, lambda m, v=val: '"' + v + '"', result)
+```
+
+## 验证
+
+```bash
+# 验证 GBK 文件编码（确认生成了有效的 GBK 文件）
+python -c "
+data = open('<out_dir>/dev_ui/prt_menu_table.c','rb').read()
+try: data.decode('utf-8')
+except: print('NOT UTF-8 (likely GBK) - OK')
+"
+
+# Dry-run 验证编译路由（确认 gbk_src 出现在含中文文件的编译命令中）
+make -n 2>&1 | rg "gbk_src"
+
+# 验证 .d 依赖文件指向正确路径
+Get-Content "out/hma300s/objs/prt_menu_table.d"
+# 应指向 gbk_src/dev_ui/prt_menu_table.c（而非原始 UTF-8 路径）
+
+# 手动执行 GBK 转换（dry-run）
+tool/gbk_encode.exe -s arch/lpc546/hma300s -o out/hma300s/objs/gbk_src --list
+
+# 乱码复查
+python <skill_dir>/check_mojibake.py --root . --files "<变更文件列表>"
+```
+
+## 常见故障
+
+### vpath 扁平搜索失效
+
+**现象**：GBK 文件正确生成，但编译器始终使用 UTF-8 原始文件。
+
+**根因**：`vpath %.c $(GBK_SRC_DIR)` 只扁平搜索一级目录，GBK 文件在子目录中（如 `gbk_src/dev_ui/menu.c`）无法匹配。
+
+**修复**：添加 `vpath %.c $(wildcard $(GBK_SRC_DIR)*/)` 覆盖子目录。
+
+### mtime 缓存导致未重新转换
+
+**现象**：修改了源码中的中文字符串，但编译结果未更新。
+
+**根因**：`gbk_build.py` 默认比较 mtime 跳过未变文件。但如果 clean 不彻底（旧 GBK 文件残留），或文件已不再包含中文而陈旧副本未删除，`resolve_gbk` 仍可能继续命中旧镜像。
+
+**修复**：
+- `clean` 用 `rmdir /s /q` 递归删除整个 `objs` 目录
+- 自动扫描模式下清理陈旧 `gbk_src` 副本
+- 必要时使用 `--force` 参数强制重转
+
+### `all: gbk_prepare $(objc)...` 在并行构建下失效
+
+**现象**：`make -j8` 时偶发编译命中旧 `gbk_src`，或者对象编译在 `gbk_prepare` 完成前就启动。
+
+**根因**：GNU make 并列前置依赖不保证执行顺序，`gbk_prepare` 不能只挂在 `all` 上。
+
+**修复**：
+
+```makefile
+$(objc): | gbk_prepare
+```
+
+### `.h` 头文件中的中文字符串
+
+**现象**：`.h` 头文件中含中文运行期字面量，编译后仍是 UTF-8。
+
+**说明**：`gbk_encode.exe` 已支持扫描 `.c` 和 `.h` 文件，但 Makefile 的 vpath 路由机制仅作用于编译目标的 `.c` 文件。通过 `#include` 引用的 `.h` 文件不会走 vpath。
+
+**建议**：将运行期中文字符串放在 `.c` 文件中，`.h` 仅保留声明和注释。
 
 ## 适用范围
 
-用于含混合编码的源码仓库。常见目标包括 C/C++/H/ASM/Make/SCons/CMake/脚本/配置/文本资源，但必须按具体仓库确认文件类型。
+用于含混合编码的 C/C++ 嵌入式源码仓库。常见目标包括 `.c/.h/.s/.S/.mk/.bat/.cmd`。
 
-不要写死设备、板卡、芯片、产品或绝对路径。用户给出的路径示例默认只表示“形态参考”，除非用户明确指定它就是目标路径。
-仅在用户明确要求执行编码规范化时使用；如果用户没有明确要求，禁止调用本 skill。
+仅在用户明确要求执行编码规范化时使用。
 
 ## 必须遵守的规则
 
-1. 普通目标文本文件统一转换为 **UTF-8 with BOM**；除非明确选择并验证了某个文本宏头文件必须保留原始本地编码。
-2. 转换前必须识别每个文件的原始编码，并保留审计清单。
-3. 原始编码已经是 UTF-8 的文件，其中中文可以原地保留。
-4. 原始编码不是 UTF-8 的文件，其中被代码运行期使用的中文文本必须迁移到对应模块的宏定义头文件。
-5. 宏值必须保持原始编码下的运行期字节序列。
-6. 生成的宏定义头文件必须按模块/功能清晰分区，并带中文注释。
-7. 除替换中文运行期字面量为宏以外，不改注释、格式、逻辑、API 或行为。
-8. 不处理二进制、生成物、供应商目录、构建输出目录，除非用户明确要求。
-9. 启动和汇编相关文件必须转换为 **UTF-8 无 BOM**，包括 `*.s`、`*.S`、启动汇编、链接/启动入口依赖的汇编 include；不要保存为 UTF-8 with BOM。
-10. 每次完成一轮编码统一后，必须复查本次变更文件，确认没有因为本次编码转换引入新的乱码文件或乱码文本。
-
-## 编译器策略
-
-先根据工具链选择转换格式，再用最小构建验证。
-
-| 工具链/场景 | 推荐宏头文件存储方式 | 原因 |
-|---|---|---|
-| `armcc` / ARM Compiler 5 | 转换为 UTF-8 with BOM | 保持 BOM 以适配旧工具链对文本头文件的稳定读取。 |
-| `armclang` / ARM Compiler 6 | 转换为 UTF-8 | 避免不必要的 BOM 影响，按 UTF-8 统一保存。 |
-| 非 ARM 或未知编译器 | 默认 UTF-8 with BOM | 跨文件编码最稳妥。 |
-
-默认先识别工具链，再决定目标编码：`armclang` 输出 UTF-8，`armcc` 输出 UTF-8 with BOM，其他场景默认 UTF-8 with BOM。启动和汇编相关文件的无 BOM 要求优先于此默认策略。
-
-## 工作流程
-
-### 1. 建立仓库级策略
-
-确认：
-
-- 仓库根目录；
-- 需要处理的文件扩展名和排除目录；
-- 编译器/工具链对 BOM 与混合编码 include 的要求；
-- 模块级文本宏头文件应放在哪里。
-
-优先遵循仓库既有约定。没有约定时，把宏头文件放在拥有这些字符串的模块附近，例如：
-
-```text
-<module>/misc/<module>_text.h
-<module>/inc/<module>_text.h
-<module>/<feature>_text.h
-```
-
-用户示例 `.../misc/prt_gbk_text.h` 只表示“模块内集中维护历史本地编码运行期文本”的一种形态，不代表固定绝对路径。
-
-### 2. 盘点原始编码
-
-对每个目标文本文件记录：
-
-- 路径；
-- 检测到的原始编码；
-- 是否已有 BOM；
-- 是否包含中文字符；
-- 中文出现在注释中，还是出现在可执行/运行期字符串数据中。
-
-优先使用确定性工具。对 GBK/GB2312/Big5/Shift-JIS 等历史编码要使用多种信号交叉确认。编码识别不确定时，停止并询问用户，不要猜测转换。
-
-**工具脚本：** 本 skill 附带 `scan_encoding.py`，可自动扫描仓库并生成编码审计报告：
-
-```bash
-python scan_encoding.py --root . --out encoding_audit.md --json-out encoding_audit.json
-```
-
-该脚本会输出每个含中文文件的路径、原始编码、中文出现在注释/字符串/代码区的统计、文件级分类，以及详细行级清单。将审计报告作为后续决策依据。
-
-### 3. 区分中文注释和中文运行期文本
-
-只迁移代码会使用的中文，例如：
-
-- C/C++ 字符串字面量；
-- 宏字符串值；
-- 协议/UI/状态文本数组；
-- 运行期会读取的命令表、菜单表、提示文本。
-
-以下纯文本文档/配置文件通常可直接做编码转换，不必按“运行期字符串迁移”处理：
-
-- `*.txt`
-- `*.md`
-- `*.rst`
-- `*.csv`
-- `*.json`
-- `*.yaml`
-- `*.yml`
-- `*.ini`
-- `*.cfg`
-
-前提是这些文件确实只是文档、说明、静态配置或数据交换文本，而不是会被目标固件按特定历史编码逐字节消费的协议资源。
-
-不要因为文件原始编码不是 UTF-8 就迁移中文注释。中文注释可以随文件一起转换为 UTF-8 with BOM 后原地保留，除非仓库策略另有要求。
-
-### 4. 按模块创建宏定义头文件
-
-根据字符串归属创建一个或多个头文件。除非仓库已有统一大文本表风格，否则不要创建全仓库级“垃圾桶”式头文件。
-
-最大兼容方案：宏头文件使用 UTF-8 with BOM 保存，迁移出来的原始非 UTF-8 运行期字符串用原始编码字节转义表达，并在宏后保留中文注释方便维护。
-
-头文件模板：
-
-```c
-#ifndef MODULE_TEXT_H
-#define MODULE_TEXT_H
-
-/*
- * 中文文本集中定义
- * 来源：由历史非 UTF-8 编码源码中的运行期文本迁移而来。
- * 说明：本文件使用 UTF-8 with BOM 保存；宏值使用原始编码字节转义，保持运行期字节不变。
- */
-
-/* ===== 打印状态文本 ===== */
-#define MODULE_TEXT_PRINT_READY      "\xB4\xF2\xD3\xA1\xBB\xFA\xBE\xCD\xD0\xF7"  /* 打印机就绪 */
-#define MODULE_TEXT_PRINT_ERROR      "\xB4\xF2\xD3\xA1\xBB\xFA\xB4\xED\xCE\xF3"      /* 打印机错误 */
-
-/* ===== 菜单显示文本 ===== */
-#define MODULE_TEXT_MENU_SETTING     "\xC9\xE8\xD6\xC3"                          /* 设置 */
-
-#endif /* MODULE_TEXT_H */
-```
-
-默认不要使用原始本地编码、明文非 ASCII 宏值的头文件。只有在仓库明确要求，并且编译器专项验证能证明无 warning/error 时，才允许这种例外。
-
-命名规则：
-
-- 使用大写模块前缀；
-- 按功能/模块分组，并使用中文分区注释；
-- 宏名要表达语义，不要随意编号；只有无法判断语义时才使用编号；
-- 文本相同但运行期语义不同的字符串不要强行合并；
-- 使用字节转义宏时，宏后必须保留中文注释方便维护。
-
-### 5. 外科式替换字面量
-
-对每个被迁移的中文运行期文本：
-
-- 在原源码文件中 include 对应模块文本头文件；
-- 只替换字符串字面量本身；
-- 保留原有字符串拼接、格式化占位符、转义序列和数组布局；
-- 确认格式字符串与参数仍匹配。
-
-示例：
-
-```c
-/* before：原始文件不是 UTF-8，运行期需要原始编码字节 */
-show_msg("打印机错误");
-
-/* after */
-#include "module_text.h"
-show_msg(MODULE_TEXT_PRINT_ERROR);
-```
-
-### 6. 转换文件编码
-
-完成字面量迁移决策后：
-
-- 先识别编译器类型，再决定编码格式：`armclang` 转换为 UTF-8，`armcc` 转换为 UTF-8 with BOM；
-- 启动和汇编相关文件（如 `*.s`、`*.S`、startup 汇编文件、汇编 include）必须转换为 UTF-8 无 BOM，并加入 `--no-bom-files`；
-- 新建或修改的宏头文件按选定编译器策略保存；
-- 行尾保持原样，除非仓库已有明确行尾规则。
-
-**工具脚本：** 本 skill 附带 `normalize_encoding.py`，可根据审计结果批量执行编码转换和宏迁移：
-
-```bash
-# 示例：armcc 项目，转换指定文件为 UTF-8 with BOM，同时创建宏头文件并替换字面量
-python normalize_encoding.py \
-    --root . \
-    --compiler armcc \
-    --files "src/tp.c,src/esc_p.c,src/includes.h" \
-    --no-bom-files "src/inc_config.mk" \
-    --macro-header "src/tp_text.h" \
-    --macro-name "TP_TEXT_TEST_SAMPLE" \
-    --macro-value "PT562\\xB2\\xE2\\xCA\\xD4\\xD1\\xF9\\xD5\\xC5\\n" \
-    --macro-comment "PT562测试样张" \
-    --source-file "src/tp.c" \
-    --old-string '"PT562测试样张\\n"' \
-    --include-marker '#include "includes.h"'
-```
-
-**注意：** `normalize_encoding.py` 为模板脚本，执行前必须根据 `scan_encoding.py` 的审计结果调整 `--files`、`--macro-*` 和 `--source-file` 参数。Makefile 类文件、启动汇编和 `*.s`/`*.S` 等汇编文件务必放入 `--no-bom-files`，避免 Make 或汇编工具解析失败。
-
-### 7. 验证
-
-必须验证：
-
-- 转换前/转换后的文件编码审计；
-- 搜索确认：原始非 UTF-8 文件中的运行期非英文/非 ASCII 字面量已迁移；允许中文注释按策略保留；
-- 检查本次编码转换涉及的文件，确认没有新增乱码、问号替代、异常替换字符或明显错误解码片段；
-- 通过字节对比或确定性转换证明：迁移后的宏值保持原始编码运行期字节；
-- 宏头文件 include 路径可解析；
-- 项目构建或最接近的编译检查通过；
-- 变更文件中没有误改二进制、生成物或供应商文件。
-
-建议按下面步骤执行乱码复查：
-
-1. 先整理本次编码转换实际修改的文件列表，不要扫描整个仓库替代本次变更复查。
-2. 对每个变更文件优先检查是否出现 `�`、连续 `?`、`??`、`???`、`锟斤拷`、`烫烫烫`、`屯屯屯` 等典型乱码片段。
-3. 对原本应保留中文注释或中文文档的文件，抽样打开关键行，确认中文语义仍可读，不是“能解码但内容已错”。
-4. 对迁移过运行期字符串的源码和宏头文件，同时检查替换前后的显示文本与字节转义注释，确认没有把原始本地编码语义误转成 UTF-8 运行期文本。
-5. 对 `*.s`、`*.S`、startup 汇编、Makefile 类文件，额外确认输出编码是 `UTF-8 无 BOM`，且文件头没有被插入 BOM。
-6. 若本次改动文件较多，先运行 `check_mojibake.py` 做批量巡检，再对命中的文件人工复核；脚本未命中不等于可跳过人工抽查。
-
-可直接使用：
-
-```bash
-# 基础检查
-python check_mojibake.py --root . --files "src/a.c,src/b.h,docs/readme.md"
-
-# 深度检查（推荐用于 gbk-lossy 文件）
-python check_mojibake.py --root . --files "src/a.c,src/b.h" --deep
-```
-
-或通过统一入口：
-
-```bash
-python encoding_workflow.py verify --root . --deep
-```
-
-建议报告格式：
-
-```text
-编码规范化报告
-- 处理范围：
-- 转换为 UTF-8 with BOM 的文件：
-- 原始 UTF-8 且保留原地中文的文件：
-- 已迁移原始编码运行期文本的原始非 UTF-8 文件：
-- 新建/更新的宏头文件：
-- 宏头文件存储策略：UTF-8 with BOM + 原始编码字节转义 / 已验证的原始本地编码明文头文件例外
-- 跳过文件与原因：
-- 验证命令与结果：
-- 风险/未覆盖项：
-```
+1. 普通目标文本文件统一转换为 **UTF-8 with BOM**
+2. 启动和汇编相关文件（`*.s`、`*.S`）必须转换为 **UTF-8 无 BOM**
+3. 转换前必须识别每个文件的原始编码，并保留审计清单
+4. 不修改注释、格式、逻辑、API 或行为
+5. 不处理二进制、生成物、供应商目录、构建输出目录
+6. 每次完成编码统一后，必须用 `check_mojibake.py` 复查
 
 ## 安全门槛
 
 遇到以下情况必须暂停并询问用户：
-
-- 编码识别不确定；
-- 文件无法无损解码/重新编码；
-- 中文文本处于协议字节、校验敏感数据、固件资源或外部指定二进制格式中；
-- 编译器/工具链拒绝某类文件使用 BOM；
-- 仓库想使用原始本地编码明文头文件，但尚无该编译器行为的验证证据；
-- 移动字符串可能改变内存段、链接属性、constness 或 ABI 可见数据布局。
+- 编码识别不确定
+- 文件无法无损解码/重新编码
+- 中文文本处于协议字节、校验敏感数据、固件资源中
+- 编译器/工具链拒绝某类文件使用 BOM
+- 移动字符串可能改变内存段、链接属性或 ABI
 
 ## 常见错误
 
 | 错误 | 正确做法 |
-|---|---|
-| 根据转换后的编码判断中文能否保留 | 根据原始编码审计判断 |
-| 迁移所有中文 | 只迁移原始非 UTF-8 文件中的运行期中文文本；注释可保留 |
-| 创建全仓库一个巨大文本头文件 | 优先创建模块归属明确的头文件 |
-| 在 armcc/armclang 项目中不区分工具链就统一套用同一种输出编码 | 先判断工具链，armclang 输出 UTF-8，armcc 输出 UTF-8 with BOM |
-| 把原始本地编码运行期字符串转成 UTF-8 运行期字符串 | 宏值必须保持原始编码字节 |
-| 不先识别编译器就开始转换 | 先确认编译器类型，再选择对应编码格式 |
-| 修改生成物/供应商/构建输出 | 默认排除，除非用户明确要求 |
-| 使用 Windows 绝对路径写死规则 | 文档和配置使用仓库相对路径与 `/` 分隔符 |
+|---|---|---|
+| 自己写编码检测/转换脚本 | **必须使用** skill 自带脚本 |
+| 在 armcc/armclang 项目中不区分工具链 | 先确认编译器类型，armcc 用 BOM |
+| 修改生成物/供应商/构建输出 | 默认排除 |
+| `vpath` 只指定一级目录 | 添加 `$(wildcard $(GBK_SRC_DIR)*/)` |
+| clean 用 `del` 不递归 | 用 `rmdir /s /q` 确保删除 gbk_src 子目录 |
 
 ## 交付标准
 
 完成一次编码规范化时，必须提供：
-
-- 仓库相对路径的变更文件清单；
-- 宏头文件路径和模块归属理由；
-- 选定的宏头文件存储策略与编译器验证证据；
-- 原始编码审计证据；
-- 原始编码运行期字节保持证据；
-- 本次编码转换后乱码检查证据；
-- 构建/编译验证证据；
-- 跳过文件和风险项说明。
-
----
-
-## 统一入口（推荐 AI agent 使用）
-
-本 skill 提供 `encoding_workflow.py` 作为统一入口，确保不同 AI agent 执行时的一致性：
-
-```bash
-# 三步流程
-python encoding_workflow.py scan    --root /path/to/repo                # 扫描
-python encoding_workflow.py convert --root /path/to/repo --compiler armcc  # 转换
-python encoding_workflow.py verify  --root /path/to/repo --deep          # 验证
-
-# 或一步完成
-python encoding_workflow.py all --root /path/to/repo --compiler armcc
-```
-
-该脚本自动完成：
-1. `scan` — 调用 `scan_encoding.py` 盘点原始编码
-2. `convert` — 调用 `normalize_encoding.py` 批量转换，**并在转换前检测 gbk-lossy 文件**（可能混编的文件提前预警）
-3. `verify` — 调用 `check_mojibake.py --deep` 做基础乱码巡检 + 语义乱码检测
-
----
-
-## 工具脚本
-
-本 skill 目录下附带 Python 辅助脚本，用于自动化扫描和执行编码规范化。
-
-### scan_encoding.py
-
-**作用：** 扫描仓库所有目标文本文件，检测原始编码，识别中文字符位置（注释 vs 字符串字面量 vs 代码区），生成 `encoding_audit.md` 审计报告。
-
-**位置：** `agents/skills/repository-encoding-normalizer/scan_encoding.py`
-
-**参数：**
-
-| 参数 | 默认值 | 说明 |
-|---|---|---|
-| `--root` | `.` | 仓库根目录 |
-| `--out` | `encoding_audit.md` | 审计报告输出路径 |
-| `--json-out` | `""` | 机器可读 JSON 审计输出路径，供 `normalize_encoding.py` 直接消费 |
-| `--exts` | `.c,.h,.s,.S,.mk,.txt,.bat,.cmd` | 扫描的文件扩展名（逗号分隔） |
-| `--exclude` | `stm32lib,stm32usb,ucos2,Libraries,...` | 排除的目录名（逗号分隔） |
-
-**用法示例：**
-
-```bash
-python scan_encoding.py --root . --out encoding_audit.md --json-out encoding_audit.json
-```
-
-**输出示例：**
-
-审计报告包含三部分：
-1. **汇总表**：文件路径、原始编码、文件分类、含中文行数、字符串字面量/注释/代码区的中文字符数
-2. **文件分类说明**：区分 `comment_only`、`string_or_runtime`、`mixed_comment_and_runtime`、`mixed_comment_and_code`、`code_only_needs_review`
-3. **详细清单**：每个含中文文件的逐行分析，标注中文字符所在位置类型
-
-### normalize_encoding.py
-
-**作用：** 根据审计结果批量执行编码转换（原始非 UTF-8 -> UTF-8 with/without BOM），创建宏定义头文件，并替换源文件中的运行期字符串字面量为宏。
-
-**位置：** `agents/skills/repository-encoding-normalizer/normalize_encoding.py`
-
-**参数：**
-
-| 参数 | 默认值 | 说明 |
-|---|---|---|
-| `--root` | `.` | 仓库根目录 |
-| `--compiler` | `armcc` | 编译器类型（`armcc` 或 `armclang`），决定目标编码是否带 BOM |
-| `--files` | `""` | 需要转换的文件列表（逗号分隔，相对 root） |
-| `--no-bom-files` | `""` | 转为 UTF-8 **无 BOM** 的文件列表（如 Makefile） |
-| `--macro-header` | `""` | 新建的宏头文件路径（相对 root） |
-| `--macro-name` | `""` | 宏名称 |
-| `--macro-value` | `""` | 宏值（原始编码字节转义，如 `PT562\xB2\xE2...`） |
-| `--macro-comment` | `""` | 宏后中文注释 |
-| `--source-file` | `""` | 包含旧字符串的源文件路径（相对 root） |
-| `--old-string` | `""` | 需要替换的旧字符串字面量 |
-| `--include-marker` | `#include "includes.h"` | 插入 include 的标记行 |
-| `--audit-json` | `""` | `scan_encoding.py` 生成的 JSON 审计文件 |
-| `--plan-out` | `""` | 输出 dry-run 或执行计划的 JSON 文件 |
-| `--dry-run` | `false` | 只生成计划，不改文件 |
-
-**用法示例：**
-
-```bash
-# 1. 仅批量转换文件编码
-python normalize_encoding.py \
-    --root . \
-    --compiler armcc \
-    --files "src/tp.c,src/esc_p.c,src/includes.h" \
-    --no-bom-files "src/inc_config.mk"
-
-# 2. 先基于扫描结果生成自动计划，不落盘改动
-python scan_encoding.py \
-    --root . \
-    --out encoding_audit.md \
-    --json-out encoding_audit.json
-
-python normalize_encoding.py \
-    --root . \
-    --compiler armcc \
-    --audit-json encoding_audit.json \
-    --dry-run \
-    --plan-out normalize_plan.json
-
-# 3. 同时创建宏头文件并替换字面量
-python normalize_encoding.py \
-    --root . \
-    --compiler armcc \
-    --files "src/tp.c,src/esc_p.c" \
-    --no-bom-files "src/inc_config.mk" \
-    --macro-header "src/tp_text.h" \
-    --macro-name "TP_TEXT_TEST_SAMPLE" \
-    --macro-value "PT562\\xB2\\xE2\\xCA\\xD4\\xD1\\xF9\\xD5\\xC5\\n" \
-    --macro-comment "PT562测试样张" \
-    --source-file "src/tp.c" \
-    --old-string '"PT562测试样张\\n"' \
-    --include-marker '#include "includes.h"'
-```
-
-**注意事项：**
-
-1. **Makefile 类文件、启动汇编和 `*.s`/`*.S` 等汇编文件**必须放入 `--no-bom-files`，否则 Make 或汇编工具可能因 BOM 解析失败。
-2. `--macro-value` 中的字节必须按原始文件编码确认，而不是默认按 GBK 假设。
-3. `--old-string` 必须与实际源码中的字符串字面量完全匹配（包括引号和转义）。
-4. `--audit-json + --dry-run` 适合先自动区分“只转编码”和“需要迁移运行期中文”的文件，再人工确认。
-5. `txt/md/rst/csv/json/yaml/yml/ini/cfg` 这类纯文本文件默认直接进入编码转换计划，不进入运行期迁移候选。
-6. 对源码类 `string_or_runtime` / `mixed_comment_and_runtime` 文件，脚本当前只会列为迁移候选，不会擅自生成宏替换方案。
-7. 当前自动替换器支持显式传入源文件原始编码；若源文件是其他历史编码，仍建议先用 dry-run 计划，再按原始编码人工确认迁移参数。
-8. 仍建议先处理少量文件并编译验证，再扩大范围。
-
-### check_mojibake.py
-
-**作用：** 对本次编码转换涉及的文件做批量乱码巡检，快速发现替换字符、连续问号、典型乱码词、UTF-8 BOM 误写入无 BOM 文件、以及**语义乱码**（UTF-8 字节被 gb18030 错解后产生的"合法但不正确"的汉字序列）。
-
-**位置：** `~/.claude/skills/repository-encoding-normalizer/check_mojibake.py`
-
-**参数：**
-
-| 参数 | 默认值 | 说明 |
-|---|---|---|
-| `--root` | `.` | 仓库根目录 |
-| `--files` | `""` | 需要巡检的文件列表，逗号分隔，相对 `root` |
-| `--allow-question-files` | `""` | 允许出现连续问号的文件列表，逗号分隔，相对 `root` |
-| `--deep` | `false` | 开启深度检测：编码往返验证 + 语义乱码检测（检测 UTF-8 被 gb18030 错解产生的"合法汉字但语义不通"序列）|
-
-**用法示例：**
-
-```bash
-# 基础检查
-python check_mojibake.py --root . --files "src/tp.c,src/tp_text.h,docs/readme.md"
-
-# 深度检查（含语义乱码检测）
-python check_mojibake.py --root . --files "src/cpcl_internal.c" --deep
-```
-
-**检测能力对比：**
-
-| 乱码类型 | 基础检查 | `--deep` |
-|---|---|---|
-| `�` (U+FFFD 替换字符) | ✅ | ✅ |
-| `??` 连续问号 | ✅ | ✅ |
-| `锟斤拷` / `烫烫烫` 经典乱码 | ✅ | ✅ |
-| BOM 误写入无 BOM 文件 | ✅ | ✅ |
-| UTF-8→gb18030 语义乱码（如 `浠庣紦鍐`） | ❌ | ✅ |
-| 编码往返不一致 | ❌ | ✅ |
-
-**语义乱码原理：** 当 GBK 文件中混入 UTF-8 编码段落，使用 gb18030 容错读取时，UTF-8 字节会被错解为"合法但不正确"的 CJK 字符。这类字符在正常中文文本中极少连续出现。`--deep` 通过检测连续高风险 CJK 字符序列来发现此类问题。
-
-**输出说明：**
-
-- 无命中时输出 `No suspicious mojibake patterns found.`，退出码 0
-- 命中时按文件列出问题类型、行号和片段，并以非零状态码退出
+- 仓库相对路径的变更文件清单
+- 原始编码审计证据
+- GBK 文件生成证据（`--list` 输出）
+- Makefile 集成检查清单
+- 构建/编译验证证据
+- 跳过文件和风险项说明
