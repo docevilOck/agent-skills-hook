@@ -21,6 +21,10 @@ def get_default_args():
     parser.add_argument("--out", default="encoding_audit.md", help="Output report file (default: encoding_audit.md)")
     parser.add_argument("--json-out", default="", help="Optional machine-readable JSON audit output path")
     parser.add_argument("--exts", default=".c,.h,.s,.S,.mk,.txt,.bat,.cmd", help="Comma-separated file extensions to scan")
+    parser.add_argument("--scan-makefile", action="store_true", default=True,
+                        help="Also scan 'Makefile' (no extension) in each directory (default: True)")
+    parser.add_argument("--no-scan-makefile", dest="scan_makefile", action="store_false",
+                        help="Skip 'Makefile' (no extension)")
     parser.add_argument(
         "--exclude",
         default="stm32lib,stm32usb,ucos2,Libraries,__pycache__,.git,firmware,release,releases,dist,out,bin,build,.vscode",
@@ -225,12 +229,13 @@ def analyze_text(text):
 def write_markdown_report(results, out_path):
     with open(out_path, "w", encoding="utf-8") as fh:
         fh.write("# 仓库原始编码审计\n\n")
-        fh.write("| 文件路径 | 原始编码 | 文件分类 | 包含中文行数 | 字符串字面量 | 注释 | 代码区 |\n")
-        fh.write("|---|---|---|---|---|---|---|\n")
+        fh.write("| 文件路径 | 原始编码 | 文件分类 | 预置乱码 | 包含中文行数 | 字符串字面量 | 注释 | 代码区 |\n")
+        fh.write("|---|---|---|---|---|---|---|---|\n")
         for result in results:
             summary = result["summary"]
+            garbled_flag = "⚠️" if result.get("pre_existing_garbled") else ""
             fh.write(
-                f"| {result['path']} | {result['encoding']} | {result['file_class']} | "
+                f"| {result['path']} | {result['encoding']} | {result['file_class']} | {garbled_flag} | "
                 f"{len(result['lines'])} | {summary['string']} | {summary['comment']} | {summary['code']} |\n"
             )
 
@@ -271,6 +276,13 @@ def main():
             rel = os.path.relpath(full, repo_root)
             if should_scan(rel, target_exts, exclude_dirs):
                 files.append(rel)
+        if args.scan_makefile and "out" not in dirs and "build" not in dirs:
+            for mf_name in ("Makefile", "makefile", "GNUmakefile"):
+                mf_path = os.path.join(root, mf_name)
+                if os.path.isfile(mf_path):
+                    rel = os.path.relpath(mf_path, repo_root)
+                    if rel not in files:
+                        files.append(rel)
 
     results = []
     for rel in sorted(files):
@@ -290,15 +302,18 @@ def main():
             continue
         analyzed = analyze_text(text)
         if analyzed["has_chinese"]:
-            results.append(
-                {
-                    "path": rel.replace("\\", "/"),
-                    "encoding": encoding,
-                    "lines": analyzed["lines"],
-                    "summary": analyzed["summary"],
-                    "file_class": analyzed["file_class"],
-                }
-            )
+            result = {
+                "path": rel.replace("\\", "/"),
+                "encoding": encoding,
+                "lines": analyzed["lines"],
+                "summary": analyzed["summary"],
+                "file_class": analyzed["file_class"],
+            }
+            replacement_count = text.count("\ufffd")
+            if replacement_count > 0:
+                result["pre_existing_garbled"] = True
+                result["garbled_char_count"] = replacement_count
+            results.append(result)
 
     out_path = Path(repo_root) / args.out
     write_markdown_report(results, out_path)

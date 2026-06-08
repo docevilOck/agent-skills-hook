@@ -151,7 +151,19 @@ def _has_chinese_in_strings(filepath):
     return False
 
 
-def scan_chinese_files(src_root):
+def _is_excluded(dirpath, src_root, excludes):
+    if not excludes:
+        return False
+    rel = os.path.relpath(dirpath, src_root)
+    parts = rel.split(os.sep)
+    for ex in excludes:
+        ex_parts = ex.replace("/", os.sep).replace("\\", os.sep).split(os.sep)
+        if parts[:len(ex_parts)] == ex_parts:
+            return True
+    return False
+
+
+def scan_chinese_files(src_root, excludes=None):
     """遍历 src_root，返回含运行期中文字面量的文件相对路径列表。"""
     found = []
     if not os.path.isdir(src_root):
@@ -159,6 +171,8 @@ def scan_chinese_files(src_root):
         sys.exit(1)
 
     for dirpath, _, filenames in os.walk(src_root):
+        if _is_excluded(dirpath, src_root, excludes):
+            continue
         for fn in filenames:
             if not fn.endswith((".c", ".h")):
                 continue
@@ -354,6 +368,8 @@ def parse_args(argv=None):
                         help="仅列出含中文的文件路径，不执行转换")
     parser.add_argument("-q", "--quiet", action="store_true",
                         help="静默模式（仍会输出错误到 stderr）")
+    parser.add_argument("-x", "--exclude", action="append", metavar="DIR",
+                        help="排除目录（相对于 src，可重复指定）")
     parser.add_argument("--version", action="version",
                         version=f"gbk_encode {__version__}")
     parser.add_argument("files", nargs="*", metavar="FILE",
@@ -375,7 +391,7 @@ def main(argv=None):
     else:
         if not args.quiet:
             print(f"[gbk_encode] Scanning: {src_dir} ...")
-        files = scan_chinese_files(src_dir)
+        files = scan_chinese_files(src_dir, excludes=args.exclude)
 
     if not files:
         if not args.quiet:

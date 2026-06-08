@@ -54,6 +54,10 @@ def parse_args():
 def detect_source_encoding(data):
     if data.startswith(BOM):
         return "utf-8-sig"
+    if data.startswith(codecs.BOM_UTF16_LE):
+        return "utf-16-le"
+    if data.startswith(codecs.BOM_UTF16_BE):
+        return "utf-16-be"
     try:
         data.decode("utf-8")
         return "utf-8"
@@ -160,13 +164,24 @@ def build_plan(audit, compiler, no_bom_files):
         file_class = item.get("file_class", "")
 
         if encoding in {"utf-8", "utf-8-sig"}:
-            skipped_files.append({"path": path, "reason": f"already {encoding}"})
+            if item.get("pre_existing_garbled"):
+                skipped_files.append({"path": path, "reason": f"pre-existing garbled ({item.get('garbled_char_count', '?')} replacement chars), skip to avoid data loss"})
+            else:
+                skipped_files.append({"path": path, "reason": f"already {encoding}"})
             continue
 
         use_bom = should_use_bom(path, compiler, no_bom_files)
         target = "utf-8-sig" if use_bom else "utf-8"
 
-        # comment_only / string_or_runtime / mixed → 统一转换
+        if item.get("pre_existing_garbled"):
+            skip_reason = f"pre-existing garbled ({item.get('garbled_char_count', '?')} replacement chars), mark as gbk-lossy"
+            convert_files.append({
+                "path": path, "encoding": encoding,
+                "target_encoding": target, "use_bom": use_bom,
+                "reason": skip_reason,
+                "gbk_lossy": True,
+            })
+            continue
         # gbk_build.py 会在编译时处理运行期中文
         if file_class in {"comment_only", "string_or_runtime", "mixed_comment_and_runtime"}:
             convert_files.append({

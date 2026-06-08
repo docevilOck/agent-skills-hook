@@ -5,351 +5,126 @@ description: 源码仓库编码规范化（UTF-8 统一 + 编译时 GBK 自动�
 
 # 仓库编码规范化
 
-## 核心原则
+源码统一为 **UTF-8 with BOM**，中文运行期字面量保留在源码中，编译时由 `gbk_encode.exe` 自动检测含 CJK 字面量的文件并生成 GBK 编码副本供编译器使用。
 
-源码统一为 **UTF-8 with BOM**，中文运行期字面量保留在源码中，编译时由 `gbk_encode.exe` / `gbk_build.py` 自动检测含 CJK 字面量的文件并生成 GBK 编码副本供编译器使用。
+> `<skill_dir>` = `C:/Users/DELL/.config/opencode/skills/repository-encoding-normalizer`
 
-> 历史方案：早期曾将中文提取到宏头文件用 `\xB4\xF2...` 字节转义，已废弃。
+## 脚本工具
 
-## 新方案架构
+**本 skill 附带的脚本为唯一合法实现，禁止自写替代：** `scan_encoding.py`（编码审计）、`normalize_encoding.py`（批量转换）、`check_mojibake.py`（乱码巡检）、`gbk_encode.exe`（GBK 编译时转换）、`gbk_build.py`（转换源码备查）。仓库改造时将 `gbk_encode.exe` 复制到仓库 `tool/` 目录。
 
-```
-源码 (UTF-8 BOM)                      构建输出
-──────                                ──────
-src/                                   build/objs/
-  ├── ui/menu.c ───────────┐            gbk_src/
-  ├── core/init.c          │             ├── ui/menu.c          (GBK)
-  ├── misc/event.c ───┐    │             ├── misc/event.c       (GBK)
-  └── ...              │    │             └── ...
-                       │    │
-  gbk_encode.exe 扫描 ─┤    │
-  (自动检测含中文)    │    │
-                       │    │
-  Makefile ────────────┤────┘
-  (resolve_gbk 路由)   │
-                        │
-  UTF-8 源文件 ←───────┘ (无中文)
-```
-
-## ⛔ 强制脚本使用规则
-
-**本 skill 附带了四个专用脚本，调用本 skill 后必须严格按顺序使用它们，禁止自行编写替代脚本。**
-
-| 违规行为 | 正确做法 |
-|---|---|---|
-| 自己写编码检测逻辑 | 使用 `scan_encoding.py` |
-| 手工逐文件 `iconv` / Python 读写 | 使用 `normalize_encoding.py` |
-| 自己写乱码检查逻辑 | 使用 `check_mojibake.py` |
-| 自己写 GBK 转换工具 | 使用 `gbk_encode.exe` |
-| 在 Makefile 中自己写文件路径判断 | 使用 `resolve_gbk` 模板（见下文） |
-
-**skill 内资源：**
-
-| 资源 | 类型 | 用途 |
-|------|------|------|
-| `scan_encoding.py` | 脚本 | 编码审计扫描 |
-| `normalize_encoding.py` | 脚本 | 批量编码转换（非 UTF-8 → UTF-8 with BOM） |
-| `gbk_encode.exe` | 可执行文件 | GBK 编译时转换（独立 exe，无需 Python） |
-| `gbk_build.py` | 源码 | GBK 转换源码（备查/修改用） |
-| `check_mojibake.py` | 脚本 | 乱码巡检 |
-
-**仓库改造时**，需将 `gbk_encode.exe` 复制到仓库的 `tool/` 目录下。
-
-所有命令从仓库根目录执行，脚本使用绝对路径引用。
-
-## 🚀 推荐流程
-
-### 新仓库首次规范化
+## 首次规范化流程
 
 ```bash
-# 第一步：扫描审计
+# 1. 编码审计（含 Makefile、*.mk、*.bat）
 python <skill_dir>/scan_encoding.py --root . --out encoding_audit.md --json-out encoding_audit.json
 
-# 第二步：编码转换（非 UTF-8 → UTF-8 with BOM）
+# 2. 编译器环境检测（确定 armcc / armclang / gcc 及正确编译命令）
+#    检查 Makefile 中 ifeq/ifneq ($(armclang),1) 等分支 + 搜索 build*.bat/build*.sh
+#    本仓库若 armclang=1 可用则优先；否则用默认 armcc。记录真实 make 命令。
+
+# 3. 批量转换（compiler 参数需与实际编译器匹配）
 python <skill_dir>/normalize_encoding.py --root . --compiler armcc --audit-json encoding_audit.json
 
-# 第三步：部署 gbk_encode.exe 到仓库
+# 4. 复制 gbk_encode 到仓库
 copy <skill_dir>/gbk_encode.exe tool/gbk_encode.exe
 
-# 第四步：改造 Makefile（见 Makefile 集成模板）
-#   - 添加 GBK_SRC_DIR、gbk_prepare、vpath、resolve_gbk
-#   - 为对象编译建立 gbk_prepare 顺序依赖
-#   - 更新 clean 使用 rmdir /s /q
+# 5. 改造 Makefile（见下方模板，替换占位符为仓库实际值）
+#    注意检查 Makefile 自身编码：若为 UTF-16 LE 等非 UTF-8，先转换为 UTF-8 BOM。
 
-# 第五步：预览 GBK 转换范围
-tool/gbk_encode.exe -s <src_dir> -o <out_dir> --list
+# 6. GBK 命中预览
+tool/gbk_encode.exe -s . -o <out_dir> --list
 
-# 第六步：Dry-run 验证编译路由
-make -n 2>&1 | rg "gbk_src"
+# 7. 乱码巡检（从审计 JSON 自动读取文件列表）
+python <skill_dir>/check_mojibake.py --root . --from-json encoding_audit.json
 
-# 第七步：乱码复查
-python <skill_dir>/check_mojibake.py --root . --files "<变更文件列表>"
-
-# 第八步：完整编译验证
-make clean && make -j12
+# 8. 编译验证（使用步骤 2 检测到的真实编译命令）
+make clean; if ($?) { make armclang=1 project=<name> -j }
+# 验证产物：
+#   Get-ChildItem out\<project>\objs\*.o | Measure-Object | Select-Object Count
+#   Get-ChildItem out\<project>\*.axf,*.bin,*.hex
 ```
 
-### 日常开发（已有 UTF-8 源码 + 已配置 Makefile）
+## gbk_encode.exe 参数
 
-```bash
-# Makefile 中 gbk_prepare 已挂载到 all 依赖链，每次 make 自动执行
-# 无需额外手动步骤
-```
+`-s DIR`（源根）/ `-o DIR`（输出目录）/ `-x DIR`（排除目录，至少排除构建输出）/ `--list`（仅列出）/ `--force`（忽略 mtime）/ `-q`（静默）。检测跳过 `#` `//` `/* */` 行，自动清理陈旧副本。
 
-> `<skill_dir>` = `C:/Users/DELL/.config/opencode/skills/repository-encoding-normalizer`（Windows）。
+## 编译器检测
 
-## gbk_encode.exe — GBK 编译时转换
+改造 Makefile 前需确认项目实际使用的编译器，避免 `make` 无参数时走错分支：
 
-### 原理
-
-扫描源码目录下所有 `.c` 和 `.h` 文件，检测双引号字符串字面量内是否含 CJK（中文字符及中文标点），命中则生成 GBK 编码副本供编译器使用。
-
-自动扫描模式下还要清理 **陈旧 GBK 副本**：如果某文件以前命中过中文、现在已不再命中，旧镜像必须删除，否则 `resolve_gbk` 仍可能继续命中旧副本。
-
-**检测跳过以下行**（不会误判注释中的中文）：
-- 以 `#` 开头的预处理指令（含 `#define` 宏）
-- `//` 注释行
-- `/*` / `*` 注释行
-
-> 源文件必须是 UTF-8 编码。非 UTF-8 源文件需先用 `normalize_encoding.py` 转为 UTF-8。
-
-### 独立 exe（推荐，无需 Python 环境）
-
-skill 目录下预置 `gbk_encode.exe`，改造仓库时复制到仓库 `tool/` 目录即可。
-
-```bash
-# 仓库改造
-copy <skill_dir>/gbk_encode.exe tool/gbk_encode.exe
-
-# 使用
-tool/gbk_encode.exe -s <src_root> -o <out_dir> [-q] [--force] [--list]
-```
-
-### Python 源码（备查/修改用）
-
-`gbk_build.py` 为 exe 的源码。如需修改逻辑，编辑后必须同时更新 exe：
-
-```bash
-# 修改逻辑
-python <skill_dir>/gbk_build.py -s <src> -o <out> --list  # 验证改动
-
-# 重新打包
-pip install pyinstaller
-pyinstaller --onefile --name gbk_encode gbk_build.py
-
-# 更新 skill 内置 exe + 各仓库中的 exe
-copy dist/gbk_encode.exe <skill_dir>/gbk_encode.exe
-copy dist/gbk_encode.exe <repo>/tool/gbk_encode.exe       # 每个使用了该工具的仓库
-```
-
-**注意**：修改源码后不更新 exe，会导致各仓库仍使用旧版本逻辑。源码和 exe 必须保持同步。
-
-**额外注意**：不要只看 `gbk_encode.exe --version`。版本号字符串相同，不代表仓库里正在使用的 exe 已经替换为最新打包产物。若现场仍出现旧行为，必须至少做其中一项：
-- 对比 `Get-FileHash <skill_dir>/gbk_encode.exe`、`Get-FileHash dist/gbk_encode.exe`、`Get-FileHash <repo>/tool/gbk_encode.exe`
-- 或先把最新打包产物复制为新文件名验证，再原位替换旧 exe
-
-已踩过的真实问题：源码和 `--version` 都显示 `1.1.0`，但仓库 `tool/gbk_encode.exe` 仍是旧哈希文件，最终导致构建继续生成脏 `gbk_src` 副本。
-
-近期已确认需要同步到 exe 的行为包括：
-- 自动扫描模式下删除陈旧 `gbk_src` 副本
-- `.c/.h` 双扩展名扫描
-- 显式 `files...` 模式不做陈旧副本清理
-
-### 命令参数
-
-| 参数 | 说明 |
-|------|------|
-| `-s DIR` | 源码根目录（必填） |
-| `-o DIR` | GBK 副本输出目录（必填） |
-| `--list` | 仅列出含中文的文件，不转换 |
-| `--force` | 忽略 mtime 检查，强制重新转换 |
-| `-q` | 静默模式（make 集成用） |
+1. 检查 `Makefile` 中 `ifeq ($(armclang),1)` / `ifeq ($(gcc),1)` 等分支条件
+2. 搜索项目中的 `build*.bat` / `build*.sh`，获取实际编译命令（如 `make armclang=1 project=tp80k`）
+3. 检查 `CFLAGS` 中的编译选项语法：`-mcpu` → armclang，`--cpu` → armcc
+4. 记录正确的 make 命令（含所有必需变量），用于最终编译验证
 
 ## Makefile 集成模板
 
-### gbk_prepare 目标
+> **占位符模板**：必须替换 `<>` 为仓库实际值后才可使用。
 
 ```makefile
-GBK_SRC_DIR := $(OBJDIR)gbk_src/
+.DEFAULT_GOAL := all                    # 1. 顶部（避免默认目标落在首个目标）
+GBK_SRC_DIR := <OBJDIR>gbk_src/         # 2. 路径变量
 
-.PHONY: gbk_prepare
-gbk_prepare:
-	tool/gbk_encode.exe -s "$(PRJDIR)" -o "$(GBK_SRC_DIR)" -q
-
-# 关键：对象编译必须先完成 gbk_prepare
-$(objc): | gbk_prepare
-```
-
-### resolve_gbk 路由（armcc / armclang 通用）
-
-```makefile
-# 注册 GBK 子目录到 vpath（后续构建生效）
+# 3. vpath — ⚠️ ifneq 保护：空 wildcard 会清除所有 .c vpath
+ifneq ($(wildcard $(GBK_SRC_DIR)),)
 vpath %.c $(wildcard $(GBK_SRC_DIR)*/)
 vpath %.c $(GBK_SRC_DIR)
-
-# 判断是否有 GBK 副本：有则用 GBK 路径，否则用原始 UTF-8 路径
-resolve_gbk = $(if $(wildcard $(GBK_SRC_DIR)$(subst $(PRJDIR),,$1)),$(GBK_SRC_DIR)$(subst $(PRJDIR),,$1),$1)
-
-# armcc 编译配方
-%.o: %.c
-	$(CC) -c $(call resolve_gbk,$<) $(CFLAGS) -o $(OBJDIR)$(notdir $@)
-```
-
-### 全套 CheckList
-
-### clean / distclean
-
-```makefile
-ifeq ($(SHELL), cmd.exe)
-RMDIR := rmdir /s /q
-else
-RMDIR := rm -rf
 endif
 
+# 4. resolve_gbk（路径剥离按仓库 src_root 调整）
+resolve_gbk = $(if $(wildcard $(GBK_SRC_DIR)$(subst <src_root>,,$1)),$(GBK_SRC_DIR)$(subst <src_root>,,$1),$1)
+
+# 5. OBJDIR 有效目标（编译规则 | <OBJDIR> 需要对应的目录创建规则）
+<OBJDIR>:
+	if not exist "$(<OBJDIR>)" mkdir "$(subst /,\,$(<OBJDIR>))"
+
+# 6. gbk_prepare — cmd.exe 下 exe 用反斜杠！-x 排除构建输出防陈旧副本
+.PHONY: gbk_prepare
+gbk_prepare: | <OBJDIR>
+	.\tool\gbk_encode.exe -s <scan_root> -x <exclude_dir> -o "$(GBK_SRC_DIR)" -q
+
+# 7. 顺序依赖
+$(obja) $(objc): | gbk_prepare
+
+# 8. 编译规则：C 注入 resolve_gbk + | <OBJDIR>；ASM 加 | <OBJDIR>
+# 9. clean 必须递归删除
 clean:
-	-if exist $(subst /,\,$(OBJDIR)) $(RMDIR) $(subst /,\,$(OBJDIR))
-	-$(RM) $(subst /,\,$(OUTDIR)*.*)
+	-if exist $(subst /,\,$(OBJDIR)) rmdir /s /q $(subst /,\,$(OBJDIR))
 ```
 
-不要只删 `$(OBJDIR)*.*`。那样会漏掉 `$(OBJDIR)gbk_src/...` 子目录。
+**CheckList：** `GBK_SRC_DIR` 指向 `$(OBJDIR)gbk_src/` · `<OBJDIR>:` 目录规则存在 · `gbk_prepare: | <OBJDIR>` · `$(obja) $(objc): | gbk_prepare` · vpath 用 `ifneq` 保护 · exe 用反斜杠 · `.DEFAULT_GOAL := all` · `-x` 排除构建输出 · `rmdir /s /q` 递归 clean · 使用检测到的正确编译命令实际通过
 
-将以下内容加入到仓库 Makefile：
+## 常见故障速查
 
-| 项目 | 说明 |
-|------|------|
-| `GBK_SRC_DIR` 变量 | 指向构建目录下的 gbk_src 子目录 |
-| `gbk_prepare` 目标 | 定义目标本身，并通过 `$(objc): | gbk_prepare` 建立顺序依赖 |
-| `vpath` 子目录注册 | `$(wildcard $(GBK_SRC_DIR)*/)` 递归覆盖 |
-| `resolve_gbk` 函数 | 编译配方中 `$<` → `$(call resolve_gbk,$<)` |
-| `clean` 递归删除 | `rmdir /s /q $(OBJDIR)` 确保清理 gbk_src |
-| 陈旧副本清理 | 自动扫描模式下删除不再命中的 `gbk_src` 镜像 |
+| 现象 | 根因 | 修复 |
+|------|------|------|
+| `'tool' is not recognized` | cmd.exe 把 `/` 当开关前缀 | exe 路径用反斜杠 |
+| make 只跑第一个目标 | 默认目标是 gbk_prepare | 顶部 `.DEFAULT_GOAL := all` |
+| clean build 只编译 asm | 空 wildcard 清空 `.c` vpath | `ifneq` 保护 GBK vpath |
+| UTF-8 解码失败 | 扫描到 `out/` 陈旧 GBK 副本 | `-x <build_dir>` 排除 |
+| 编译仍用原始 UTF-8 | vpath 仅一级扁平搜索 | `$(wildcard $(GBK_SRC_DIR)*/)` |
+| 改中文后未更新 | mtime 缓存/陈旧副本 | `--force` 或递归 clean |
+| ASM `.d` 写失败 | OBJDIR 不存在 | gbk_prepare 中 `mkdir` |
+| `-j` 并行编译抢先 | 并列前置依赖不保序 | `$(obja) $(objc): \| gbk_prepare` |
+| `target 'out/.../objs/' failed to remake` | C/ASM 规则依赖 `\| $(OBJDIR)` 但没有目录创建规则 | 添加 `<OBJDIR>:` mkdir 规则 |
+| `C3900U: Unrecognized option` / `A3903U: Cortex-M33 not permitted` | armcc 与 armclang 选项语法不匹配 | 检查 `build*.bat`，用 `make armclang=1` |
+| Makefile 编辑后 `\r\r\n` / 编译语法错乱 | Makefile 自身是 UTF-16 LE 等非 UTF-8，编辑破坏行尾 | 先对 Makefile 做 UTF-16 LE → UTF-8 BOM 转换 |
 
-## 进阶 Makefile 集成
+## 规则
 
-### GBK 路由收窄
-
-- 用 `gbk_src_file` 目标变量绑定每个对象到其 GBK 副本路径，避免 `$<` 裸名导致 `resolve_gbk` 失效；编译命令中 `$(if $(wildcard $(gbk_src_file)),$(gbk_src_file),$(call resolve_gbk,$<))` 优先取绑定路径。
-- `gbk_prepare` 只做扫描转换，不要在当中用 `xcopy` 整树复制源目录——那会让不需要 GBK 的文件也被 `wildcard` 命中，误走 `gbk_src` 路径。确需普通副本时在模式规则里 `@if not exist` 按需补。
-- `$(GBK_SRC_DIR)%.c` 规则加 `| gbk_prepare` 保证整目录扫描先于单文件副本生成。
-
-### 通用 Makefile 要点
-
-- Makefile 顶部加 `.DEFAULT_GOAL := all`，避免默认目标落在首个对象文件。
-- 型号可能自定义的关键路径变量（如 `SCATTER`）用 `?=` 而非 `:=`，仅提供默认值。
-
-### 文本内联脚本
-
-用 Python 做宏→字符串内联时，`re.sub` 的替换字符串会重新解析转义，需用 lambda 传递替换值：
-
-```python
-result = re.sub(pattern, lambda m, v=val: '"' + v + '"', result)
-```
-
-## 验证
-
-```bash
-# 验证 GBK 文件编码（确认生成了有效的 GBK 文件）
-python -c "
-data = open('<out_dir>/dev_ui/prt_menu_table.c','rb').read()
-try: data.decode('utf-8')
-except: print('NOT UTF-8 (likely GBK) - OK')
-"
-
-# Dry-run 验证编译路由（确认 gbk_src 出现在含中文文件的编译命令中）
-make -n 2>&1 | rg "gbk_src"
-
-# 验证 .d 依赖文件指向正确路径
-Get-Content "out/hma300s/objs/prt_menu_table.d"
-# 应指向 gbk_src/dev_ui/prt_menu_table.c（而非原始 UTF-8 路径）
-
-# 手动执行 GBK 转换（dry-run）
-tool/gbk_encode.exe -s arch/lpc546/hma300s -o out/hma300s/objs/gbk_src --list
-
-# 乱码复查
-python <skill_dir>/check_mojibake.py --root . --files "<变更文件列表>"
-```
-
-## 常见故障
-
-### vpath 扁平搜索失效
-
-**现象**：GBK 文件正确生成，但编译器始终使用 UTF-8 原始文件。
-
-**根因**：`vpath %.c $(GBK_SRC_DIR)` 只扁平搜索一级目录，GBK 文件在子目录中（如 `gbk_src/dev_ui/menu.c`）无法匹配。
-
-**修复**：添加 `vpath %.c $(wildcard $(GBK_SRC_DIR)*/)` 覆盖子目录。
-
-### mtime 缓存导致未重新转换
-
-**现象**：修改了源码中的中文字符串，但编译结果未更新。
-
-**根因**：`gbk_build.py` 默认比较 mtime 跳过未变文件。但如果 clean 不彻底（旧 GBK 文件残留），或文件已不再包含中文而陈旧副本未删除，`resolve_gbk` 仍可能继续命中旧镜像。
-
-**修复**：
-- `clean` 用 `rmdir /s /q` 递归删除整个 `objs` 目录
-- 自动扫描模式下清理陈旧 `gbk_src` 副本
-- 必要时使用 `--force` 参数强制重转
-
-### `all: gbk_prepare $(objc)...` 在并行构建下失效
-
-**现象**：`make -j8` 时偶发编译命中旧 `gbk_src`，或者对象编译在 `gbk_prepare` 完成前就启动。
-
-**根因**：GNU make 并列前置依赖不保证执行顺序，`gbk_prepare` 不能只挂在 `all` 上。
-
-**修复**：
-
-```makefile
-$(objc): | gbk_prepare
-```
-
-### `.h` 头文件中的中文字符串
-
-**现象**：`.h` 头文件中含中文运行期字面量，编译后仍是 UTF-8。
-
-**说明**：`gbk_encode.exe` 已支持扫描 `.c` 和 `.h` 文件，但 Makefile 的 vpath 路由机制仅作用于编译目标的 `.c` 文件。通过 `#include` 引用的 `.h` 文件不会走 vpath。
-
-**建议**：将运行期中文字符串放在 `.c` 文件中，`.h` 仅保留声明和注释。
-
-## 适用范围
-
-用于含混合编码的 C/C++ 嵌入式源码仓库。常见目标包括 `.c/.h/.s/.S/.mk/.bat/.cmd`。
-
-仅在用户明确要求执行编码规范化时使用。
-
-## 必须遵守的规则
-
-1. 普通目标文本文件统一转换为 **UTF-8 with BOM**
-2. 启动和汇编相关文件（`*.s`、`*.S`）必须转换为 **UTF-8 无 BOM**
-3. 转换前必须识别每个文件的原始编码，并保留审计清单
-4. 不修改注释、格式、逻辑、API 或行为
-5. 不处理二进制、生成物、供应商目录、构建输出目录
-6. 每次完成编码统一后，必须用 `check_mojibake.py` 复查
+1. 扫描范围：`*.c`, `*.h`, `*.s`, `*.S`, `*.mk`, `Makefile`, `*.bat`（含无扩展名的 Makefile）
+2. 普通文件 → UTF-8 with BOM；`*.s`/`*.S` → UTF-8 无 BOM
+3. 转换前识别原始编码；不改注释/格式/逻辑/API
+4. 不处理二进制、生成物、供应商目录、构建输出
+5. Makefile 自身若是 UTF-16 LE 等异常编码，需先转换为 UTF-8 BOM 后再进行内容编辑
+6. 改造 Makefile 后必须用实际编译器正确命令编译到 0 error，且确认全部 .o 和最终产物（hex/bin/dfu）均已生成
+7. 完成后 `check_mojibake.py` 复查
 
 ## 安全门槛
 
-遇到以下情况必须暂停并询问用户：
-- 编码识别不确定
-- 文件无法无损解码/重新编码
-- 中文文本处于协议字节、校验敏感数据、固件资源中
-- 编译器/工具链拒绝某类文件使用 BOM
-- 移动字符串可能改变内存段、链接属性或 ABI
+编码不确定、无法无损转换、中文处于协议字节/校验数据/固件资源、编译器拒用 BOM、字符串移动影响链接/ABI → 暂停询问用户。
 
-## 常见错误
+## 交付
 
-| 错误 | 正确做法 |
-|---|---|---|
-| 自己写编码检测/转换脚本 | **必须使用** skill 自带脚本 |
-| 在 armcc/armclang 项目中不区分工具链 | 先确认编译器类型，armcc 用 BOM |
-| 修改生成物/供应商/构建输出 | 默认排除 |
-| `vpath` 只指定一级目录 | 添加 `$(wildcard $(GBK_SRC_DIR)*/)` |
-| clean 用 `del` 不递归 | 用 `rmdir /s /q` 确保删除 gbk_src 子目录 |
-
-## 交付标准
-
-完成一次编码规范化时，必须提供：
-- 仓库相对路径的变更文件清单
-- 原始编码审计证据
-- GBK 文件生成证据（`--list` 输出）
-- Makefile 集成检查清单
-- 构建/编译验证证据
-- 跳过文件和风险项说明
+变更清单 + 编码审计 + GBK 命中列表 + **编译通过证据**（exit 0 + .o 文件数 + 最终产物 hex/bin/dfu 已生成，注意 exit 0 不代表实际编译了 C 文件）+ 跳过/风险说明。
