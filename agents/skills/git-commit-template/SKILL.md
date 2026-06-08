@@ -37,6 +37,8 @@ description: 进行代码提交时触发。提供统一的提交标题（Convent
 
 ## 正文模板
 
+**主题行**可使用 Conventional Commits 简写（如 `feat: xxx`、`fix: xxx`），但**正文必须包含**以下字段（格式优先参考仓库既有提交历史）：
+
 ```text
 版本：<artifact-or-release-version>
 时间：<date>

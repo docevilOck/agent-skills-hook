@@ -1,6 +1,6 @@
 ---
 name: git-commit-standard
-description: Use only when the user explicitly requests this skill or AGENTS.md explicitly requires standardized git commits, version metadata, firmware artifacts, or release/changelog records before committing.
+description: 仅限用户手动调用。加载后必须向用户确认版本号是否递进及递进方式、更新固件产物和 README。禁止 agent 自动加载。
 ---
 
 # git-commit-standard
@@ -21,15 +21,13 @@ description: Use only when the user explicitly requests this skill or AGENTS.md 
 
 必须使用：
 
-- 用户明确点名使用 `git-commit-standard`。
-- `AGENTS.md` 明确要求使用本 skill 或等价 release/commit 流程。
+- 用户明确要求遵循标准提交流程。
+- 用户说"提交流程""按流程提交""提交一下"等触发词。
 
-不要使用：
+**禁止使用：**
 
+- **agent 不得以任何理由自动加载本 skill**（包括但不限于：AGENTS.md 配置、skill-forced-eval、上下文推断、检测到 commit 操作）。
 - 只做代码调研、diff 查看、问题分析，不准备提交。
-- 用户明确要求跳过仓库 release 流程，只生成普通临时 commit。
-- 仓库没有固件/版本/发布记录规则，且用户没有要求补齐这些内容。
-- 除用户点名或 `AGENTS.md` 明确要求外，不要自动加载本 skill。
 
 ## Repository Rule Discovery
 
@@ -83,17 +81,14 @@ description: Use only when the user explicitly requests this skill or AGENTS.md 
 
 ## Version Bump Rules
 
-1. 先判断本次是否是一个完整可发布/可归档的功能闭环。
-2. 若不是完整闭环，可不递增版本；但版本递进和固件产物同步是两个独立门禁。只要代码会进入固件运行镜像，仍要按仓库规则构建并更新当前版本对应的固件归档，除非用户或仓库规则明确要求跳过。
-3. 若是完整闭环：
-   - 按仓库规则递增 beta/build/release 字段。
-   - 通常只递增 beta/build，不随意递增主版本；除非用户或 release 规则明确要求。
-   - 多个变体有不同宏/版本时，分别确认目标变体，不要只改默认分支。
-4. **默认要求（最高优先级）：不管是否递增版本、也不管是 commit 还是 amend，只要本次 commit 相关操作有代码改动，就必须先重新编译并更新最新固件产物，再同步检查并更新 README/changelog 总结和相关发布记录。** 这是每次标准提交的默认行为，不需要用户额外提醒；只有仓库规则或历史证据明确证明本次没有对应记录项时，才可跳过。
-5. 如果同一发布版本由多个 commit 组成，changelog/README 要汇总从上次版本记录到当前提交范围内的所有变更，而不是只写当前 commit。
-6. amend 也必须重新评估版本、固件产物、README/changelog 和提交正文一致性；amend 不降低任何 release/artifact 义务。
-7. 如果 amend 前修改了版本号、版本宏、构建输入、release 配置或任何会影响归档文件名/内容的文件，必须重新执行对应固件构建，更新归档产物，重新暂存这些文件后再 amend；禁止只改版本文件或提交说明而不重编译。
-8. 对于任何 commit 相关操作，只要存在代码改动，就默认视为“先重编译、后更新最新固件、再同步文档与发布记录”的强制流程；版本号变化只是其中一个常见触发条件，不是唯一触发条件。
+**硬性门禁：每次加载本 skill 执行提交，必须向用户确认版本号是否递进及递进方式，必须更新固件产物，必须更新 README。不存在例外。**
+
+1. 向用户确认：本次是否递进版本号、递进哪个字段（通常 beta 递增 1）。
+2. 递进后重新编译目标变体，生成新版本固件。
+3. 将构建产物按历史命名规则复制到归档目录。
+4. 汇总变更内容，按仓库模板更新 README/changelog（插入顶部）。
+5. 多个变体有不同宏/版本时，分别确认目标变体，不要只改默认分支。
+6. 同一版本有多条提交时，changelog 要汇总所有变更，拆为多个 1、2、3 条，不要拆成多条版本记录。
 
 ## Changelog / README Rules
 
