@@ -120,9 +120,11 @@ python <skill-dir>/scripts/CompilerGen.py <compiler>
 对于 ARMCC / ARMCLANG 日志，脚本会尽量保留真实预包含语义，把 `--preinclude` / `-include`
 转换成 clangd 可识别的 `-include <header>`。
 
-如果项目存在 `out/.../gbk_src/...` 这类构建副本源文件，生成器可以尝试回写到原始源路径；
-但这类映射不一定对所有仓库都能 100% 自动判断，所以 agent 在生成后必须额外做一次验证，
-确认数据库没有把副本源重复喂给 clangd。
+如果项目使用了 `repository-encoding-normalizer`（gbk_encode 在 `out/.../gbk_src/` 下生成 GBK 编码副本），
+构建日志中的编译命令会指向副本路径而非原始源码。生成 `compile_commands.json` 后，必须将所有
+`file` 字段从副本路径回写到原始源码路径：副本路径中去除 `gbk_src/` 子目录前缀即为原始路径
+（例如 `out/tp80k/gbk_src/app/main.c` → `app/main.c`）。回写规则：将 file 中 `gbk_src/` 及之前
+的目录部分替换为项目根目录中对应的原始源路径。必须确保最终交付的数据库中没有任何 `gbk_src` 条目残留。
 
 如需保留 `build_log.txt`：
 
@@ -158,7 +160,11 @@ which clangd && clangd --version || echo "clangd 未安装，可后续安装验�
 - `compile_commands.json` 条目数是否明显过少；若只有少量文件，优先怀疑 clean/rebuild 不完整
 - `compile_commands.json` 是否包含关键头文件条目；例如 `ssl_tls13_keys.h` 这类被源码直接包含的头文件应有自己的 `file` 条目
 - 检查关键预包含头是否仍存在；例如 ARMCC 项目应能看到 `-include xxx_cfg.h`
-- 检查是否仍残留 `out/.../gbk_src/...` 这类副本 `file` 条目；若有，agent 必须去重或回写到原始源码路径后再交付
+- **硬性门禁：gbk_src 副本残留检测**。必须运行以下检查，0 matched 才算通过：
+  ```bash
+  python -c "import json; data=json.load(open('compile_commands.json')); gbk=[e for e in data if 'gbk_src' in e.get('file','')]; print(f'gbk_src残留: {len(gbk)} 条'); [print(f'  {e[\"file\"]}') for e in gbk]"
+  ```
+  若有残留，必须逐条回写 file 字段到原始源码路径（去除 gbk_src/ 前缀），直到上述命令输出 0 条为止
 - `.clangd` 中不应出现全局 `CompileFlags.Add` 注入目标架构参数
 - 如果未传 `--keep-build-log`，确认 `build_log.txt` 已被自动清理
 
