@@ -1,4 +1,6 @@
-﻿# 全局指令 (agent-skills-hook)
+﻿### ⚠️ 此文件第一条规则：你回复用户前的第一个行为，必须是检查并执行所有 HARD GATE 项（每轮门禁 + 会话启动 + 任务结束 Stop）。
+
+# 全局指令 (agent-skills-hook)
 
 ## ⚠️ 每轮强制门禁（HARD GATE，跳过即违规）
 
