@@ -25,6 +25,8 @@ python <skill_dir>/scan_encoding.py --root . --out encoding_audit.md --json-out 
 
 # 3. 批量转换（compiler 参数需与实际编译器匹配）
 python <skill_dir>/normalize_encoding.py --root . --compiler armcc --audit-json encoding_audit.json
+# ⚠️ 转换后易出两类编译问题：(a) Makefile 若含 BOM → GNU Make exit 2；(b) GBK 注释含中文 → 字节膨胀导致跨行断裂。
+# 建议转换后立即用 grep 抽查 `//` 行是否完整，并对 Makefile 强制 strip BOM（PowerShell: Set-Content -Encoding UTF8）
 
 # 4. 复制 gbk_encode 到仓库
 copy <skill_dir>/gbk_encode.exe tool/gbk_encode.exe
@@ -107,17 +109,19 @@ clean:
 | 改中文后未更新 | mtime 缓存/陈旧副本 | `--force` 或递归 clean |
 | ASM `.d` 写失败 | OBJDIR 不存在 | gbk_prepare 中 `mkdir` |
 | `-j` 并行编译抢先 | 并列前置依赖不保序 | `$(obja) $(objc): \| gbk_prepare` |
-| `target 'out/.../objs/' failed to remake` | C/ASM 规则依赖 `\| $(OBJDIR)` 但没有目录创建规则 | 添加 `<OBJDIR>:` mkdir 规则 |
+| `target 'out/.../objs/' failed to remake` | C/ASM 规则依赖 `\| $(OBJDIR)` 但没有目录创建规则，或规则目标名含尾斜杠与依赖项不匹配 | 添加 `<OBJDIR>:` 无尾斜杠的目录创建目标，recipe 内用 `$@`（非 `$<`）并在 `mkdir` 前 strip 尾斜杠 |
 | `C3900U: Unrecognized option` / `A3903U: Cortex-M33 not permitted` | armcc 与 armclang 选项语法不匹配 | 检查 `build*.bat`，用 `make armclang=1` |
+| Makefile 转 UTF-8 BOM 后 `make` exit 2 | GNU Make 无法解析 BOM 前缀 | 用 PowerShell `Set-Content -Encoding UTF8`（无 BOM）重写 Makefile；`normalize_encoding.py` 对 Makefile 应跳过 BOM 或转换后自动 strip BOM |
+| GBK→UTF-8 后 `//` 注释断裂导致语法错误（如 `//#include \"hw_led.h` 与下一行 `led.h\"` 分裂） | GBK 多字节字符（如中文）转 UTF-8 后字节数膨胀，原 `//` 注释行内不再容纳全部内容而跨行 | 手动重排断裂注释：将跨行注释重组为完整行，或改用 `/* */` 块注释；高发文件为 `includes.h` 等集中包含头文件 |
 | Makefile 编辑后 `\r\r\n` / 编译语法错乱 | Makefile 自身是 UTF-16 LE 等非 UTF-8，编辑破坏行尾 | 先对 Makefile 做 UTF-16 LE → UTF-8 BOM 转换 |
 
 ## 规则
 
 1. 扫描范围：`*.c`, `*.h`, `*.s`, `*.S`, `*.mk`, `Makefile`, `*.bat`（含无扩展名的 Makefile）
-2. 普通文件 → UTF-8 with BOM；`*.s`/`*.S` → UTF-8 无 BOM
+2. 普通文件 → UTF-8 with BOM；`*.s`/`*.S` → UTF-8 无 BOM；`Makefile` → UTF-8 无 BOM（GNU Make 不兼容 BOM）
 3. 转换前识别原始编码；不改注释/格式/逻辑/API
 4. 不处理二进制、生成物、供应商目录、构建输出
-5. Makefile 自身若是 UTF-16 LE 等异常编码，需先转换为 UTF-8 BOM 后再进行内容编辑
+5. Makefile 自身若是 UTF-16 LE 等异常编码，需先转换为 UTF-8 without BOM 后再进行内容编辑（GNU Make 不兼容 BOM）
 6. 改造 Makefile 后必须用实际编译器正确命令编译到 0 error，且确认全部 .o 和最终产物（hex/bin/dfu）均已生成
 7. 完成后 `check_mojibake.py` 复查
 
