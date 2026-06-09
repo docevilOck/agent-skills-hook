@@ -7,39 +7,11 @@
   - 技能来源（`~/.claude/skills`）
   - 可选指令文件（`~/.claude/settings.json`）若存在
 
-## 工具路由
+## CodeGraph 工具路由（强制）
 
-CodeGraph（`codegraph_*`）用于**结构查询**。能用结构化工具不先用通用命令；Shell 仅限 `git`/`mkdir`/`rm`/`mv`/`ls`/`npm install`/`pip install`。
+> 已提取为独立 skill：`codegraph-tool-routing`
 
-### 统一工具映射表
-| 场景 | 工具 |
-|---|---|
-| 理解功能/架构 | `codegraph_context` / `codegraph_files` |
-| 找符号定义/定位 | `codegraph_search` / `codegraph_node` |
-| 追踪调用链 | `codegraph_trace` / `codegraph_callers` / `codegraph_callees` |
-| 评估改动影响 | `codegraph_impact` |
-| 查看多个符号源码 | `codegraph_explore` |
-| 字面量/文本搜索 | grep |
-
-### 执行决策树
-```
-任务
-├─ 结构查询（符号/调用/架构）？
-│   ├─ 先 codegraph_context / codegraph_files 定位入口
-│   ├─ 未索引则 codegraph init -i <repo>
-│   └─ 禁止直接用 grep/Read 找定义
-│
-├─ 精确字符串匹配/穷举/快速确认？
-│   └─ grep
-│
-└─ 基础设施 shell（git/mkdir/rm/npm/pip）？
-    └─ 直接执行
-```
-
-### 阻断规则
-- **grep 搜符号/定义** → 禁止。用 `codegraph_search` / `codegraph_context`
-- **Read 理解架构** → 禁止。用 `codegraph_context`
-- **假设索引已存在** → 禁止。进入新仓库先 `codegraph init -i <repo>`
+每次会话必须加载该 skill。工具选择强制执行 skill 中定义的路由表、决策树和阻断规则。
 
 ## 技能强制评估（每个用户请求）
 - 开始任何工作前，始终运行 `Skill(skill-forced-eval)` 并遵循其步骤。

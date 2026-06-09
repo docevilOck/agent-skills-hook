@@ -7,42 +7,11 @@
   - 技能来源（`~/.config/opencode/skills`）
   - 可选指令文件（`~/.config/opencode/opencode.json`）若存在
 
-## 工具路由
+## CodeGraph 工具路由（强制）
 
-CodeGraph（`codegraph_*`）用于**结构查询**。能用结构化工具不先用通用命令；Shell 仅限 `git`/`mkdir`/`rm`/`mv`/`ls`/`npm install`/`pip install`。
+> 已提取为独立 skill：`codegraph-tool-routing`
 
-### 统一工具映射表
-| 场景 | 工具 |
-|---|---|
-| 找符号定义 | `codegraph_search` |
-| 理解功能/架构 | `codegraph_context` |
-| 追踪调用链 | `codegraph_trace` |
-| 查看调用者/被调用 | `codegraph_callers` / `codegraph_callees` |
-| 评估改动影响 | `codegraph_impact` |
-| 查看多个符号源码 | `codegraph_explore` |
-| 列出项目文件 | `codegraph_files` |
-| 字面量/文本搜索 | grep |
-
-### 执行决策树
-```
-任务
-├─ 结构查询（符号/调用/架构）？
-│   ├─ 先 codegraph_status → 未初始化则询问用户
-│   ├─ 已初始化 → 按上表选 codegraph_* 工具
-│   └─ 禁止直接用 grep/Read 找定义
-│
-├─ 字面量/文本搜索？
-│   └─ grep
-│
-└─ 基础设施 shell（git/mkdir/rm/npm/pip）？
-    └─ 直接执行
-```
-
-### 阻断规则
-- **grep 搜符号** → 禁止。用 `codegraph_search`
-- **Read 理解架构** → 禁止。用 `codegraph_context`
-- **假设索引已存在** → 禁止。每次先 `codegraph_status`
-- **grep 验证 CodeGraph 结果** → 禁止。信任 AST 解析
+每次会话必须加载该 skill。工具选择强制执行 skill 中定义的路由表、决策树和阻断规则。
 
 ## 技能强制评估（每个用户请求）
 - 开始任何工作前，始终运行 `skill` 工具加载 `skill-forced-eval` 并遵循其步骤。
