@@ -1,0 +1,49 @@
+﻿{
+    "mode":  "text_edit",
+    "edits":  [
+                  {
+                      "new":  "+ {Makefile} → UTF-8 无 BOM",
+                      "cluster":  "c_001",
+                      "target":  "规则2",
+                      "type":  "replace"
+                  },
+                  {
+                      "new":  "UTF-8 BOM → without BOM",
+                      "cluster":  "c_001",
+                      "target":  "规则5",
+                      "type":  "replace"
+                  },
+                  {
+                      "new":  "补充尾斜杠/$@提示",
+                      "cluster":  "c_002",
+                      "target":  "故障表 failed to remake",
+                      "type":  "replace"
+                  },
+                  {
+                      "new":  "新增2行: Makefile BOM + 注释断裂",
+                      "cluster":  "c_001",
+                      "target":  "故障表",
+                      "type":  "add"
+                  },
+                  {
+                      "new":  "插入转码后自检提醒",
+                      "cluster":  "c_001",
+                      "target":  "流程步骤3",
+                      "type":  "add"
+                  }
+              ],
+    "optimization_id":  "20260609_repository-encoding-normalizer",
+    "pre_optimization_hash":  "b590350adb8d47766c8c382ab5e383c358c5bc84ee65734897ecc243542d18ff",
+    "post_optimization_hash":  "9c430f79e42d5aecfa94e0836c490682ca43f33e8f66670ea72f38ded7e078bd",
+    "signal_ids":  [
+                       "20260609T070632_repository-encoding-normalizer_ef23cc",
+                       "20260609T070632_repository-encoding-normalizer_f8897c",
+                       "20260609T070632_repository-encoding-normalizer_5ef822"
+                   ],
+    "timestamp":  "2026-06-09T07:26:26.5053368Z",
+    "gate_result":  {
+                        "skipped":  true,
+                        "reason":  "all friction, no corrected"
+                    },
+    "skill":  "repository-encoding-normalizer"
+}
