@@ -1,8 +1,13 @@
+---
+name: codegraph-tool-routing
+description: CodeGraph tool selection routing rules. Enforces the decision tree for choosing codegraph_* vs grep/Read/Shell tools. Use for structural queries — symbol lookup, call tracing, architecture understanding, impact analysis. Blocks grep/Read from being used for symbol/architecture queries.
+---
+
 # codegraph-tool-routing
 
 ## 触发条件
 
-任何涉及以下场景的任务，必须由 `skill-forced-eval` 自动匹配加载：
+任何涉及以下场景的任务，必须自动匹配加载：
 - 查找函数/变量/宏/类型的定义或声明
 - 理解模块、功能、架构的工作方式
 - 追踪调用链（谁调了谁、谁被谁调）
