@@ -41,7 +41,12 @@ description: 【禁止自动加载 — 不可被 skill-forced-eval 匹配】仅�
    - 项目自定义说明文件。
 3. 搜索版本来源：`FIRMWARE_VERSION`、`VERSION_BETA`、`VERSION`、`APP_VERSION`、`BUILD_VERSION`、`RELEASE_VERSION` 等。
 4. 搜索产物归档目录：`firmware_record/`、`release/`、`releases/`、`dist/`、`out/`、`bin/` 等。
-5. 搜索 changelog/release record：`README.txt`、`ReadMe.txt`、`CHANGELOG.md`、`RELEASE.md`、`docs/release/` 等。
+5. 搜索 changelog/release record（穷举搜索，不得遗漏）：
+   - 根目录及一级子目录下的 `README.txt`、`ReadMe.txt`、`readme.txt`、`CHANGELOG.md`、`RELEASE.md`
+   - `arch/*/change log/`、`arch/*/change_log/`、`arch/**/readme*` 等非标准路径（注意包含空格、大小写变体和多级嵌套）
+   - `docs/release/`、`doc/`、`release-notes/` 等常见子目录
+   - 必须使用递归 glob（如 `**/readme*`、`**/change*log*/**`），不能只在根目录搜索
+   确认找到的每个 readme/changelog 文件的完整路径和格式，以便后续更新。
 6. 查看历史提交：找最近一次版本递增、固件归档、README/changelog 更新的提交，确认真实格式。
 
 如果规则不明确，先向用户确认；不要默认 fallback 到某个仓库的规则。
@@ -82,6 +87,14 @@ description: 【禁止自动加载 — 不可被 skill-forced-eval 匹配】仅�
 ## Version Bump Rules
 
 **硬性门禁：每次加载本 skill 执行提交，必须向用户确认版本号是否递进及递进方式，必须更新固件产物，必须更新 README。不存在例外。**
+
+### 修改版本宏前的预定位
+
+向用户确认版本号递进方式之前，必须先完成以下两层定位，避免改错宏或改错分支：
+
+**第一层：定位活跃机型宏块。** 在版本配置文件中搜索机型宏定义（如 `#define TP806L`），确认当前活跃的 `#ifdef`/`#if` 分支区域；只在活跃分支内修改版本号。常见错误：改了非活跃分支的版本宏，版本号未实际生效。
+
+**第二层：区分显示控制宏与真实版本标识宏。** 注意某些宏仅控制 UI 显示（如 `VERSION_BETA 0` 表示自检页不显示 beta 编号），并非真实版本号；真实版本标识宏通常是字符串常量（如 `VERSION_BETA_TEST "v1.0.1"`）。参考 `git log` 确认历史开发者实际修改的是哪个宏。常见错误：把显示控制宏从 0 改成 1，而非修改真实版本字符串。
 
 1. 向用户确认：本次是否递进版本号、递进哪个字段（通常 beta 递增 1）。
 2. 递进后重新编译目标变体，生成新版本固件。
@@ -164,7 +177,11 @@ description: 【禁止自动加载 — 不可被 skill-forced-eval 匹配】仅�
 
 1. 确认用户确实要求提交。
 2. 读取仓库规则：AGENTS、release 配置、历史提交、版本文件、changelog 文件、产物目录。
-3. 默认检查本次代码改动是否需要同步 README/changelog、固件产物和发布记录；这是每次 commit 的固定步骤，不要等用户额外要求。
+3. 硬性门禁：若存在任何代码改动（即使未递增版本），按序执行：
+   a. 重新编译目标变体（执行仓库真实构建命令）
+   b. 将构建产物按历史命名规则复制到归档目录
+   c. 验证产物已存在于归档目录中
+   此门禁对 commit 和 amend 一视同仁，不可跳过、不可推迟到后续步骤。
 4. 分别确认本次是否触发版本递增、README/changelog 汇总和固件归档；版本递增不是固件归档的前置条件。
 5. 若触发版本递增：
     - 更新版本源文件。
@@ -176,11 +193,7 @@ description: 【禁止自动加载 — 不可被 skill-forced-eval 匹配】仅�
     - 仍要检查 README/changelog 和固件产物是否需要同步。
     - 若代码会进入固件运行镜像，必须先重新构建并更新当前版本对应固件产物。
     - 若仓库规则或用户明确不需要记录，才可跳过，并记录证据。
-7. 若本次是 amend：
-    - 先判断 amend 涉及的文件是否包含版本号、版本宏、构建输入、release 配置、产物命名规则或 README/changelog 汇总边界。
-    - 只要命中上述任一项，就必须重新构建目标变体、重新归档/覆盖当前版本产物、重新更新 README/changelog，并重新暂存所有受影响文件后再执行 amend。
-    - 即使没有命中上述项，只要存在代码改动，也必须先重编译并更新最新固件产物，再执行 amend。
-    - 禁止在产物或版本信息已失效的情况下直接 `git commit --amend`。
+7. 若本次是 amend：存在任何代码改动，或涉及版本号/构建输入/产物命名等变化的，必须重新构建目标变体→复制产物到归档目录→验证归档→重新暂存。不可假设前次 commit 的产物仍然有效。
 8. 运行验证：diff check、必要的 LSP/构建/测试、产物存在性和文件名检查。
 9. 暂存源码、版本文件、changelog、归档产物、release 配置文件；如果是 amend，必须确认重编译生成的新产物已重新进入暂存区。
 10. 使用仓库模板创建 commit；commit message 只写实际变更，不写“执行了默认固件/README 同步检查”“不递进版本”“不归档固件”等流程话术。
@@ -207,6 +220,9 @@ description: 【禁止自动加载 — 不可被 skill-forced-eval 匹配】仅�
 - 覆盖已有固件产物而不确认。
 - 把某个仓库的路径写死到通用 skill。
 - 忘记把 release 配置/状态文件纳入 commit，导致下次无法知道汇总边界。
+- 修改版本号时未先定位活跃机型宏块，改到了非活跃分支的宏。
+- 混淆显示控制宏与真实版本标识宏，修改了 UI 显示控制宏而非真实版本字符串。
+- 搜索 readme/changelog 时只在根目录查找，遗漏 `arch/*/change log/` 等深层嵌套路径。
 
 ## Minimal Checklist
 
