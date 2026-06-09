@@ -31,7 +31,7 @@ def _format_cluster_text_edit(cluster):
     label = cluster["type"].upper()
     count = cluster.get("count", 1)
     root_cause = cluster["root_cause"]
-    correction = cluster.get("correction") or cluster.get("friction_detail", "")
+    correction = cluster["correction"] if cluster.get("correction") is not None else cluster.get("friction_detail", "")
     return (
         f"- Cluster {cluster['cluster_id']} ({label} x{count}): {root_cause}.\n"
         f"  指导: \"{correction}\""
@@ -43,7 +43,7 @@ def _format_cluster_rewrite(cluster):
     label = cluster["type"].upper()
     count = cluster.get("count", 1)
     root_cause = cluster["root_cause"]
-    correction = cluster.get("correction") or cluster.get("friction_detail", "")
+    correction = cluster["correction"] if cluster.get("correction") is not None else cluster.get("friction_detail", "")
     return (
         f"- Cluster {cluster['cluster_id']} ({label} x{count}): {root_cause}.\n"
         f"  用户纠正: \"{correction}\""
@@ -67,10 +67,27 @@ def build_gate_prompt(new_skill, clusters, mode="text_edit"):
 
     返回:
         str: 裁判 prompt 文本。
+
+    抛出:
+        ValueError: clusters 缺失必需字段。
     """
+    _validate_clusters(clusters)
     if mode == "rewrite":
         return _build_rewrite_prompt(new_skill, clusters)
     return _build_text_edit_prompt(new_skill, clusters)
+
+
+def _validate_clusters(clusters):
+    """校验 clusters 结构，缺失必填字段时抛出 ValueError。"""
+    if not isinstance(clusters, list):
+        raise ValueError(f"clusters 应为 list，实际为 {type(clusters).__name__}")
+    required = {"cluster_id", "root_cause", "type"}
+    for i, c in enumerate(clusters):
+        if not isinstance(c, dict):
+            raise ValueError(f"clusters[{i}] 应为 dict，实际为 {type(c).__name__}")
+        missing = required - set(c.keys())
+        if missing:
+            raise ValueError(f"clusters[{i}] 缺失必填字段: {missing}")
 
 
 def _build_text_edit_prompt(new_skill, clusters):
