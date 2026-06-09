@@ -14,6 +14,9 @@ $ErrorActionPreference = "Stop"
 
 $Stamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $RepoSkills = Join-Path $RepoRoot "agents\skills"
+$SembleBundleRoot = Join-Path $RepoRoot "semble_offline_bundle"
+$SembleModelName = "minishlab--potion-code-16M"
+$SembleSnapshot = "86848193a842865570d9c8d3e7d268b66ab52752"
 $ConfigRoot = Join-Path $RepoRoot "config"
 $CodexAgents = Join-Path $ConfigRoot "codex\agents"
 $SharedConfigRoot = Join-Path $ConfigRoot "shared"
@@ -184,8 +187,46 @@ function Show-CodeGraphReminder {
     Write-Host "Per-repo indexing still needs 'codegraph init -i <repo>'."
 }
 
+function Ensure-SembleInstalled {
+    $semble = Get-Command semble -ErrorAction SilentlyContinue
+    if ($null -ne $semble) {
+        Write-Host "Semble already installed: $($semble.Source)"
+        return
+    }
+
+    $python = Get-Command python -ErrorAction SilentlyContinue
+    if ($null -eq $python) {
+        throw "python not found in PATH. Install Python first to deploy semble."
+    }
+
+    Write-Host "Semble not found. Installing semble via pip..."
+    python -m pip install --upgrade semble
+}
+
+function Deploy-SembleOfflineModel {
+    $ModelSource = Join-Path $SembleBundleRoot "model\$SembleModelName"
+    $WeightsPath = Join-Path $ModelSource "model.safetensors"
+
+    if (-not (Test-Path $WeightsPath)) {
+        Write-Host "Semble offline model bundle missing at $WeightsPath; skip offline model deploy."
+        return
+    }
+
+    $CacheRoot = Join-Path $env:USERPROFILE ".cache\huggingface\hub"
+    $RepoCacheDir = Join-Path $CacheRoot "models--$SembleModelName"
+    $SnapshotRoot = Join-Path $RepoCacheDir "snapshots\$SembleSnapshot"
+    $RefsDir = Join-Path $RepoCacheDir "refs"
+
+    Copy-DirectoryTree $ModelSource $SnapshotRoot
+    New-Item -ItemType Directory -Path $RefsDir -Force | Out-Null
+    Set-Content -Path (Join-Path $RefsDir "main") -Value $SembleSnapshot -Encoding utf8NoBOM
+    Write-Host "Semble offline model deployed to $SnapshotRoot"
+}
+
 Ensure-CodeGraphInstalled
 Show-CodeGraphReminder
+Ensure-SembleInstalled
+Deploy-SembleOfflineModel
 
 # Codex 部署
 if ($Target -eq "codex" -or $Target -eq "all") {

@@ -14,6 +14,8 @@
 - 任务完成收尾总结（`Stop`）
 - Codex / Claude Code 的轻量优先协作路由
 - OpenCode 的基础配置与默认部署
+- 三套 agent 共用的 `tool-routing` 检索路由
+- `context-mode` plugin 与 `semble_offline_bundle` 默认部署入口
 - 面向嵌入式 C 的 agent 分工：规划、实现、构建修复、固件审查、硬件影响审查
 
 ## 目录结构
@@ -28,6 +30,7 @@ agent-skills-hook/
 │   ├── opencode/opencode.json # OpenCode 主配置
 │
 ├── linux/deploy.sh          # Linux 部署脚本（软链接）
+├── semble_offline_bundle/   # Semble 默认离线模型资产
 ├── windows/deploy.ps1       # Windows 部署脚本（Junction 链接）
 ├── scripts/
 │   └── deploy-codegraph.ps1     # CodeGraph 索引部署
@@ -129,6 +132,27 @@ cd windows
 - OpenCode 配置会注册 `codegraph serve --mcp`
 - 代码检索相关提示词与使用约束已写入对应运行时的 `AGENTS.md`
 - 注意：部署不会替每个仓库自动创建索引；进入新仓库时仍需执行 `codegraph init -i <repo>`
+
+## Retrieval Stack 部署
+
+- 三套运行时入口文档都已切到 `tool-routing`，统一约束四层职责：
+  - `codegraph_*`：结构化事实查询
+  - `ctx_*`：上下文节流、沙箱执行、续接检索
+  - `semble`：语义候选发现
+  - `grep` / `Read`：字面量与已知路径核对
+- `config/opencode/opencode.json` 会把 `context-mode` 作为 plugin 模板合并到 OpenCode 本地配置
+- 部署脚本会先确保 `semble` 包本体可用，再处理离线模型缓存
+- 部署脚本会检查仓库内 `semble_offline_bundle/model/minishlab--potion-code-16M/model.safetensors`
+  - 若存在：自动恢复到本机 Hugging Face 缓存，并写入 `refs/main`
+  - 若缺失：打印 `skip offline model deploy` 类日志，不中断其他运行时部署
+- 当前默认模型 snapshot：`86848193a842865570d9c8d3e7d268b66ab52752`
+
+### 验证入口
+
+- `python -m json.tool config/opencode/opencode.json`
+- `pwsh -NoProfile -File .\windows\deploy.ps1 -Target "opencode"`
+- `bash -n linux/deploy.sh`
+- `python -m pip show semble`
 
 ### 验证部署
 
