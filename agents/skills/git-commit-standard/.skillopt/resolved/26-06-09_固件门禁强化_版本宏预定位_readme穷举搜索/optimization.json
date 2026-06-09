@@ -1,0 +1,66 @@
+{
+  "optimization_id": "20260609T181200_git-commit-standard_opt001",
+  "skill": "git-commit-standard",
+  "timestamp": "2026-06-09T18:18:00",
+  "mode": "text_edit",
+  "edits": [
+    {
+      "type": "replace",
+      "location": "Operating Pattern step 3",
+      "old": "3. 默认检查本次代码改动是否需要同步 README/changelog、固件产物和发布记录；这是每次 commit 的固定步骤，不要等用户额外要求。",
+      "new": "3. 硬性门禁：若存在任何代码改动（即使未递增版本），按序执行：a. 重新编译目标变体 b. 将构建产物复制到归档目录 c. 验证产物已存在。此门禁对 commit 和 amend 一视同仁，不可跳过、不可推迟。",
+      "reason": "c_001: 将弱语义'检查'改为三步硬性执行门禁",
+      "source_cluster_id": "c_001"
+    },
+    {
+      "type": "replace",
+      "location": "Operating Pattern step 7",
+      "old": "7. 若本次是 amend：\n    - 先判断 amend 涉及的文件是否包含版本号...\n    - 只要命中上述任一项，就必须...\n    - 即使没有命中上述项，只要存在代码改动...\n    - 禁止在产物或版本信息已失效的情况下...",
+      "new": "7. 若本次是 amend：存在任何代码改动，或涉及版本号/构建输入/产物命名等变化的，必须重新构建目标变体→复制产物到归档目录→验证归档→重新暂存。",
+      "reason": "c_001: 扩展amend门禁覆盖'仅代码改动+amend'场景，补充验证步骤",
+      "source_cluster_id": "c_001"
+    },
+    {
+      "type": "add",
+      "location": "Version Bump Rules, before step 1",
+      "new": "### 修改版本宏前的预定位\n第一层：定位活跃机型宏块\n第二层：区分显示控制宏与真实版本标识宏",
+      "reason": "c_002: 新增版本宏修改前两层决策指导",
+      "source_cluster_id": "c_002"
+    },
+    {
+      "type": "replace",
+      "location": "Repository Rule Discovery step 5",
+      "old": "5. 搜索 changelog/release record：README.txt、ReadMe.txt、CHANGELOG.md、RELEASE.md、docs/release/ 等。",
+      "new": "5. 搜索 changelog/release record（穷举搜索）：arch/*/change log/、arch/**/readme* 等非标准路径 + 强制递归 glob",
+      "reason": "c_003: 扩展搜索范围覆盖深层嵌套非标准路径",
+      "source_cluster_id": "c_003"
+    },
+    {
+      "type": "add",
+      "location": "Common Mistakes (3 new entries)",
+      "new": "- 修改版本号时未先定位活跃机型宏块\n- 混淆显示控制宏与真实版本标识宏\n- 搜索 readme/changelog 时只在根目录查找",
+      "reason": "c_002+c_003: Common Mistakes补充三个典型失败模式",
+      "source_cluster_id": "c_002"
+    }
+  ],
+  "gate_result": {
+    "total": 3,
+    "passed": 3,
+    "verdicts": [
+      {"cluster_id": "c_001", "verdict": "NO", "reason": "步骤3改为显式三步硬性门禁(重编译→归档→验证)，步骤7覆盖amend场景，消除'先commit后补'漏洞"},
+      {"cluster_id": "c_002", "verdict": "NO", "reason": "新增'修改版本宏前的预定位'两层检查：定位活跃机型宏块 + 区分显示控制/真实版本标识宏"},
+      {"cluster_id": "c_003", "verdict": "NO", "reason": "明确要求递归glob、显式列出arch/*/change log/等非标准路径，强调'不能只在根目录搜索'"}
+    ],
+    "accepted": true
+  },
+  "pre_optimization_hash": "c6a575bd0bd0e583b7c85d8cd3641afb1c4de8d2e3587027d448f96667581985",
+  "post_optimization_hash": "b2b181316b59888b6ea94c5568d4b7dd01997f3cb6fa0e15c7455b3e0a47fb69",
+  "signal_ids": [
+    "20260609T162000_git-commit-standard_3270c5",
+    "20260609T162000_git-commit-standard_f040f1",
+    "20260609T162000_git-commit-standard_8fbb92",
+    "20260609T165000_git-commit-standard_50844c",
+    "20260609T165500_git-commit-standard_6acdac"
+  ],
+  "pre_skill_backup": "---\nname: git-commit-standard\ndescription: 【禁止自动加载 — 不可被 skill-forced-eval 匹配】仅限用户手动调用。加载后必须向用户确认版本号是否递进及递进方式、更新固件产物和 README。触发词仅限\"按标准流程提交\"\"按提交流程提交\"，不含\"提交\"\"提交一下\"\"commit\"等泛化提交词。\n---\n\n# git-commit-standard\n\n## 强制依赖\n\n**加载本 skill 时必须同时加载 `git-commit-template` 并严格遵循其书写规范。** 本 skill 定义提交流程和门禁，`git-commit-template` 定义 commit message 的模板、字段和写作风格。\n\n## Overview\n\n用于执行仓库约定的提交、版本、固件产物归档和 changelog/release record 同步。核心原则：**提交前先确认仓库规则，再默认检查并同步版本元数据、README/changelog、固件产物和发布记录，最后 commit**。\n\n**默认行为（最高优先级）：每次执行任何 commit 相关操作时，只要存在代码改动，就必须先重新编译并更新最新固件产物，再同步 README/changelog 总结。** 这条规则对 `commit` 和 `amend` 一视同仁，不受是否修改版本号影响；它是本 skill 的硬性门禁，不能当作额外功能、可选增强或 commit message 里的\"变更点\"。只有仓库规则、用户明确要求或历史证据明确证明本次没有对应固件/README/changelog 记录项时，才可跳过，并在执行记录中说明依据。禁止把\"未递进版本\"\"只是 amend\"\"只是 fix/中间提交\"作为跳过固件或履历同步的理由。\n\n该 skill 设计为通用技能：不要写死某个仓库的版本头、固件目录、构建宏、产物命名或 README 路径；这些信息必须从当前仓库的配置、AGENTS.md、历史提交和实际文件结构中推导或维护。\n\n[snipped for brevity]"
+}
