@@ -1,0 +1,14 @@
+{
+  "optimization_id": "20260609T_git-commit-standard_c_001",
+  "skill": "git-commit-standard",
+  "timestamp": "2026-06-09T07:40:00.000Z",
+  "mode": "text_edit",
+  "edits": [
+    {"type": "replace", "target": "description: 仅限用户手动调用...", "reason": "前置【禁止自动加载】标签+负样本词汇，让 skill-forced-eval 排除", "source_cluster_id": "c_001"},
+    {"type": "replace", "target": "用户说'提交一下'等触发词", "reason": "删除'提交一下'，替换为精确短语+路由边界说明", "source_cluster_id": "c_001"}
+  ],
+  "gate_result": {"mode": "auto-accept", "reason": "single corrected signal, verified by skill-optimizer"},
+  "pre_optimization_hash": "70196b8f72bdc9f82bfd1138a9b17800c6ade7cb87f412519cf0a3207360b1c5",
+  "post_optimization_hash": "c6a575bd0bd0e583b7c85d8cd3641afb1c4de8d2e3587027d448f96667581985",
+  "signal_ids": ["20260609T070308_git-commit-standard_0845cb"]
+}
