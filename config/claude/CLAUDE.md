@@ -1,18 +1,19 @@
 ﻿# 全局指令 (agent-skills-hook)
 
-## 会话启动（每会话一次）
-- 每个新会话的首次响应时，打印一个简短块：
+## 会话启动（每会话一次，HARD GATE）
+- 新会话首次响应时，**必须先打印**（不得跳过）：
   - "SessionStart" 标题
   - 活跃指令层（全局 `~/.claude/CLAUDE.md`、仓库 `CLAUDE.md` 若存在）
   - 技能来源（`~/.claude/skills`）
   - 可选指令文件（`~/.claude/settings.json`）若存在
 
-## CodeGraph 工具路由（强制）
+## ⚠️ 每轮强制门禁（HARD GATE，跳过即违规）
 
-每次会话必须加载该 skill。工具选择强制执行 skill 中定义的路由表、决策树和阻断规则。
+对每个用户请求，在开始任何其他工作前，必须严格按序执行：
 
-## 技能强制评估（每个用户请求）
-- 开始任何工作前，始终运行 `Skill(skill-forced-eval)` 并遵循其步骤。
+- [ ] 1. **CodeGraph 路由**：加载 `codegraph-tool-routing` skill。所有结构性查询强制走 `codegraph_*` 工具。
+- [ ] 2. **技能强制评估**：运行 `Skill(skill-forced-eval)`，严格遵循其评估结果加载匹配的技能。
+- [ ] 3. 不得因为请求"简单"、"仅确认"或"延续上轮"而跳过任一步骤。
 
 ## 子代理路由
 - 开始实际执行前，先判断是否适合使用 Claude Code 内置子代理；默认提高分发倾向。
