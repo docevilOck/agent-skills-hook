@@ -9,8 +9,6 @@
 
 ## CodeGraph 工具路由（强制）
 
-> 已提取为独立 skill：`codegraph-tool-routing`
-
 每次会话必须加载该 skill。工具选择强制执行 skill 中定义的路由表、决策树和阻断规则。
 
 ## 技能强制评估（每个用户请求）
