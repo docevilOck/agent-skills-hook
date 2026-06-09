@@ -1,9 +1,11 @@
 ---
 name: codegraph-tool-routing
-description: CodeGraph tool selection routing rules. Enforces the decision tree for choosing codegraph_* vs grep/Read/Shell tools. Use for structural queries — symbol lookup, call tracing, architecture understanding, impact analysis. Blocks grep/Read from being used for symbol/architecture queries.
+description: Legacy compatibility entry for CodeGraph-first routing. Use when a runtime still references codegraph-tool-routing; migrate new routing rules to tool-routing, which now owns codegraph_*, ctx_*, semble, and grep/Read dispatch.
 ---
 
 # codegraph-tool-routing
+
+> 兼容说明：这是旧入口名。新的统一路由规则已迁移到 `tool-routing`，新会话与新入口文档应优先加载 `tool-routing`。
 
 ## 触发条件
 
@@ -18,6 +20,11 @@ description: CodeGraph tool selection routing rules. Enforces the decision tree 
 ## 核心原则
 
 **CodeGraph 工具用于结构查询。通用命令仅限基础设施操作。**
+
+同时保留迁移约束：
+- `codegraph-tool-routing` 仍只负责强调 CodeGraph-first 事实查询
+- `ctx_*`、`semble`、`grep/read` 的统一分流规则由 `tool-routing` 承接
+- 如果运行时仍只加载旧 skill，不得把 `semble` 提升为主事实源
 
 ## 统一工具映射表
 
@@ -62,3 +69,9 @@ description: CodeGraph tool selection routing rules. Enforces the decision tree 
 - `Explore` 子代理应优先使用 codegraph_* 工具进行符号定位和调用链梳理
 - 子代理输出结论而非原始工具调用
 - 提示规则：写「分析 A 并总结 B」，禁止写「读取 X 告诉我内容」或「把 Y 改成 Z」
+
+## 迁移路径
+
+- 保留当前 skill 名称，避免旧入口立即失效
+- 新增 `tool-routing` 作为统一工具路由 skill
+- 三套运行时入口文档切换到 `tool-routing` 后，这个旧 skill 只保留兼容说明与 CodeGraph-first 子集规则
