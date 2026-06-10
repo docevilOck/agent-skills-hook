@@ -78,6 +78,29 @@ function Safe-Link {
     Write-Host "Linked: $LinkPath -> $TargetPath"
 }
 
+function Safe-LinkFile {
+    param(
+        [string]$LinkPath,
+        [string]$TargetPath
+    )
+
+    $ParentDir = Split-Path $LinkPath -Parent
+    if ($ParentDir -and -not (Test-Path $ParentDir)) {
+        New-Item -ItemType Directory -Path $ParentDir -Force | Out-Null
+    }
+
+    if (Test-Path $LinkPath) {
+        $item = Get-Item $LinkPath -Force
+        if ($item.LinkType -eq 'SymbolicLink' -and $item.Target -eq $TargetPath) {
+            return
+        }
+        Remove-Item $LinkPath -Force
+    }
+
+    New-Item -ItemType SymbolicLink -Path $LinkPath -Target $TargetPath -Force | Out-Null
+    Write-Host "Linked: $LinkPath -> $TargetPath"
+}
+
 function Copy-DirectoryTree {
     param(
         [string]$Src,
@@ -219,7 +242,8 @@ function Deploy-SembleOfflineModel {
 
     Copy-DirectoryTree $ModelSource $SnapshotRoot
     New-Item -ItemType Directory -Path $RefsDir -Force | Out-Null
-    Set-Content -Path (Join-Path $RefsDir "main") -Value $SembleSnapshot -Encoding utf8NoBOM
+    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText((Join-Path $RefsDir "main"), $SembleSnapshot, $utf8NoBom)
     Write-Host "Semble offline model deployed to $SnapshotRoot"
 }
 
@@ -241,7 +265,7 @@ if ($Target -eq "codex" -or $Target -eq "all") {
     Copy-DirectoryTree $RepoSkills "$BackupC\repo\skills"
     
     # 部署配置（从 config/ 复制）
-    Safe-Copy "$ConfigRoot\codex\AGENTS.md" "$CodexDir\AGENTS.md"
+    Safe-LinkFile "$CodexDir\AGENTS.md" "$ConfigRoot\codex\AGENTS.md"
     Safe-Copy $CodexAgents "$CodexDir\agents"
     Safe-Link "$CodexDir\skills" $RepoSkills
     if (Test-Path "$env:USERPROFILE\.agents\skills") {
@@ -265,10 +289,9 @@ if ($Target -eq "opencode" -or $Target -eq "all") {
     
     # 部署配置（从 config/ 复制）
     New-Item -ItemType Directory -Path "$OpenCodeDir" -Force | Out-Null
-    Safe-Copy "$ConfigRoot\opencode\AGENTS.md" "$OpenCodeDir\AGENTS.md"
+    Safe-LinkFile "$OpenCodeDir\AGENTS.md" "$ConfigRoot\opencode\AGENTS.md"
     Merge-JsonConfig "$ConfigRoot\opencode\opencode.json" "$OpenCodeDir\opencode.json"
     Safe-Link "$OpenCodeDir\skills" $RepoSkills
-    Safe-Link "$env:USERPROFILE\.claude\skills" "$OpenCodeDir\skills"
     if (Test-Path "$env:USERPROFILE\.agents\skills") {
         Write-Host "Legacy shared skill root detected at $env:USERPROFILE\.agents\skills. OpenCode now uses $OpenCodeDir\skills as the primary user skill root."
     }
@@ -290,7 +313,7 @@ if ($Target -eq "claude" -or $Target -eq "all") {
     
     # 部署配置（从 config/ 复制）
     New-Item -ItemType Directory -Path "$ClaudeDir" -Force | Out-Null
-    Safe-Copy "$ConfigRoot\AGENTS.md" "$ClaudeDir\AGENTS.md"
+    Safe-LinkFile "$ClaudeDir\AGENTS.md" "$ConfigRoot\AGENTS.md"
     Safe-Copy "$ConfigRoot\claude\CLAUDE.md" "$ClaudeDir\CLAUDE.md"
     Safe-Link "$ClaudeDir\skills" $RepoSkills
     
