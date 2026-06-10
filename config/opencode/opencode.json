@@ -13,6 +13,15 @@
         "--mcp"
       ],
       "timeout": 60000
+    },
+    "semble": {
+      "type": "local",
+      "enabled": true,
+      "command": [
+        "semble",
+        "mcp"
+      ],
+      "timeout": 60000
     }
   },
   "compaction": {
