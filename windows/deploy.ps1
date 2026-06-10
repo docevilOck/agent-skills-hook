@@ -211,19 +211,15 @@ function Show-CodeGraphReminder {
 }
 
 function Ensure-SembleInstalled {
-    $semble = Get-Command semble -ErrorAction SilentlyContinue
-    if ($null -ne $semble) {
-        Write-Host "Semble already installed: $($semble.Source)"
-        return
+    $uvx = Get-Command uvx -ErrorAction SilentlyContinue
+    if ($null -eq $uvx) {
+        $uv = Get-Command uv -ErrorAction SilentlyContinue
+        if ($null -eq $uv) {
+            Write-Host "uv not found. Installing uv via pip..."
+            python -m pip install --upgrade uv
+        }
     }
-
-    $python = Get-Command python -ErrorAction SilentlyContinue
-    if ($null -eq $python) {
-        throw "python not found in PATH. Install Python first to deploy semble."
-    }
-
-    Write-Host "Semble not found. Installing semble via pip..."
-    python -m pip install --upgrade semble
+    Write-Host "Semble MCP configured via uvx in opencode.json."
 }
 
 function Deploy-SembleOfflineModel {
