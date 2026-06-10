@@ -1,3 +1,8 @@
+---
+name: project-architecture-init
+description: 【禁止自动加载 — 不可被 skill-forced-eval 匹配】仅限用户手动调用。初始化项目级长期架构规范文档，建立模块边界、依赖规则和变更门禁，约束后续代码修改范围。
+---
+
 # 项目架构规范初始化
 
 ## 定位
