@@ -180,7 +180,7 @@ if [ "$TARGET" = "codex" ] || [ "$TARGET" = "all" ]; then
 
   # 部署配置（从 config/ 复制）
   mkdir -p "$HOME/.codex"
-  cp -a "$CONFIG_ROOT/codex/AGENTS.md" "$HOME/.codex/AGENTS.md"
+  safe_link "$HOME/.codex/AGENTS.md" "$CONFIG_ROOT/codex/AGENTS.md"
   safe_link "$HOME/.codex/agents" "$CODEX_AGENTS"
 
   safe_link "$HOME/.codex/skills" "$REPO_SKILLS"
@@ -206,7 +206,7 @@ if [ "$TARGET" = "opencode" ] || [ "$TARGET" = "all" ]; then
 
   # 部署配置（从 config/ 复制）
   mkdir -p "$HOME/.config/opencode"
-  cp -a "$CONFIG_ROOT/opencode/AGENTS.md" "$HOME/.config/opencode/AGENTS.md"
+  safe_link "$HOME/.config/opencode/AGENTS.md" "$CONFIG_ROOT/opencode/AGENTS.md"
   merge_json_config "$OPENCODE_CONFIG/opencode.json" "$HOME/.config/opencode/opencode.json"
 
   safe_link "$HOME/.config/opencode/skills" "$REPO_SKILLS"
@@ -232,8 +232,8 @@ if [ "$TARGET" = "claude" ] || [ "$TARGET" = "all" ]; then
 
   # 部署配置（从 config/ 复制）
   mkdir -p "$HOME/.claude"
-  cp -a "$CONFIG_ROOT/AGENTS.md" "$HOME/.claude/AGENTS.md"
-  cp -a "$CONFIG_ROOT/claude/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
+  safe_link "$HOME/.claude/AGENTS.md" "$CONFIG_ROOT/AGENTS.md"
+  safe_link "$HOME/.claude/CLAUDE.md" "$CONFIG_ROOT/claude/CLAUDE.md"
 
   safe_link "$HOME/.claude/skills" "$REPO_SKILLS"
 
