@@ -12,6 +12,8 @@
 
 不得因为请求"简单"、"仅确认"或"延续上轮"而跳过任一步骤。
 
+⚠️ **SessionStart 时序强制**：完成步骤 1（tool-routing）和步骤 2（skill-forced-eval）后，必须立即在回复的第一行打印 SessionStart 块（含 Skill Match），**早于任何工具调用结果、文件读写或实际工作汇报**。不得等工作全部做完、汇报结果时才补打 SessionStart，也不得把 SessionStart 和 Stop 写到同一段文本中。
+
 ## 每轮响应格式（HARD GATE，每次回复用户前/后必打）
 
 - 每次回复用户时，SessionStart 必须是**回复的第一行**（不得跳过）：
