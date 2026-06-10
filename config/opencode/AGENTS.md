@@ -35,6 +35,8 @@
 - `semble`：语义候选发现，结果必须二次验证
 - `grep` / `Read`：字面量搜索与已知路径核对
 
+## 技能工具强制使用（⚠️ 强制力最高）
+
 已加载的 skill 提供的工具和脚本为**唯一合法实现**，严禁自造替代品。
 
 ```
@@ -55,10 +57,10 @@
 - 不得假设 skill 安装在仓库根目录、`agents/skills/` 或某个固定用户目录
 
 ### 禁止行为
-- ❌ 加载了含工具/脚本的 skill 后，用 `New-Item`/`Set-Content` 临时造一个功能相同的文件
-- ❌ 看到 `<xxx.py 路径>` 占位符后自己重写同名脚本而不是解析实际路径
-- ❌ 用通用 shell 命令替代 skill 自带工具（如用 `[System.IO.Ports.SerialPort]` 替代 `serial_tool.py`）
-- ❌ 只把 skill 当思想指南、忽略其中列出的具体可执行工具
+- 加载了含工具/脚本的 skill 后，用 `New-Item`/`Set-Content` 临时造一个功能相同的文件
+- 看到 `<xxx.py 路径>` 占位符后自己重写同名脚本而不是解析实际路径
+- 用通用 shell 命令替代 skill 自带工具（如用 `[System.IO.Ports.SerialPort]` 替代 `serial_tool.py`）
+- 只把 skill 当思想指南、忽略其中列出的具体可执行工具
 
 ## 子代理分发
 
