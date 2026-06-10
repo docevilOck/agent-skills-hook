@@ -104,7 +104,7 @@ clean:
 	-if exist $(subst /,\,$(OBJDIR)) rmdir /s /q $(subst /,\,$(OBJDIR))
 ```
 
-**CheckList：** `GBK_SRC_DIR` 指向 `$(OBJDIR)gbk_src/` · `<OBJDIR>:` 目录规则存在 · `gbk_prepare: | <OBJDIR>` · `$(obja) $(objc): | gbk_prepare` · vpath 用 `ifneq` 保护 · exe 用反斜杠 · `.DEFAULT_GOAL := all` · `-x` 排除构建输出 · `rmdir /s /q` 递归 clean · 使用检测到的正确编译命令实际通过
+**CheckList：** `GBK_SRC_DIR` 指向 `$(OBJDIR)gbk_src/` · `<OBJDIR>:` 目录规则存在 · `gbk_prepare: | <OBJDIR>` · `$(obja) $(objc): | gbk_prepare` · vpath 用 `ifneq` 保护 · exe 用反斜杠 · `.DEFAULT_GOAL := all` · `-x` 排除构建输出 · `rmdir /s /q` 递归 clean · 使用检测到的正确编译命令实际通过 · 若用 `foreach` + `eval` + `call` 生成单文件规则，recipe 内自动变量需写为 `$$@` / `$$<` / `$$(@D)`（双 `$` 转义，防 `eval` 阶段提前展开）
 
 ## 常见故障速查
 
@@ -125,6 +125,7 @@ clean:
 | Makefile 转 UTF-8 BOM 后 `make` exit 2 | GNU Make 无法解析 BOM 前缀 | 用 PowerShell `Set-Content -Encoding UTF8`（无 BOM）重写 Makefile；`normalize_encoding.py` 对 Makefile 应跳过 BOM 或转换后自动 strip BOM |
 | GBK→UTF-8 后 `//` 注释断裂导致语法错误（如 `//#include \"hw_led.h` 与下一行 `led.h\"` 分裂） | GBK 多字节字符（如中文）转 UTF-8 后字节数膨胀，原 `//` 注释行内不再容纳全部内容而跨行 | 手动重排断裂注释：将跨行注释重组为完整行，或改用 `/* */` 块注释；高发文件为 `includes.h` 等集中包含头文件 |
 | Makefile 编辑后 `\r\r\n` / 编译语法错乱 | Makefile 自身是 UTF-16 LE 等非 UTF-8，编辑破坏行尾 | 先对 Makefile 做 UTF-16 LE → UTF-8 BOM 转换 |
+| `eval` 生成规则中 `$@` / `$(@D)` 展开为空，增量编译 `mkdir` 报路径语法错误 | `foreach` + `eval` + `call` 批量生成单文件 GBK copy 规则时，recipe 内自动变量 `$@`、`$<`、`$(@D)` 在 `eval` 阶段被 Make 提前展开（首次全量编译不触发，仅增量暴露） | recipe 中所有自动变量改为 `$$@` / `$$<` / `$$(@D)`（双美元转义，阻止 `eval` 阶段展开）。同时确保 `mkdir` / `if not exist` 路径参数非空 |
 
 ## 规则
 
