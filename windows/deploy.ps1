@@ -163,17 +163,6 @@ def merge(base, overlay):
         if key in base and isinstance(base[key], dict) and isinstance(value, dict):
             base[key] = merge(base[key], value)
             continue
-        if key in base and isinstance(base[key], list) and isinstance(value, list):
-            merged_list = []
-            seen = set()
-            for item in base[key] + value:
-                marker = json.dumps(item, ensure_ascii=False, sort_keys=True)
-                if marker in seen:
-                    continue
-                seen.add(marker)
-                merged_list.append(item)
-            base[key] = merged_list
-            continue
         base[key] = value
     return base
 
