@@ -1,0 +1,30 @@
+{
+  "optimization_id": "20260610T165000_repository-encoding-normalizer_c001",
+  "skill": "repository-encoding-normalizer",
+  "timestamp": "2026-06-10T16:50:00+08:00",
+  "mode": "text_edit",
+  "edits": [
+    {
+      "type": "replace",
+      "target": "在常见故障速查表的 `Makefile 编辑后 \\r\\r\\n / 编译语法错乱` 行后追加一条新故障条目",
+      "summary": "新增：eval 生成规则中 $@ / $(@D) 展开为空，增量编译 mkdir 报路径语法错误",
+      "reason": "skill 缺少 eval+define 批量生成规则时自动变量需写 $$@ 的说明。该故障仅增量编译触发，诊断成本极高",
+      "source_cluster_id": "c_001"
+    },
+    {
+      "type": "replace",
+      "target": "在 CheckList 末尾追加 eval $$ 转义提醒",
+      "summary": "追加：若用 foreach+eval+call 生成单文件规则，recipe 内自动变量需写为 $$@ / $$< / $$(@D)",
+      "reason": "CheckList 缺少 $$ 转义提醒，agent 按模板生成规则时容易漏掉",
+      "source_cluster_id": "c_001"
+    }
+  ],
+  "gate_result": {
+    "mode": "skip",
+    "reason": "全部信号为 friction（无 corrected），按 ONLY-CORRECTED 特例跳过 gate，直接 ACCEPT"
+  },
+  "pre_optimization_hash": "64ab678ca760ea604f6b6a8ffa2b117a1bdd7c6c6917604e5a648a2b49adff9a",
+  "post_optimization_hash": "719f9ead8012d439048378f9b8c3902c6d15ca734dfe74c8a6d54fb7bccf4984",
+  "signal_ids": ["20260610T164750_repository-encoding-normalizer_a3ecf1"],
+  "pre_skill_backup": "---\nname: repository-encoding-normalizer\ndescription: 源码仓库编码规范化（UTF-8 统一 + 编译时 GBK 自动转换）。仅当用户明确要求规范化源码仓库文件编码时使用；若用户没有明确要求，禁止使用。\n---\n\n# 仓库编码规范化\n\n源码统一为 **UTF-8 with BOM**，中文运行期字面量保留在源码中，编译时由 `gbk_encode.exe` 自动检测含 CJK 字面量的文件并生成 GBK 编码副本供编译器使用。\n\n> `<skill_dir>` = `C:/Users/DELL/.config/opencode/skills/repository-encoding-normalizer`\n\n## 脚本工具\n\n**本 skill 附带的脚本为唯一合法实现，禁止自写替代：** `scan_encoding.py`（编码审计）、`normalize_encoding.py`（批量转换）、`check_mojibake.py`（乱码巡检）、`gbk_encode.exe`（GBK 编译时转换）、`gbk_build.py`（转换源码备查）。仓库改造时将 `gbk_encode.exe` 复制到仓库 `tool/` 目录。\n\n## 首次规范化流程\n\n```bash\n# 1. 编码审计（含 Makefile、*.mk、*.bat）\npython <skill_dir>/scan_encoding.py --root . --out encoding_audit.md --json-out encoding_audit.json\n\n# 2. 编译器环境检测（确定 armcc / armclang / gcc 及正确编译命令）\n#    检查 Makefile 中 ifeq/ifneq ($(armclang),1) 等分支 + 搜索 build*.bat/build*.sh\n#    本仓库若 armclang=1 可用则优先；否则用默认 armcc。记录真实 make 命令。\n\n# 3. 批量转换（compiler 参数需与实际编译器匹配）\npython <skill_dir>/normalize_encoding.py --root . --compiler armcc --audit-json encoding_audit.json\n# ⚠️ 转换后易出两类编译问题：(a) Makefile 若含 BOM → GNU Make exit 2；(b) GBK 注释含中文 → 字节膨胀导致跨行断裂。\n# 建议转换后立即用 grep 抽查 `//` 行是否完整，并对 Makefile 强制 strip BOM（PowerShell: Set-Content -Encoding UTF8）\n\n# 4. 复制 gbk_encode 到仓库\ncopy <skill_dir>/gbk_encode.exe tool/gbk_encode.exe\n\n# 5. 改造 Makefile（见下方模板，替换占位符为仓库实际值）\n#    ⚠️ 仅修改与编码/GBK 转换相关的部分：GBK_SRC_DIR、vpath、resolve_gbk、gbk_prepare、\n#    编译规则中的 resolve_gbk 注入和 | <OBJDIR> 依赖、clean 中的 GBK_SRC_DIR 清理。\n#    禁止改动其他编译逻辑（--feedback、优化选项、条件分支、链接脚本、编译参数等）。\n#    注意检查 Makefile 自身编码：若为 UTF-16 LE 等非 UTF-8，先转换为 UTF-8 BOM。\n\n# 6. 确定 gbk_encode 扫描范围\n#    从 Makefile 的 SRCS/OBJS/vpath 等变量推导实际参与编译的源文件目录集合，\n#    gbk_encode -s 参数必须恰好覆盖这些目录（不多扫也不少漏）。\n#    GBK 命中预览：\ntool/gbk_encode.exe -s <从Makefile推导的扫描根目录> -o <out_dir> --list\n\n# 7. 乱码巡检（从审计 JSON 自动读取文件列表）\npython <skill_dir>/check_mojibake.py --root . --from-json encoding_audit.json\n\n# 8. 编译验证（使用步骤 2 检测到的真实编译命令）\nmake clean; if ($?) { make armclang=1 project=<name> -j }\n# 验证产物：\n#   Get-ChildItem out\\<project>\\objs\\*.o | Measure-Object | Select-Object Count\n#   Get-ChildItem out\\<project>\\*.axf,*.bin,*.hex\n```\n[完整备份省略 — 见 git history]"
+}
