@@ -220,8 +220,8 @@ def parse_compile_command(log_line, compiler_name):
     args_str = match.group(1)
     output_file = match.group(2)
 
-    # 提取源文件（通常是 -c 后面的第一个参数）
-    source_match = re.search(r'-c\s+(\S+\.c\b|\S+\.cpp\b)', args_str)
+    # 提取源文件 armclang 中 -c 可能在 -o 之后，从完整行匹配
+    source_match = re.search(r'-c\s+(\S+\.c\b|\S+\.cpp\b)', log_line)
     if not source_match:
         return None
 
