@@ -163,6 +163,17 @@ def merge(base, overlay):
         if key in base and isinstance(base[key], dict) and isinstance(value, dict):
             base[key] = merge(base[key], value)
             continue
+        if key in base and isinstance(base[key], list) and isinstance(value, list):
+            merged_list = []
+            seen = set()
+            for item in base[key] + value:
+                marker = json.dumps(item, ensure_ascii=False, sort_keys=True)
+                if marker in seen:
+                    continue
+                seen.add(marker)
+                merged_list.append(item)
+            base[key] = merged_list
+            continue
         base[key] = value
     return base
 
@@ -276,6 +287,15 @@ if ($Target -eq "opencode" -or $Target -eq "all") {
     New-Item -ItemType Directory -Path "$OpenCodeDir" -Force | Out-Null
     Safe-LinkFile "$OpenCodeDir\AGENTS.md" "$ConfigRoot\opencode\AGENTS.md"
     Merge-JsonConfig "$ConfigRoot\opencode\opencode.json" "$OpenCodeDir\opencode.json"
+
+    # DCP 配置：仅在目标不存在时首次写入，保护用户自定义
+    $DcpDest = Join-Path $OpenCodeDir "dcp.jsonc"
+    if (-not (Test-Path $DcpDest)) {
+        New-Item -ItemType Directory -Path $OpenCodeDir -Force | Out-Null
+        Copy-Item "$ConfigRoot\opencode\dcp.jsonc" $DcpDest -Force
+        Write-Host "DCP config seeded: $DcpDest"
+    }
+
     Safe-Link "$OpenCodeDir\skills" $RepoSkills
     if (Test-Path "$env:USERPROFILE\.agents\skills") {
         Write-Host "Legacy shared skill root detected at $env:USERPROFILE\.agents\skills. OpenCode now uses $OpenCodeDir\skills as the primary user skill root."

@@ -209,6 +209,13 @@ if [ "$TARGET" = "opencode" ] || [ "$TARGET" = "all" ]; then
   safe_link "$HOME/.config/opencode/AGENTS.md" "$CONFIG_ROOT/opencode/AGENTS.md"
   merge_json_config "$OPENCODE_CONFIG/opencode.json" "$HOME/.config/opencode/opencode.json"
 
+  # DCP 配置：仅在目标不存在时首次写入，保护用户自定义
+  if [ ! -f "$HOME/.config/opencode/dcp.jsonc" ]; then
+    mkdir -p "$HOME/.config/opencode"
+    cp -a "$OPENCODE_CONFIG/dcp.jsonc" "$HOME/.config/opencode/dcp.jsonc"
+    echo "DCP config seeded: $HOME/.config/opencode/dcp.jsonc"
+  fi
+
   safe_link "$HOME/.config/opencode/skills" "$REPO_SKILLS"
   safe_link "$HOME/.claude/skills" "$HOME/.config/opencode/skills"
 
