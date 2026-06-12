@@ -297,6 +297,34 @@ if ($Target -eq "opencode" -or $Target -eq "all") {
     }
 
     Safe-Link "$OpenCodeDir\skills" $RepoSkills
+
+    # 安装 opencode 插件（opencode plugin -g 负责 npm install + 配置写入）
+    $OcExe = Get-Command opencode -ErrorAction SilentlyContinue
+    if ($null -ne $OcExe) {
+        $MergedConfig = Join-Path $OpenCodeDir "opencode.json"
+        if (Test-Path $MergedConfig) {
+            $OcConfig = Get-Content $MergedConfig -Raw | ConvertFrom-Json
+            $Plugins = $OcConfig.plugin
+            if ($Plugins -and $Plugins.Count -gt 0) {
+                Write-Host "Installing opencode plugins..."
+                foreach ($Pkg in $Plugins) {
+                    $PkgName = ($Pkg -split '@')[0]
+                    if ($Pkg -match '^@.+' -and ($Pkg -split '@').Count -gt 2) {
+                        $PkgName = '@' + ($Pkg -split '@')[1]
+                    }
+                    Write-Host "  opencode plugin -g $PkgName"
+                    $result = & opencode plugin -g $PkgName 2>&1
+                    if ($LASTEXITCODE -ne 0) {
+                        Write-Warning "  Failed to install plugin '$PkgName': $result"
+                    }
+                }
+            }
+        }
+    }
+    else {
+        Write-Warning "opencode CLI not found in PATH. Install opencode first, then re-run deploy to install plugins."
+    }
+
     if (Test-Path "$env:USERPROFILE\.agents\skills") {
         Write-Host "Legacy shared skill root detected at $env:USERPROFILE\.agents\skills. OpenCode now uses $OpenCodeDir\skills as the primary user skill root."
     }

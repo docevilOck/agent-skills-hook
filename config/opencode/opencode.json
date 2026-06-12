@@ -36,5 +36,12 @@
     "opencode-pty",
     "context-mode",
     "opencode-goal-plugin"
-  ]
+  ],
+  "command": {
+    "goal": {
+      "description": "Set a session-scoped goal and auto-continue until complete.",
+      "template": "$ARGUMENTS",
+      "agent": "build"
+    }
+  }
 }

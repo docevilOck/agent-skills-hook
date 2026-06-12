@@ -141,6 +141,50 @@ ensure_semble_installed() {
   python3 -m pip install --upgrade semble
 }
 
+install_opencode_plugins() {
+  local opencode_dir="$1"
+
+  if ! command -v opencode >/dev/null 2>&1; then
+    echo "WARNING: opencode CLI not found in PATH. Install opencode first, then re-run deploy to install plugins."
+    return 0
+  fi
+
+  local merged_config="$opencode_dir/opencode.json"
+  if [ ! -f "$merged_config" ]; then
+    return 0
+  fi
+
+  local plugins
+  plugins="$(python3 -c "
+import json, sys
+with open(sys.argv[1], 'r') as f:
+    cfg = json.load(f)
+print('\n'.join(cfg.get('plugin', [])))
+" "$merged_config")"
+
+  if [ -z "$plugins" ]; then
+    return 0
+  fi
+
+  echo "Installing opencode plugins..."
+  while IFS= read -r pkg_raw; do
+    [ -z "$pkg_raw" ] && continue
+    local pkg_name
+    pkg_name="$(python3 -c "
+s = '''$pkg_raw'''.strip()
+if s.startswith('@'):
+    parts = s.split('@')
+    print('@' + parts[1])
+else:
+    print(s.split('@')[0])
+")"
+    echo "  opencode plugin -g $pkg_name"
+    if ! opencode plugin -g "$pkg_name"; then
+      echo "  WARNING: Failed to install plugin '$pkg_name'"
+    fi
+  done <<< "$plugins"
+}
+
 deploy_semble_offline_model() {
   local model_source="$SEMBLE_BUNDLE_ROOT/model/$SEMBLE_MODEL_NAME"
   local weights_path="$model_source/model.safetensors"
@@ -218,6 +262,8 @@ if [ "$TARGET" = "opencode" ] || [ "$TARGET" = "all" ]; then
 
   safe_link "$HOME/.config/opencode/skills" "$REPO_SKILLS"
   safe_link "$HOME/.claude/skills" "$HOME/.config/opencode/skills"
+
+  install_opencode_plugins "$HOME/.config/opencode"
 
   if [ -e "$HOME/.agents/skills" ]; then
     echo "Legacy shared skill root detected at $HOME/.agents/skills. OpenCode now uses $HOME/.config/opencode/skills as the primary user skill root."
