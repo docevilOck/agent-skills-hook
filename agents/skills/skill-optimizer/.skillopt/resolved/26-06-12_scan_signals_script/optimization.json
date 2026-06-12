@@ -1,0 +1,35 @@
+{
+  "optimization_id": "20260612_skill-optimizer_scan_script",
+  "skill": "skill-optimizer",
+  "timestamp": "2026-06-12T00:00:00Z",
+  "mode": "text_edit",
+  "edits": [
+    {
+      "type": "replace",
+      "target": "信号面板模式扫描步骤",
+      "new": "引用 scan_signals.py 脚本",
+      "reason": "信号面板模式添加脚本引用"
+    },
+    {
+      "type": "replace",
+      "target": "文件结构段落",
+      "new": "补充 scripts/ 目录",
+      "reason": "文件结构添加 scripts/ 条目"
+    },
+    {
+      "type": "new_file",
+      "target": "scripts/scan_signals.py",
+      "reason": "创建信号扫描脚本，支持 --json 和人读两种模式"
+    }
+  ],
+  "gate_result": {
+    "skipped": true,
+    "reason": "全 friction 信号，无 corrected，按 Step 7 特例跳过 gate"
+  },
+  "pre_optimization_hash": "1ddd9a85949f9890103103c4bbbf8de66d0cb79a46e5c55ac97a2f27434009f5",
+  "post_optimization_hash": "6c524d7b514efb7a7819d6fdef9b5d238e5892046f71ad4829f26bf494d2fdb0",
+  "signal_ids": [
+    "20260612T030000_skill-optimizer_scan_script"
+  ],
+  "pre_skill_backup": ""
+}

@@ -331,9 +331,17 @@ Clusters（聚类结果）：
 
 用户说 "skill-optimizer" 但不指定 skill 时：
 
-1. 扫描 `<skills_dir>/` 下所有 skill 目录的 `.skillopt/pending/signal.json`
-2. 读每个文件，统计信号类型数量
-3. 输出表格：
+1. 运行 `scan_signals.py` 扫描所有 skill 目录：
+   ```bash
+   python <skill_optimizer_dir>/scripts/scan_signals.py --json
+   ```
+   脚本自动扫描以下目录的 `.skillopt/pending/signal.json`：
+   - `~/.config/opencode/skills/`
+   - `~/.claude/skills/`
+   - `~/.agents/skills/`
+   - 当前仓库 `agents/skills/`（若存在）
+2. 如不需要 JSON，运行 `python <skill_optimizer_dir>/scripts/scan_signals.py` 直接输出人读表格。
+3. 无 `--json` 时输出表格：
 
 ```
 | skill          | corrected | friction | 最近信号    |
@@ -410,6 +418,9 @@ Agent：`git log --oneline -- <skill_root>/SKILL.md`
 ```
 <skill_root>/
 |-- SKILL.md                          ← 优化目标
+|-- scripts/
+|   |-- gate.py                      ← gate 裁判 prompt 生成器
+|   |-- scan_signals.py              ← 信号面板扫描脚本
 |-- .skillopt/
     |-- pending/
     |   |-- signal.json               ← 待处理信号（JSONL）
