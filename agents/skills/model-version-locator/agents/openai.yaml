@@ -1,0 +1,3 @@
+interface:
+  display_name: "Model Version Locator"
+  short_description: "Locate firmware model macro and extract version numbers from *_cfg.h files"

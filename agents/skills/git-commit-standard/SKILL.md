@@ -7,7 +7,12 @@ description: 【禁止自动加载 — 不可被 skill-forced-eval 匹配】仅�
 
 ## 强制依赖
 
-**加载本 skill 时必须同时加载 `git-commit-template` 并严格遵循其书写规范。** 本 skill 定义提交流程和门禁，`git-commit-template` 定义 commit message 的模板、字段和写作风格。
+**加载本 skill 时必须同时加载以下 skill 并严格遵循其规范：**
+
+- `git-commit-template` — 定义 commit message 的模板、字段和写作风格。
+- `model-version-locator` — 定位当前机型宏和版本号。优先使用此 skill 自动发现版本信息，而不是手动搜索 `*_cfg.h` 文件。
+
+本 skill 定义提交流程和门禁。
 
 ## Overview
 
@@ -33,13 +38,14 @@ description: 【禁止自动加载 — 不可被 skill-forced-eval 匹配】仅�
 
 每个仓库先按下面顺序找规则，不要凭经验写死路径：
 
-1. 读取当前目录和上层 `AGENTS.md` / `README` / release 文档。
-2. 查找仓库内 release 配置文件，优先级建议：
+1. **定位当前机型和版本号**：使用 `model-version-locator` skill 自动发现当前活跃的机型宏和版本号。若已知机型名则传入机型名；否则从当前 git 分支名或上下文推断。输出包含 project 目录、cfg.h 路径、活跃 `#if` 分支和版本宏值。
+2. 读取当前目录和上层 `AGENTS.md` / `README` / release 文档。
+3. 查找仓库内 release 配置文件，优先级建议：
    - `.agents/release-config.md`
    - `.agents/git-commit-standard.md`
    - `.release-config.md`
    - 项目自定义说明文件。
-3. 搜索版本来源：`FIRMWARE_VERSION`、`VERSION_BETA`、`VERSION`、`APP_VERSION`、`BUILD_VERSION`、`RELEASE_VERSION` 等。
+4. 以 model-version-locator 的输出作为版本来源基准，然后补充搜索其他可能存在的版本宏：`FIRMWARE_VERSION`、`VERSION_BETA`、`VERSION`、`APP_VERSION`、`BUILD_VERSION`、`RELEASE_VERSION` 等。
 4. 搜索产物归档目录：`firmware_record/`、`release/`、`releases/`、`dist/`、`out/`、`bin/` 等。
 5. 搜索 changelog/release record（穷举搜索，不得遗漏）：
    - 根目录及一级子目录下的 `README.txt`、`ReadMe.txt`、`readme.txt`、`CHANGELOG.md`、`RELEASE.md`

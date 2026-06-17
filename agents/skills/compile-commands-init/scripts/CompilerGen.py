@@ -589,6 +589,52 @@ def add_header_compile_commands(compile_commands):
     if header_entries:
         print(f"已补充头文件编译命令: {len(header_entries)} 条")
 
+def find_macro_config_headers(entry):
+    args = entry.get("arguments", [])
+    if not args:
+        return []
+
+    directory = entry.get("directory", os.getcwd())
+    source_file = entry.get("file", "")
+    include_dirs = extract_include_dirs(args)
+    macro_header_pattern = re.compile(r'^-D\w+="([^"]+\.h)"$')
+    headers = []
+    seen = set()
+
+    for arg in args:
+        match = macro_header_pattern.match(arg)
+        if not match:
+            continue
+
+        header_name = match.group(1)
+        header = resolve_header(header_name, source_file, include_dirs, directory)
+        if header and header not in seen:
+            headers.append(header)
+            seen.add(header)
+
+    return headers
+
+def add_macro_config_headers(compile_commands):
+    header_entries = []
+    seen_files = {normalize_path_for_db(entry.get("file", "")) for entry in compile_commands}
+
+    for entry in compile_commands:
+        for header in find_macro_config_headers(entry):
+            if header in seen_files:
+                continue
+
+            header_entry = make_header_entry(entry, header)
+            if not header_entry:
+                continue
+
+            header_entries.append(header_entry)
+            seen_files.add(header)
+            print(f"已补充宏配置头文件: {header}")
+
+    compile_commands.extend(header_entries)
+    if header_entries:
+        print(f"已补充宏配置头文件编译命令: {len(header_entries)} 条")
+
 def optimize_and_save(compile_commands):
     """
     优化编译命令并保存到 compile_commands.json
@@ -663,14 +709,19 @@ def optimize_and_save(compile_commands):
         entry["arguments"] = [normalize_clang_arg(arg) for arg in new_args]
 
     add_header_compile_commands(compile_commands)
+    add_macro_config_headers(compile_commands)
 
-    # 写入文件
+    # 原子写入：先写临时文件再 rename，防止超时截断产生不完整 JSON
+    tmp_path = "compile_commands.json.tmp"
     try:
-        with open("compile_commands.json", "w", encoding="utf-8") as f:
+        with open(tmp_path, "w", encoding="utf-8") as f:
             json.dump(compile_commands, f, indent=2, ensure_ascii=False)
+        os.replace(tmp_path, "compile_commands.json")
         print("成功生成 compile_commands.json")
     except Exception as e:
         print(f"[ERROR] 无法生成 compile_commands.json: {e}")
+        if Path(tmp_path).exists():
+            Path(tmp_path).unlink(missing_ok=True)
 
 def main():
     log_lines = read_build_log()
