@@ -6,12 +6,13 @@
 结论：`need-info`
 
 对照范围：
-- architecture：`docs/plans/26-05-18_uart_refactor/architecture/uart-session.md`
+- architecture：`docs/plans/26-05-18_uart_refactor/spec/uart-session.md`
 - detail：`docs/plans/26-05-18_uart_refactor/detail/dataflow/uart-rx-flow.md`
 - exec plan：`docs/plans/26-05-18_uart_refactor/exec-plan.md`
 - code：`src/uart/uart_session.c`、`src/uart/uart_session.h`
 - 验证材料：`cmake --build build`、`ctest --output-on-failure`
 - cleanup stage：未进入
+- c-pro review stage：未进入
 
 差异归类：
 - 实现偏离设计，需要修代码
@@ -49,12 +50,13 @@
 结论：`pass`
 
 对照范围：
-- architecture：`docs/plans/26-05-18_uart_refactor/architecture/uart-session.md`
+- architecture：`docs/plans/26-05-18_uart_refactor/spec/uart-session.md`
 - detail：`docs/plans/26-05-18_uart_refactor/detail/structures/uart-session-struct.md`
 - exec plan：`docs/plans/26-05-18_uart_refactor/exec-plan.md`
 - code：`src/uart/uart_session.c`、`src/uart/uart_session.h`
 - 验证材料：本轮重新执行 `cmake --build build`、`ctest --output-on-failure`
 - cleanup stage：已进入且有代码修改并已重审
+- c-pro review stage：已进入并已通过
 
 差异归类：
 - 未发现需要升级处理的设计差异
@@ -83,12 +85,13 @@
 结论：`blocked`
 
 对照范围：
-- architecture：`docs/plans/26-05-18_uart_refactor/architecture/uart-session.md`
+- architecture：`docs/plans/26-05-18_uart_refactor/spec/uart-session.md`
 - detail：未定位到唯一有效文档
 - exec plan：`docs/plans/26-05-18_uart_refactor/exec-plan.md`
 - code：`src/uart/uart_session.c`
 - 验证材料：无
 - cleanup stage：未进入
+- c-pro review stage：未进入
 
 差异归类：
 - 设计本身不完整，需要补文档
@@ -121,4 +124,5 @@
 - `已确认一致的关键点` 只列最重要的事实
 - `未覆盖风险` 必须写真实缺口，不允许省略
 - `cleanup stage` 必须写清是否进入 cleanup、是否改代码、是否已经重审
-- 如果结论是 `blocked`，必须明确写出“主 agent 需要修改的项”，以便回炉后重审
+- `c-pro review stage` 必须写清是否进入、是否通过；若为 C 代码项目此为必填
+- 如果结论是 `blocked`，必须明确写出”主 agent 需要修改的项”，以便回炉后重审

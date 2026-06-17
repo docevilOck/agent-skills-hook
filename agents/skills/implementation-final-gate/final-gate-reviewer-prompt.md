@@ -6,15 +6,15 @@
 
 你必须逐项核对：
 
-1. implementation architecture 文档
+1. spec 文档
 2. implementation struct / dataflow / flow detail 文档
 3. 执行计划（exec plan）
 4. 当前实现代码范围
 5. 本轮验证证据
 
-你的目标是判断：**当前实现是否与 architecture、data flow、flow、exec plan 完全一致。**
+你的目标是判断：**当前实现是否与 spec、data flow、flow、exec plan 完全一致。**
 
-额外要求：这里把 `exec plan` 视为上游 design 文档的执行映射，不视为独立设计真源。你必须检查它是否正确引用了 architecture / detail / flow / dataflow 文档，是否把这些约束准确传递给执行阶段；如果 `exec plan` 偷偷引入了新的结构、接口、流程分支、范围外文件或验证要求，也视为一致性失败。
+额外要求：这里把 `exec plan` 视为上游 design 文档的执行映射，不视为独立设计真源。你必须检查它是否正确引用了 spec / detail / flow / dataflow 文档，是否把这些约束准确传递给执行阶段；如果 `exec plan` 偷偷引入了新的结构、接口、流程分支、范围外文件或验证要求，也视为一致性失败。
 
 ## 审查要求
 
@@ -36,9 +36,9 @@
 
 判定规则：
 
-- `pass`：architecture、detail、exec plan、代码、验证证据全部能对齐，没有未批准偏差，且 exec plan 没有引入新的未批准设计
+- `pass`：spec、detail、exec plan、代码、验证证据全部能对齐，没有未批准偏差，且 exec plan 没有引入新的未批准设计
 - `need-info`：缺少必要输入或证据，当前无法完成一致性验收，但补齐后仍可继续
-- `blocked`：发现实现与 architecture / data flow / flow / exec plan 不一致，或者 exec plan 自行引入新设计，或者设计基线本身冲突，当前必须打回主 agent 修改后重审
+- `blocked`：发现实现与 spec / data flow / flow / exec plan 不一致，或者 exec plan 自行引入新设计，或者设计基线本身冲突，当前必须打回主 agent 修改后重审
 
 **注意：**
 - 只要是“实现没按计划/设计落地”，一律用 `blocked`
