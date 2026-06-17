@@ -1,11 +1,11 @@
 ---
 name: code-review
-description: Run a comprehensive code review
+description: Run a comprehensive code review. Use codegraph for structural impact analysis before reviewing code quality, security, and maintainability.
 ---
 
 # Code Review Skill
 
-Conduct a thorough code review for quality, security, and maintainability with severity-rated feedback.
+Conduct a thorough code review for quality, security, and maintainability with severity-rated feedback. **Must use codegraph tools for structural impact analysis** before deep review.
 
 ## When to Use
 
@@ -15,142 +15,104 @@ This skill activates when:
 - After implementing a major feature
 - User wants quality assessment
 
+## Companion Skills
+
+Always load `tool-routing` alongside this skill to ensure correct codegraph/semble/grep dispatch during structural analysis.
+
 ## What It Does
 
-## GPT-5.4 Guidance Alignment
+Delegates to the `code-reviewer` agent for deep analysis. The agent follows a 4-phase pipeline:
 
-- Default to concise, evidence-dense progress and completion reporting unless the user or risk level requires more detail.
-- Treat newer user task updates as local overrides for the active workflow branch while preserving earlier non-conflicting constraints.
-- If correctness depends on additional inspection, retrieval, execution, or verification, keep using the relevant tools until the review is grounded.
-- Continue through clear, low-risk, reversible next steps automatically; ask only when the next step is materially branching, destructive, or preference-dependent.
+### Phase 1: Identify Changes
+- Run `git diff` (or `git diff --staged`) to find changed files and symbols
+- Run `git log` to understand recent commit context
+- Determine scope: entire diff, specific files, or targeted review
 
-Delegates to the `code-reviewer` agent (THOROUGH tier) for deep analysis:
+### Phase 2: Structural Impact Analysis (MANDATORY — use codegraph)
+Before reading any source file, understand the architecture:
 
-1. **Identify Changes**
-   - Run `git diff` to find changed files
-   - Determine scope of review (specific files or entire PR)
+| Step | Tool | Purpose |
+|------|------|---------|
+| 2a | `codegraph_codegraph_context` | For each changed symbol, get architectural context: entry points, related symbols, key code |
+| 2b | `codegraph_codegraph_impact` | Assess change radius — what downstream code could be affected |
+| 2c | `codegraph_codegraph_callers` | Trace who calls changed symbols — identify all integration points |
+| 2d | `codegraph_codegraph_search` | Find related symbols by name — catch hidden coupling |
+| 2e | `codegraph_codegraph_trace` | For data flow changes, trace from entry point to sink |
 
-2. **Review Categories**
-   - **Security** - Hardcoded secrets, injection risks, XSS, CSRF
-   - **Code Quality** - Function size, complexity, nesting depth
-   - **Performance** - Algorithm efficiency, N+1 queries, caching
-   - **Best Practices** - Naming, documentation, error handling
-   - **Maintainability** - Duplication, coupling, testability
+**Rule**: Never start code-level review without first completing Phase 2. The structural analysis drives scope and reveals hidden risks that grep alone misses.
 
-3. **Severity Rating**
-   - **CRITICAL** - Security vulnerability (must fix before merge)
-   - **HIGH** - Bug or major code smell (should fix before merge)
-   - **MEDIUM** - Minor issue (fix when possible)
-   - **LOW** - Style/suggestion (consider fixing)
+### Phase 3: Deep Review Categories
+- **Security** — Hardcoded secrets, injection risks, XSS, CSRF, auth bypass, path traversal, sensitive data exposure
+- **Code Quality** — Function size, complexity, nesting depth, DRY violations, dead code, naming
+- **Performance** — N+1 queries, missing caching, O(n²) algorithms, unnecessary allocations, memory leaks
+- **Best Practices** — Error handling, logging, API contracts, test coverage, documentation
+- **Maintainability** — Coupling (cross-check with codegraph callers graph), cohesion, testability, hardcoded config
 
-4. **Specific Recommendations**
-   - File:line locations for each issue
-   - Concrete fix suggestions
-   - Code examples where applicable
+### Phase 4: Report
+Structured output with severity ratings, file:line evidence, concrete fixes, and approval recommendation.
+
+## Severity Rating
+
+| Severity | Meaning | Action |
+|----------|---------|--------|
+| **CRITICAL** | Security vulnerability, data loss, crash | Must fix before merge |
+| **HIGH** | Bug, major code smell, perf regression | Should fix before merge |
+| **MEDIUM** | Minor issue, technical debt | Fix when possible |
+| **LOW** | Style, nitpick, suggestion | Consider fixing |
 
 ## Agent Delegation
 
+Dispatch to the `code-reviewer` agent with a prompt covering all 4 phases:
+
+```markdown
+CODE REVIEW TASK
+
+Scope: [files changed from git diff, or specific files/dirs]
+
+PHASE 1 — Identify: Run git diff, list changed files and symbols.
+PHASE 2 — Structural Analysis (MANDATORY): For each changed symbol, use:
+  - codegraph_codegraph_context to understand architecture
+  - codegraph_codegraph_impact to assess change radius
+  - codegraph_codegraph_callers to find integration points
+  - codegraph_codegraph_trace for data flow paths
+PHASE 3 — Deep Review: Check security, quality, performance, best practices, maintainability.
+PHASE 4 — Report: Structured output (see Output Format below).
 ```
-delegate(
-  role="code-reviewer",
-  tier="THOROUGH",
-  prompt="CODE REVIEW TASK
-
-Review code changes for quality, security, and maintainability.
-
-Scope: [git diff or specific files]
-
-Review Checklist:
-- Security vulnerabilities (OWASP Top 10)
-- Code quality (complexity, duplication)
-- Performance issues (N+1, inefficient algorithms)
-- Best practices (naming, documentation, error handling)
-- Maintainability (coupling, testability)
-
-Output: Code review report with:
-- Files reviewed count
-- Issues by severity (CRITICAL, HIGH, MEDIUM, LOW)
-- Specific file:line locations
-- Fix recommendations
-- Approval recommendation (APPROVE / REQUEST CHANGES / COMMENT)"
-)
-```
-
-## External Model Consultation (Preferred)
-
-The code-reviewer agent SHOULD consult Codex for cross-validation.
-
-### Protocol
-1. **Form your OWN review FIRST** - Complete the review independently
-2. **Consult for validation** - Cross-check findings with Codex
-3. **Critically evaluate** - Never blindly adopt external findings
-4. **Graceful fallback** - Never block if tools unavailable
-
-### When to Consult
-- Security-sensitive code changes
-- Complex architectural patterns
-- Unfamiliar codebases or languages
-- High-stakes production code
-
-### When to Skip
-- Simple refactoring
-- Well-understood patterns
-- Time-critical reviews
-- Small, isolated changes
-
-### Tool Usage
-Before first MCP tool use, call `ToolSearch("mcp")` to discover deferred MCP tools.
-Use `mcp__x__ask_codex` with `agent_role: "code-reviewer"`.
-If ToolSearch finds no MCP tools, fall back to the `code-reviewer` agent.
-
-**Note:** Codex calls can take up to 1 hour. Consider the review timeline before consulting.
 
 ## Output Format
+
+Every review MUST end with this exact structure:
 
 ```
 CODE REVIEW REPORT
 ==================
 
-Files Reviewed: 8
-Total Issues: 15
+Files Reviewed: <N>
+Total Issues: <N>
 
-CRITICAL (0)
------------
-(none)
+CRITICAL (<N>)
+--------------
+<#> file:line
+   Issue: <description>
+   Risk: <impact>
+   Fix: <concrete solution>
 
-HIGH (3)
---------
-1. src/api/auth.ts:42
-   Issue: User input not sanitized before SQL query
-   Risk: SQL injection vulnerability
-   Fix: Use parameterized queries or ORM
-
-2. src/components/UserProfile.tsx:89
-   Issue: Password displayed in plain text in logs
-   Risk: Credential exposure
-   Fix: Remove password from log statements
-
-3. src/utils/validation.ts:15
-   Issue: Email regex allows invalid formats
-   Risk: Accepts malformed emails
-   Fix: Use proven email validation library
-
-MEDIUM (7)
+HIGH (<N>)
 ----------
 ...
 
-LOW (5)
--------
+MEDIUM (<N>)
+------------
 ...
 
-RECOMMENDATION: REQUEST CHANGES
+LOW (<N>)
+---------
+...
 
-Critical security issues must be addressed before merge.
+RECOMMENDATION: APPROVE | REQUEST CHANGES | COMMENT
 ```
 
 ## Review Checklist
-
-The code-reviewer agent checks:
 
 ### Security
 - [ ] No hardcoded secrets (API keys, passwords, tokens)
@@ -182,42 +144,14 @@ The code-reviewer agent checks:
 
 ## Approval Criteria
 
-**APPROVE** - No CRITICAL or HIGH issues, minor improvements only
-**REQUEST CHANGES** - CRITICAL or HIGH issues present
-**COMMENT** - Only LOW/MEDIUM issues, no blocking concerns
-
-
-## Scenario Examples
-
-**Good:** The user says `continue` after the workflow already has a clear next step. Continue the current branch of work instead of restarting or re-asking the same question.
-
-**Good:** The user changes only the output shape or downstream delivery step (for example `make a PR`). Preserve earlier non-conflicting workflow constraints and apply the update locally.
-
-**Bad:** The user says `continue`, and the workflow restarts discovery or stops before the missing verification/evidence is gathered.
-
-## Use with Other Skills
-
-**With Team:**
-```
-review recent auth changes and report findings
-```
-
-**With executing-plans:**
-```
-code-review then fix all issues
-```
-Review code at milestones, get feedback, fix until approved.
-
-**With Ultrawork:**
-```
-review all files in src/
-```
-Parallel code review across multiple files.
+**APPROVE** — No CRITICAL or HIGH issues, minor improvements only
+**REQUEST CHANGES** — CRITICAL or HIGH issues present
+**COMMENT** — Only LOW/MEDIUM issues, no blocking concerns
 
 ## Best Practices
 
-- **Review early** - Catch issues before they compound
-- **Review often** - Small, frequent reviews better than huge ones
-- **Address CRITICAL/HIGH first** - Fix security and bugs immediately
-- **Consider context** - Some "issues" may be intentional trade-offs
-- **Learn from reviews** - Use feedback to improve coding practices
+- **Review early** — Catch issues before they compound
+- **Review often** — Small, frequent reviews better than huge ones
+- **Address CRITICAL/HIGH first** — Fix security and bugs immediately
+- **Consider context** — Some "issues" may be intentional trade-offs
+- **Learn from reviews** — Use feedback to improve coding practices

@@ -279,6 +279,7 @@ if ($Target -eq "opencode" -or $Target -eq "all") {
     # 备份现有配置
     $OpenCodeDir = Join-Path $env:USERPROFILE ".config\opencode"
     if (Test-Path "$OpenCodeDir\AGENTS.md") { Copy-Item "$OpenCodeDir\AGENTS.md" "$BackupO\opencode\AGENTS.md" -Force }
+    if (Test-Path "$OpenCodeDir\agents") { Copy-DirectoryTree "$OpenCodeDir\agents" "$BackupO\opencode\agents" }
     if (Test-Path "$OpenCodeDir\skills") { Copy-DirectoryTree "$OpenCodeDir\skills" "$BackupO\opencode\skills" }
     if (Test-Path "$env:USERPROFILE\.claude\skills") { Copy-DirectoryTree "$env:USERPROFILE\.claude\skills" "$BackupO\claude\skills" }
     Copy-DirectoryTree $RepoSkills "$BackupO\repo\skills"
@@ -286,15 +287,11 @@ if ($Target -eq "opencode" -or $Target -eq "all") {
     # 部署配置（从 config/ 复制）
     New-Item -ItemType Directory -Path "$OpenCodeDir" -Force | Out-Null
     Safe-LinkFile "$OpenCodeDir\AGENTS.md" "$ConfigRoot\opencode\AGENTS.md"
+    Safe-Link "$OpenCodeDir\agents" "$ConfigRoot\opencode\agents"
     Merge-JsonConfig "$ConfigRoot\opencode\opencode.json" "$OpenCodeDir\opencode.json"
 
-    # DCP 配置：仅在目标不存在时首次写入，保护用户自定义
-    $DcpDest = Join-Path $OpenCodeDir "dcp.jsonc"
-    if (-not (Test-Path $DcpDest)) {
-        New-Item -ItemType Directory -Path $OpenCodeDir -Force | Out-Null
-        Copy-Item "$ConfigRoot\opencode\dcp.jsonc" $DcpDest -Force
-        Write-Host "DCP config seeded: $DcpDest"
-    }
+    # DCP 配置：与 opencode.json 一样走深合并
+    Merge-JsonConfig "$ConfigRoot\opencode\dcp.jsonc" "$OpenCodeDir\dcp.jsonc"
 
     Safe-Link "$OpenCodeDir\skills" $RepoSkills
 
