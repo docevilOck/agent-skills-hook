@@ -34,14 +34,14 @@
 - 把 `g_uart_rx_state` 下沉到 `uart_session_t`
 - 把长链 `if/else if` 改成 detail 文档约定的 `switch (packet->cmd)`
 - 去掉裸状态值 `3`，改回 `uart_state_t` 枚举语义
-- 按 exec plan 移除旧全局状态后重新跑验证，再重新进入 `implementation-final-gate`
+- 按 exec plan 移除旧全局状态后重新跑验证，再重新进入 `final-gate`
 
 未覆盖风险：
 - 当前只看了 host 构建和单元测试，未看到目标板串口回环验证结果。
 - 尚未确认异常包风暴场景下的状态迁移是否与流程图完全一致。
 
 下一步：
-- 主 agent 必须先修改上述项，再重新进入 `implementation-final-gate`
+- 主 agent 必须先修改上述项，再重新进入 `final-gate`
 ```
 
 ## `pass` 样例
@@ -105,13 +105,13 @@
 
 需要主 agent 修改的项：
 - 先唯一确定可用的 detail 文档基线
-- 确认本轮应采用的结构体定义和流程图后，再重新进入 `implementation-final-gate`
+- 确认本轮应采用的结构体定义和流程图后，再重新进入 `final-gate`
 
 未覆盖风险：
 - 因 detail 基线不明确，本轮无法形成有效的一致性验收结论。
 
 下一步：
-- 主 agent 必须先补齐或统一 detail 基线，再重新进入 `implementation-final-gate`
+- 主 agent 必须先补齐或统一 detail 基线，再重新进入 `final-gate`
 ```
 
 ## 使用要求

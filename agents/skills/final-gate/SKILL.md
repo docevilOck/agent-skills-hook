@@ -1,5 +1,5 @@
 ---
-name: implementation-final-gate
+name: final-gate
 description: 在代码实现完成后、准备结束任务或进入发布前使用，用来核对代码实现是否与 spec 文档以及 detail 文档一致，并给出最终验收结论
 ---
 
@@ -17,8 +17,8 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 
 第一段一致性验收要对照的设计输入包括：
 
-- `implementation-architecture-workflow` 产出的 spec 文档
-- `implementation-struct-dataflow-workflow` 产出的 detail 文档
+- `spec-workflow` 产出的 spec 文档
+- `detail-workflow` 产出的 detail 文档
 - 必要时补充执行计划、验证结果和相关图文档
 
 目标是明确回答：
@@ -262,8 +262,8 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 
 ## 与其他 skill 的关系
 
-- 上游通常来自 `implementation-architecture-workflow`
-- detail 输入通常来自 `implementation-struct-dataflow-workflow`
+- 上游通常来自 `spec-workflow`
+- detail 输入通常来自 `detail-workflow`
 - 如需补验证证据，联动 `verification-before-completion`
 - 如需独立质量复核，联动 `requesting-code-review`
 - 如需在一致性通过后做垃圾代码清理和可维护性提升，联动 `ai-slop-cleaner`

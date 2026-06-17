@@ -63,15 +63,15 @@ description: 在当前会话里按已写好的实现计划顺序执行任务时�
 
 1. 用 `superpowers:verification-before-completion` 补齐最终结论所需的验证证据
 2. 如需独立质量复核，用 `superpowers:requesting-code-review`
-3. 进入 `superpowers:implementation-final-gate` 做第一轮一致性验收，并拉独立审查 agent 核对 architecture、detail、data flow、flow、exec plan 与代码是否完全一致
-4. 如果第一轮 `implementation-final-gate` 返回 `blocked`，主 agent 必须先修改，再重新进入 `implementation-final-gate`
-5. 如果第一轮 `implementation-final-gate` 返回 `need-info`，主 agent 必须先补齐缺失输入、范围或验证证据，再重新进入 `implementation-final-gate`
-6. 只有当 `implementation-final-gate` 给出一致性 `pass` 后，才进入 `ai-slop-cleaner` 清理阶段
+3. 进入 `superpowers:final-gate` 做第一轮一致性验收，并拉独立审查 agent 核对 architecture、detail、data flow、flow、exec plan 与代码是否完全一致
+4. 如果第一轮 `final-gate` 返回 `blocked`，主 agent 必须先修改，再重新进入 `final-gate`
+5. 如果第一轮 `final-gate` 返回 `need-info`，主 agent 必须先补齐缺失输入、范围或验证证据，再重新进入 `final-gate`
+6. 只有当 `final-gate` 给出一致性 `pass` 后，才进入 `ai-slop-cleaner` 清理阶段
 7. 清理阶段必须使用独立 subagent，并把范围限制在 final gate 已接受的代码范围或更窄的 changed-files；若为锁定行为必须补最小测试文件，只允许纳入最小必要测试范围
 8. 清理 subagent 必须按 `ai-slop-cleaner` 的 regression-tests-first、最小 diff、最小作用域规则执行，不得借 cleanup 扩大为重构或改设计
 9. 如果 cleanup 没有做出代码修改，可直接保留上一轮 final gate 的一致性 `pass`，进入最终收尾
-10. 如果 cleanup 做出了任何代码修改，主 agent 必须补充 cleanup 后的新验证证据，并重新进入 `implementation-final-gate` 做完整一致性重审
-11. 只有当 cleanup 后的最后一次 `implementation-final-gate` 也返回 `pass`，才能宣称“计划已经完成”
+10. 如果 cleanup 做出了任何代码修改，主 agent 必须补充 cleanup 后的新验证证据，并重新进入 `final-gate` 做完整一致性重审
+11. 只有当 cleanup 后的最后一次 `final-gate` 也返回 `pass`，才能宣称“计划已经完成”
 
 ## 什么时候必须停下来
 
@@ -106,8 +106,8 @@ description: 在当前会话里按已写好的实现计划顺序执行任务时�
 - 把“代码写了”当成“任务完成”
 - 计划和上游文档冲突时，私自选择其中一个继续写
 - 没经过默认收尾就宣称整体完成
-- 在 `implementation-final-gate` 一致性 `pass` 之前提前进入 cleanup
-- cleanup 改了代码却不重新回到 `implementation-final-gate`
+- 在 `final-gate` 一致性 `pass` 之前提前进入 cleanup
+- cleanup 改了代码却不重新回到 `final-gate`
 - 未经用户明确同意就在 `main` / `master` 上开始实现
 
 ## 集成
@@ -117,5 +117,5 @@ description: 在当前会话里按已写好的实现计划顺序执行任务时�
 - **superpowers:writing-plans** - 产出本 skill 要执行的计划
 - **superpowers:requesting-code-review** - 阶段性复核与重要节点复核
 - **superpowers:verification-before-completion** - 对最终结论补齐验证证据
-- **superpowers:implementation-final-gate** - 默认最终验收
+- **superpowers:final-gate** - 默认最终验收
 - **superpowers:ai-slop-cleaner** - 一致性通过后的受限 cleanup / deslop 阶段

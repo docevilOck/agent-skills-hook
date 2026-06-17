@@ -42,13 +42,13 @@
 | `verification-before-completion` | 完成前强制验证：必须先运行验证命令并确认输出，再做任何成功声明。 | 自动 — 准备声称工作已完成/已修复时 |
 | `protocol-semantic-guard` | 协议和指令集相关代码变更的语义守卫。修改有线协议、命令编码、解析表、标签、属性、枚举等时使用。 | 自动 — 修改协议/指令集相关代码时 |
 | `neat-freak` | 会话结束后对项目文档（CLAUDE.md、README.md、docs/）和 agent 记忆进行洁癖级审查与同步。触发词：sync up、tidy up docs、整理文档、收尾、同步一下、整理一下等。 | 自动 |
-| `implementation-architecture-workflow` | 代码修改前编写实现架构文档，用图表达改动边界、模块关系、接入点和主流程。仅用于代码改动场景。 | 自动 — 代码修改前需要架构文档 |
-| `implementation-struct-dataflow-workflow` | 实现架构文档确认后，以图优先方式梳理结构体定义、数据流和流程。仅用于代码改动场景。 | 自动 — 架构文档确认后需要细化 |
-| `implementation-final-gate` | 代码实现完成后核对是否与实现架构文档及 detail 文档一致，给出最终验收结论。 | 自动 — 实现完成后验收 |
+| `spec-workflow` | 代码修改前编写 spec 文档，用图表达改动边界、模块关系、接入点和主流程。仅用于代码改动场景。 | 自动 — 代码修改前需要 spec 文档 |
+| `detail-workflow` | spec 文档确认后，以图优先方式梳理结构体定义、数据流和流程。仅用于代码改动场景。 | 自动 — spec 文档确认后需要细化 |
+| `final-gate` | 代码实现完成后核对是否与 spec 文档及 detail 文档一致，给出最终验收结论。 | 自动 — 实现完成后验收 |
 | `visual-verdict` | 结构化视觉 QA 判定，用于截图与参考图的对比验证。 | 自动 — 需要视觉对比判定时 |
 | `image-understanding` | 视觉回归与图像理解：截图对比、差异检测、CI 检查（通过 Playwright 或 Chromatic）。 | 自动 — 需要图片对比/视觉测试时 |
 
-### 实现工作流（implementation-* 管线）
+### 实现工作流（spec-workflow → struct-dataflow → final-gate 管线）
 
 以下三个技能组成一条从设计到验收的完整实现管线，适用于代码改动（新增、重构、修复）场景：
 
@@ -56,12 +56,12 @@
 需求确认
   │
   ▼
-① implementation-architecture-workflow     ← 出架构图：改动边界、模块关系、接入点、主流程
-  │                                          产出 → docs/plans/YY-MM-DD_name/architecture/
+① spec-workflow                          ← 出 spec 文档：改动边界、模块关系、接入点、主流程
+  │                                          产出 → docs/plans/YY-MM-DD_name/spec/
   │  图怎么画？ → 调 diagram-workflow
   │
-  ▼ 架构文档确认后
-② implementation-struct-dataflow-workflow  ← 细化实现细节：结构体定义、数据流、关键流程
+  ▼ spec 文档确认后
+② detail-workflow                       ← 细化实现细节：结构体定义、数据流、关键流程
   │                                          产出 → docs/plans/YY-MM-DD_<topic>/detail/
   │                                          ├─ overview.md
   │                                          ├─ structures/<name>.md（结构关系图与结构定义）
@@ -71,7 +71,7 @@
   ▼ detail 确认后 → writing-plans 拆解执行计划 → executing-plans 驱动编码
   │
   ▼ 代码写完
-③ implementation-final-gate                 ← 最终验收门禁（两段循环）
+③ final-gate                 ← 最终验收门禁（两段循环）
      ├─ 第一段：拉独立审查 agent，对照 architecture + detail 文档逐项核对代码实现
      │          ├─ 一致 → pass，进入第二段
      │          └─ 不一致 → 打回修改，修改后重新进入本 skill
@@ -82,9 +82,9 @@
 
 | 阶段 | 技能 | 核心职责 | 关键约束 |
 |------|------|----------|----------|
-| ① 设计 | `implementation-architecture-workflow` | 在编码前用图讲清改动边界、模块关系、接入点和主流程 | 仅产出设计文档，不得直接改代码；图优先、文辅佐；遵守项目级 `docs/architecture/` 约束 |
-| ② 细化 | `implementation-struct-dataflow-workflow` | 架构确认后细化结构体定义、数据流图和关键流程图 | 架构文档必须先获确认才能进入此阶段；图优先、文辅佐 |
-| ③ 验收 | `implementation-final-gate` | 代码实现完成后逐项核对是否与架构/detail 文档一致，通过后执行 slop 清理 | 一致性不通过就打回重改，循环直到 pass；slop 清理后若改代码需重新验收 |
+| ① 设计 | `spec-workflow` | 在编码前用图讲清改动边界、模块关系、接入点和主流程 | 仅产出 spec 文档，不得直接改代码；图优先、文辅佐；遵守项目级 `docs/architecture/` 约束 |
+| ② 细化 | `detail-workflow` | spec 确认后细化结构体定义、数据流图和关键流程图 | spec 文档必须先获确认才能进入此阶段；图优先、文辅佐 |
+| ③ 验收 | `final-gate` | 代码实现完成后逐项核对是否与 spec/detail 文档一致，通过后执行 slop 清理 | 一致性不通过就打回重改，循环直到 pass；slop 清理后若改代码需重新验收 |
 
 > **联动技能**：`diagram-workflow`（画图规范）、`writing-plans`（拆解执行计划）、`executing-plans`（执行计划）、`ai-slop-cleaner`（被 final-gate 调用的代码清理）。
 

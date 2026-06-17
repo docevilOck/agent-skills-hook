@@ -13,7 +13,7 @@ description: 在已有规格或多步骤任务需求、且在动代码之前使�
 
 要假设后续执行者是熟练开发者，但对当前仓库上下文并不熟，所以计划必须告诉他先读哪些 spec / detail / flow / dataflow 文档，以及这些文档在当前任务里分别约束什么。
 
-这个 skill 只消费已经确认过的 spec 文档、结构设计文档和图，不负责重新决定架构，也不负责在计划阶段发明新的数据结构、状态流或接口契约。上游通常先经过 `implementation-architecture-workflow`，图形细化则交给 `diagram-workflow`，结构和数据流细化则交给 `implementation-struct-dataflow-workflow`。
+这个 skill 只消费已经确认过的 spec 文档、结构设计文档和图，不负责重新决定架构，也不负责在计划阶段发明新的数据结构、状态流或接口契约。上游通常先经过 `spec-workflow`，图形细化则交给 `diagram-workflow`，结构和数据流细化则交给 `detail-workflow`。
 
 如果上游已经为嵌入式 C / 纯 C 场景定义了”禁止业务全局变量、限制长链 `if/else`、优先 context/状态机/表驱动”的 spec 约束，这里必须原样传递到执行计划，不能在任务拆解时弱化成泛泛的”优化代码结构”。
 
@@ -219,6 +219,6 @@ description: 在已有规格或多步骤任务需求、且在动代码之前使�
 
 1. 用 `verification-before-completion` 补齐本轮结论所需的验证证据。
 2. 如需独立质量复核，用 `requesting-code-review` 做额外审查。
-3. 最后进入 `implementation-final-gate`，按 spec 文档、detail 文档、代码实现、验证证据做最终一致性验收；C 项目还会经 `c-pro` 规范审查。
+3. 最后进入 `final-gate`，按 spec 文档、detail 文档、代码实现、验证证据做最终一致性验收；C 项目还会经 `c-pro` 规范审查。
 
-如果没有经过 `implementation-final-gate`，默认不应宣称“实现已经按设计完成”。
+如果没有经过 `final-gate`，默认不应宣称“实现已经按设计完成”。

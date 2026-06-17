@@ -1,5 +1,5 @@
 ---
-name: implementation-struct-dataflow-workflow
+name: detail-workflow
 description: 代码修改场景下，spec 文档确认后，需要继续以图优先方式梳理结构体定义、数据流和流程时使用
 ---
 
@@ -55,7 +55,7 @@ detail 文档默认采用“图优先，文辅佐”表达，只写本次改动�
 - spec 文档中的模块边界、接入点、主流程已经基本确认
 - 接下来准备进入实现计划或编码，需要把状态、结构体和流程进一步讲透
 
-如果还在反复改模块边界、职责切分或接入方式，先回到 `implementation-architecture-workflow`，不要在这里提前堆细节。
+如果还在反复改模块边界、职责切分或接入方式，先回到 `spec-workflow`，不要在这里提前堆细节。
 
 ## 细化范围
 
@@ -96,7 +96,7 @@ detail 文档默认采用“图优先，文辅佐”表达，只写本次改动�
 3. `detail/dataflow/*.md`
 4. `detail/flows/*.md`
 
-`detail/<name>-overview.md` 必须索引所有子文档。`dataflow` 和 `flows` 文档必须引用对应结构体文档名，保证后续 `implementation-final-gate` 能做一一映射。总览先给图，再给一句话导航。
+`detail/<name>-overview.md` 必须索引所有子文档。`dataflow` 和 `flows` 文档必须引用对应结构体文档名，保证后续 `final-gate` 能做一一映射。总览先给图，再给一句话导航。
 
 ## 长文档拆分策略
 
@@ -288,7 +288,7 @@ detail/
 完成这一步后，至少应能直接交给下游使用：
 
 - `writing-plans` 可以据此拆出精确的实现步骤
-- `implementation-final-gate` 可以据此对照“结构体、状态、数据流、关键分支”是否按设计落地
+- `final-gate` 可以据此对照“结构体、状态、数据流、关键分支”是否按设计落地
 
 如果当前 detail 文档还做不到下面任一项，就不算完成：
 
@@ -313,7 +313,7 @@ detail/
 
 这一步确认完之后，再进入 `writing-plans` 把已经确认的内容拆成可执行步骤。
 
-如果实现已完成、准备验收，则把这些 detail 文档作为 `implementation-final-gate` 的直接输入。
+如果实现已完成、准备验收，则把这些 detail 文档作为 `final-gate` 的直接输入。
 
 ## 参考
 

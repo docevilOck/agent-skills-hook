@@ -1,5 +1,5 @@
 ---
-name: implementation-architecture-workflow
+name: spec-workflow
 description: 在代码修改前需要编写 spec 文档且应优先用图表达边界、入口、流程和改动关系时使用（仅限代码改动场景，非项目级架构文档初始化）
 ---
 
@@ -42,7 +42,7 @@ spec 文档默认落到 `docs/plans/YY-MM-DD_name/spec/<feature-name>.md`。
 2. 先出本次 spec 图，并标出遵守了哪些项目级约束。
 3. 再交给 `diagram-workflow`，按规范手写 ASCII 图到 `.md`。
 4. 图确认后，再进入 `writing-plans`，把已确认设计拆成执行计划。
-5. 实现完成并拿到验证证据后，默认进入 `implementation-final-gate`，按图对照代码实现是否一致。
+5. 实现完成并拿到验证证据后，默认进入 `final-gate`，按图对照代码实现是否一致。
 
 ## 基本流程
 

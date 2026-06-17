@@ -76,5 +76,5 @@
 - ...
 
 下一步：
-- 如果结论是 `blocked`，明确写“主 agent 必须先修改这些项，再重新进入 implementation-final-gate”
+- 如果结论是 `blocked`，明确写“主 agent 必须先修改这些项，再重新进入 final-gate”
 - 如果结论是 `need-info`，明确写要补什么
