@@ -245,6 +245,7 @@ if [ "$TARGET" = "opencode" ] || [ "$TARGET" = "all" ]; then
   [ -f "$HOME/.config/opencode/AGENTS.md" ] && cp -a "$HOME/.config/opencode/AGENTS.md" "$BACKUP_O/opencode/AGENTS.md"
   [ -f "$HOME/.config/opencode/opencode.json" ] && cp -a "$HOME/.config/opencode/opencode.json" "$BACKUP_O/opencode/opencode.json"
   [ -e "$HOME/.config/opencode/skills" ] && cp -a "$HOME/.config/opencode/skills" "$BACKUP_O/opencode/"
+  [ -e "$HOME/.config/opencode/agents" ] && cp -a "$HOME/.config/opencode/agents" "$BACKUP_O/opencode/"
   [ -e "$HOME/.claude/skills" ] && cp -a "$HOME/.claude/skills" "$BACKUP_O/claude/"
   cp -a "$REPO_SKILLS" "$BACKUP_O/repo/"
 
@@ -257,6 +258,7 @@ if [ "$TARGET" = "opencode" ] || [ "$TARGET" = "all" ]; then
   merge_json_config "$OPENCODE_CONFIG/dcp.jsonc" "$HOME/.config/opencode/dcp.jsonc"
 
   safe_link "$HOME/.config/opencode/skills" "$REPO_SKILLS"
+  safe_link "$HOME/.config/opencode/agents" "$CONFIG_ROOT/opencode/agents"
   safe_link "$HOME/.claude/skills" "$HOME/.config/opencode/skills"
 
   install_opencode_plugins "$HOME/.config/opencode"
