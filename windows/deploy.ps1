@@ -338,13 +338,15 @@ if ($Target -eq "claude" -or $Target -eq "all") {
     $ClaudeDir = Join-Path $env:USERPROFILE ".claude"
     if (Test-Path "$ClaudeDir\AGENTS.md") { Copy-Item "$ClaudeDir\AGENTS.md" "$BackupCL\claude\AGENTS.md" -Force }
     if (Test-Path "$ClaudeDir\CLAUDE.md") { Copy-Item "$ClaudeDir\CLAUDE.md" "$BackupCL\claude\CLAUDE.md" -Force }
+    if (Test-Path "$ClaudeDir\agents") { Copy-DirectoryTree "$ClaudeDir\agents" "$BackupCL\claude\agents" }
     if (Test-Path "$ClaudeDir\skills") { Copy-DirectoryTree "$ClaudeDir\skills" "$BackupCL\claude\skills" }
     Copy-DirectoryTree $RepoSkills "$BackupCL\repo\skills"
-    
+
     # 部署配置（从 config/ 复制）
     New-Item -ItemType Directory -Path "$ClaudeDir" -Force | Out-Null
     Safe-LinkFile "$ClaudeDir\AGENTS.md" "$ConfigRoot\AGENTS.md"
     Safe-Copy "$ConfigRoot\claude\CLAUDE.md" "$ClaudeDir\CLAUDE.md"
+    Safe-Link "$ClaudeDir\agents" "$ConfigRoot\claude\agents"
     Safe-Link "$ClaudeDir\skills" $RepoSkills
     
     Write-Host "Claude Code deployed. Backup: $BackupCL"

@@ -32,8 +32,14 @@
 - 跨文件多步推理 → `worker`
 - 方案设计/规划 → `planner`
 - 改动后复核 → `reviewer`
+- 代码审查（质量/安全/性能）→ `code-reviewer`
+- 实现与设计一致性最终验收 → `final-gate-reviewer`
+- AI slop 清理（受限范围代码清理）→ `slop-cleaner`
+- C 语言编码规范审查 → `c-pro-reviewer`
+- Skill 优化信号分析 → `optimizer-agent`
+- Skill 门禁判断 → `gate-agent`
 
-**子代理只读不写**：只输出结论，Write/Edit/文档落盘一律主代理动手。
+**子代理只读不写**：`slop-cleaner` 可在限定范围内编辑文件，其余子代理只输出结论，Write/Edit/文档落盘一律主代理动手。
 
 **禁止分发**：单文件读/写/编辑、单工具调用完成、任务描述=工具描述、已知答案只差确认。
 
