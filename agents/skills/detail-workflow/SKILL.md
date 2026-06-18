@@ -36,8 +36,9 @@ detail 文档默认采用“图优先，文辅佐”表达，只写本次改动�
 - `structures/<name>.md`
 - `dataflow/<name>.md`
 - `flows/<name>.md`
+- `tests/<name>.md`（可选，由 `pc-test-writer` skill 产出）
 
-`overview` / `index` 类总览文档必须放在 `detail/` 根目录，不要放进 `structures/`、`dataflow/` 或 `flows/`。子目录只放对应职责的详述文档和图源。
+`overview` / `index` 类总览文档必须放在 `detail/` 根目录，不要放进 `structures/`、`dataflow/`、`flows/` 或 `tests/`。子目录只放对应职责的详述文档和图源。
 
 根目录 overview 必须包含一张"文档分布与说明"文本图，把本次 detail 下生成的所有文档、目录层级、阅读顺序和文档用途可视化出来。
 
@@ -201,9 +202,13 @@ detail/
 │   ├── rx-details.md              # 输入到作业上下文的数据转换
 │   ├── rx-errors.md               # 输入错误、回退和状态复位
 │   └── rx-states.md               # 状态迁移和持有者
-└── flows/
-    ├── main.md                    # 主流程图与简述
-    ├── exceptions.md              # 异常路径流程
+├── flows/
+│   ├── main.md                    # 主流程图与简述
+│   ├── exceptions.md              # 异常路径流程
+└── tests/                         # 可选，由 pc-test-writer 产出
+    ├── protocol-overview.md       # 测试总览与可测试性结论
+    ├── protocol-cases.md          # 测试用例清单
+    └── protocol-env.md            # 测试环境与依赖
 
 阅读顺序：overview -> structures/job-context -> dataflow/rx-details -> flows/main
 ```
@@ -266,6 +271,7 @@ detail/
 - `structures/`：结构体定义文档
 - `dataflow/`：数据流规划文档
 - `flows/`：流程图文档
+- `tests/`：PC 测试用例文档（由 `pc-test-writer` skill 产出，可选）
 
 如果内容复杂，可以在这些目录下继续使用“入口索引 + 分主题子文档”的方式，而不是强行维持单层平铺。
 
@@ -311,9 +317,12 @@ detail/
 
 ## 完成后
 
-这一步确认完之后，再进入 `writing-plans` 把已经确认的内容拆成可执行步骤。
+这一步确认完之后：
 
-如果实现已完成、准备验收，则把这些 detail 文档作为 `final-gate` 的直接输入。
+- 可选进入 `pc-test-writer`，判断本次修改是否可在 PC 上写测试 demo 直接验证；如果可以则产出测试用例文档和 demo 代码。如果不需 PC 测试或不可测试，直接跳过。
+- 再进入 `writing-plans` 把已经确认的内容拆成可执行步骤。
+
+如果实现已完成、准备验收，则把这些 detail 文档作为 `final-gate` 的直接输入。若此前通过 `pc-test-writer` 产出了测试 demo，`final-gate` 阶段必须跑通该 demo。
 
 ## 参考
 
