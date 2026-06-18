@@ -206,6 +206,56 @@ deploy_semble_offline_model() {
   echo "Semble offline model deployed to $snapshot_root"
 }
 
+deploy_mcp_servers() {
+  local runtime="$1"
+  local scope="${2:-}"
+
+  local mcp_json="$SHARED_CONFIG_ROOT/mcp_servers.json"
+  if [ ! -f "$mcp_json" ]; then
+    echo "MCP config not found at $mcp_json, skipping MCP deployment for $runtime"
+    return 0
+  fi
+
+  if ! command -v "$runtime" >/dev/null 2>&1; then
+    echo "WARNING: $runtime CLI not found in PATH. Skipping MCP deployment."
+    return 0
+  fi
+
+  echo "Deploying MCP servers for $runtime..."
+
+  python3 - "$runtime" "$scope" "$mcp_json" <<'PY'
+import json, subprocess, sys
+
+runtime = sys.argv[1]
+scope = sys.argv[2]
+mcp_json = sys.argv[3]
+
+with open(mcp_json, "r") as f:
+    servers = json.load(f)
+
+for name, srv in servers.items():
+    print(f"  Configuring MCP server '{name}' for {runtime}...")
+
+    rm_cmd = [runtime, "mcp", "remove"]
+    if scope:
+        rm_cmd.extend(["-s", scope])
+    rm_cmd.append(name)
+    subprocess.run(rm_cmd, capture_output=True)
+
+    add_cmd = [runtime, "mcp", "add"]
+    if scope:
+        add_cmd.extend(["-s", scope])
+    add_cmd.extend([name, "--", srv["command"]])
+    add_cmd.extend(srv.get("args", []))
+
+    result = subprocess.run(add_cmd, capture_output=True, text=True)
+    if result.returncode == 0:
+        print(f"  MCP server '{name}' configured for {runtime}")
+    else:
+        print(f"  WARNING: Failed to add MCP server '{name}': {result.stderr.strip()}")
+PY
+}
+
 ensure_codegraph_installed
 show_codegraph_reminder
 ensure_semble_installed
@@ -232,6 +282,9 @@ if [ "$TARGET" = "codex" ] || [ "$TARGET" = "all" ]; then
   if [ -e "$HOME/.agents/skills" ]; then
     echo "Legacy Codex skill root detected at $HOME/.agents/skills. Archive or remove it to avoid duplicate skill scanning."
   fi
+
+  # Deploy MCP servers for Codex
+  deploy_mcp_servers "codex"
 
   echo "Codex deployed. Backup: $BACKUP_C"
 fi
@@ -287,6 +340,9 @@ if [ "$TARGET" = "claude" ] || [ "$TARGET" = "all" ]; then
   safe_link "$HOME/.claude/CLAUDE.md" "$CONFIG_ROOT/claude/CLAUDE.md"
 
   safe_link "$HOME/.claude/skills" "$REPO_SKILLS"
+
+  # Deploy MCP servers for Claude Code (user scope)
+  deploy_mcp_servers "claude" "user"
 
   echo "Claude Code deployed. Backup: $BACKUP_CL"
 fi

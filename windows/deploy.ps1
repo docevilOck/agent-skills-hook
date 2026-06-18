@@ -243,6 +243,48 @@ function Deploy-SembleOfflineModel {
     Write-Host "Semble offline model deployed to $SnapshotRoot"
 }
 
+function Deploy-McpServers {
+    param(
+        [string]$Runtime,
+        [string[]]$ScopeArgs = @()
+    )
+
+    $McpJson = Join-Path $SharedConfigRoot "mcp_servers.json"
+    if (-not (Test-Path $McpJson)) {
+        Write-Host "MCP config not found at $McpJson, skipping MCP deployment for $Runtime"
+        return
+    }
+
+    $exe = Get-Command $Runtime -ErrorAction SilentlyContinue
+    if ($null -eq $exe) {
+        Write-Warning "$Runtime CLI not found in PATH. Skipping MCP deployment."
+        return
+    }
+
+    Write-Host "Deploying MCP servers for $Runtime..."
+    $servers = Get-Content $McpJson -Raw | ConvertFrom-Json
+
+    foreach ($prop in $servers.PSObject.Properties) {
+        $name = $prop.Name
+        $srv = $prop.Value
+
+        # Remove existing (ignore errors)
+        $rmArgs = @("mcp", "remove") + $ScopeArgs + @($name)
+        & $Runtime @rmArgs 2>&1 | Out-Null
+
+        # Add server: <runtime> mcp add [scope] <name> -- <command> <args...>
+        $addArgs = @("mcp", "add") + $ScopeArgs + @($name, "--", $srv.command)
+        if ($srv.args) { $addArgs += @($srv.args) }
+
+        & $Runtime @addArgs 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "  MCP server '$name' configured for $Runtime"
+        } else {
+            Write-Warning "  Failed to add MCP server '$name' for $Runtime"
+        }
+    }
+}
+
 Ensure-CodeGraphInstalled
 Show-CodeGraphReminder
 Ensure-SembleInstalled
@@ -268,6 +310,9 @@ if ($Target -eq "codex" -or $Target -eq "all") {
         Write-Host "Legacy Codex skill root detected at $env:USERPROFILE\.agents\skills. Archive or remove it to avoid duplicate skill scanning."
     }
     
+    # Deploy MCP servers for Codex
+    Deploy-McpServers -Runtime "codex"
+
     Write-Host "Codex deployed. Backup: $BackupC"
 }
 
@@ -349,6 +394,9 @@ if ($Target -eq "claude" -or $Target -eq "all") {
     Safe-Link "$ClaudeDir\agents" "$ConfigRoot\claude\agents"
     Safe-Link "$ClaudeDir\skills" $RepoSkills
     
+    # Deploy MCP servers for Claude Code (user scope)
+    Deploy-McpServers -Runtime "claude" -ScopeArgs @("-s", "user")
+
     Write-Host "Claude Code deployed. Backup: $BackupCL"
 }
 
