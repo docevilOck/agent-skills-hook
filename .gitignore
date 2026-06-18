@@ -24,3 +24,7 @@ docs/
 **/*.pyd
 .worktrees/
 .omx/
+
+# Runtime artifacts (OpenCode plugins, skill-optimizer signals)
+**/.opencode/
+**/.skillopt/
