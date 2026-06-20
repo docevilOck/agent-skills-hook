@@ -210,7 +210,7 @@ Ready to implement auth feature
 
 **Called by:**
 - **设计流程** - 在设计已批准、并且要进入实现时使用
-- **executing-plans** - REQUIRED before executing计划里的任务
+- **ddev-exec** - REQUIRED before executing计划里的任务
 - Any skill needing isolated workspace
 
 **Pairs with:**

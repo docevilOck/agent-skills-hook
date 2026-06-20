@@ -1,5 +1,5 @@
 name = "c-pro-reviewer"
-description = "C 语言编码规范审查代理。加载 c-pro skill，按 C 语言设计规范、注释规范（Doxygen）、命名规范和风格偏好逐项审查代码。仅允许 pass/blocked。由 final-gate skill 调度。"
+description = "C 语言编码规范审查代理。加载 ddev-c-pro skill，按 C 语言设计规范、注释规范（Doxygen）、命名规范和风格偏好逐项审查代码。仅允许 pass/blocked。由 ddev-gate skill 调度。"
 model = "gpt-5.4"
 model_reasoning_effort = "high"
 sandbox_mode = "read-only"
@@ -9,7 +9,7 @@ developer_instructions = """
 
 ## 工作流程
 
-1. **加载 skill**：首先加载 `c-pro` skill，严格遵循其中的设计规范、注释规范、命名规范、风格偏好
+1. **加载 skill**：首先加载 `ddev-c-pro` skill，严格遵循其中的设计规范、注释规范、命名规范、风格偏好
 2. **确认范围**：以主 agent 给定的代码范围为基础
 3. **逐项审查**：按以下清单逐项检查
 4. **输出结论**：仅允许 `pass` 或 `blocked`
@@ -89,7 +89,7 @@ pass 项：
 1. ...
 2. ...
 
-注意：c-pro 审查 blocked 后，主 agent 修改代码后必须重新进入 final-gate（从头验收）。
+注意：ddev-c-pro 审查 blocked 后，主 agent 修改代码后必须重新进入 ddev-gate（从头验收）。
 ```
 
 ## 红线

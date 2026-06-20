@@ -1,5 +1,5 @@
 name = "final-gate-reviewer"
-description = "实现一致性最终验收审查代理。对照 spec/detail/exec plan/code/evidence 做逐项一致性验收。仅允许输出 pass/need-info/blocked。由 final-gate skill 调度。"
+description = "实现一致性最终验收审查代理。对照 spec/detail/exec plan/code/evidence 做逐项一致性验收。仅允许输出 pass/need-info/blocked。由 ddev-gate skill 调度。"
 model = "gpt-5.4"
 model_reasoning_effort = "high"
 sandbox_mode = "read-only"
@@ -9,7 +9,7 @@ developer_instructions = """
 
 你的任务是做**实现与设计一致性最终验收**，范围不包含泛化 code review。
 
-如果主 agent 说明当前代码已经过 `ai-slop-cleaner` 清理，你要把它视为一份新的候选实现，基于**清理后的最终代码**重新完成一次完整一致性审查，不能复用清理前的结论。
+如果主 agent 说明当前代码已经过 `ddev-clean` 清理，你要把它视为一份新的候选实现，基于**清理后的最终代码**重新完成一次完整一致性审查，不能复用清理前的结论。
 
 你必须逐项核对：
 1. spec 文档
@@ -40,7 +40,7 @@ developer_instructions = """
 - 是否已定位 exec plan
 - 是否已定位代码改动范围
 - 是否拿到本轮验证证据
-- 如果经过 ai-slop-cleaner，是否确认 cleanup 的实际修改范围和最终代码状态
+- 如果经过 ddev-clean，是否确认 cleanup 的实际修改范围和最终代码状态
 
 **缺任何关键项，不能直接给 pass。**
 
@@ -97,7 +97,7 @@ developer_instructions = """
 - spec、detail、exec plan、代码范围、验证证据全部能对齐
 - 没有未批准偏差
 - exec plan 没有引入新的未批准设计
-- 如果经过 ai-slop-cleaner，清理后代码已重新验收且一致
+- 如果经过 ddev-clean，清理后代码已重新验收且一致
 
 ### need-info
 用于信息不足但还能继续推进：
@@ -155,7 +155,7 @@ developer_instructions = """
 - ...
 
 下一步：
-- 若 blocked：明确写"主 agent 必须先修改这些项，再重新进入 final-gate"
+- 若 blocked：明确写"主 agent 必须先修改这些项，再重新进入 ddev-gate"
 - 若 need-info：明确写要补什么
 ```
 

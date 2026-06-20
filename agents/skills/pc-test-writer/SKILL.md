@@ -1,6 +1,6 @@
 ---
 name: pc-test-writer
-description: 当 spec 或 detail 文档确认后，需要判断修改是否可在 PC 上写测试 demo 直接验证，并生成测试用例文档与 demo 代码时使用。触发词："写测试""PC 测试""测试 demo""模拟协议测试""测试用例""写个测试脚本验证"。在 spec-workflow 之后或 detail-workflow 之后使用；不可在无 spec 文档的情况下直接使用。
+description: 当 spec 或 detail 文档确认后，需要判断修改是否可在 PC 上写测试 demo 直接验证，并生成测试用例文档与 demo 代码时使用。触发词："写测试""PC 测试""测试 demo""模拟协议测试""测试用例""写个测试脚本验证"。在 ddev-spec 之后或 ddev-detail 之后使用；不可在无 spec 文档的情况下直接使用。
 ---
 
 # PC 可测试性分析与测试用例编写
@@ -78,7 +78,7 @@ detail/tests/
 - 测试架构图（ASCII 图：谁模拟什么、谁被测、数据怎么流转）
 - 子文档索引和阅读顺序
 
-图怎么画、怎么命名，统一遵循 [diagram-workflow](../diagram-workflow/SKILL.md)。
+图怎么画、怎么命名，统一遵循 [ddev-diagram](../ddev-diagram/SKILL.md)。
 
 ### 测试用例文档最低要求
 
@@ -136,5 +136,5 @@ test/25-06-18-ota-protocol/
 
 测试设计文档和 demo 代码完成后：
 
-- 如果下一步是编码实现，进入 `writing-plans` 拆解执行计划
-- 测试 demo 必须作为验收证据之一：在 `final-gate` 阶段必须跑通，不通过不算验收完成
+- 如果下一步是编码实现，进入 `ddev-plan` 拆解执行计划
+- 测试 demo 必须作为验收证据之一：在 `ddev-gate` 阶段必须跑通，不通过不算验收完成
