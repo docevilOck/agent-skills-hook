@@ -24,6 +24,8 @@ description: 在每轮 skill 使用过程中记录 corrected 和 friction 信号
 
 记录前若 skill 归属不明确，需用户确认。
 
+**多点拆分规则**：若用户在一条消息中给出多个独立纠正点（判断标准：纠正点之间无因果依赖、分别针对不同行为或规则），必须逐条拆分为独立的 corrected 信号——每个纠正点单独生成 signal_id、单独写一行 JSONL，禁止合并为一条。
+
 ### `friction`（agent 自检摩擦）
 agent 自检测到 skill 描述不完整导致额外消耗。满足**任一**即触发：
 1. **重复操作**：同一类操作重复 >= 2 次才完成
@@ -58,21 +60,26 @@ agent 自检测到 skill 描述不完整导致额外消耗。满足**任一**即
    - 只有一个 skill 在范围 → 直接归属
    - 多个 skill → 弹出选择："刚才的问题属于哪个 skill？"
 
-2. **生成 signal_id**：`{时间戳}_{skill名}_{短哈希}`
+2. **拆分多点纠正**：检查用户消息是否包含多个独立纠正点
+   - 是 → 逐条拆分，对每个纠正点独立执行步骤 3-7
+   - 否（单点纠正或 friction）→ 继续
+   - 判断标准：纠正点之间无因果依赖、分别针对不同行为或规则
+
+3. **生成 signal_id**：`{时间戳}_{skill名}_{短哈希}`
    - 时间戳：`YYYYMMDDTHHmmss`
    - 短哈希：sha256(用户最新输入) 的前 6 位
 
-3. **计算 skill_version_hash**：当前 SKILL.md 内容的 sha256
+4. **计算 skill_version_hash**：当前 SKILL.md 内容的 sha256
 
-4. **确保目录存在**：`<skill_root>/.skillopt/pending/`
+5. **确保目录存在**：`<skill_root>/.skillopt/pending/`
    - skill_root = 包含该 skill 的 SKILL.md 的目录
    - 不存在则创建 `.skillopt/pending/`
 
-5. **写信号**：追加一行 JSON 到 `<skill_root>/.skillopt/pending/signal.json`
+6. **写信号**：追加一行 JSON 到 `<skill_root>/.skillopt/pending/signal.json`
    - JSONL 格式（每行一个完整 JSON 对象，行尾无逗号）
    - 不覆盖已有信号
 
-6. **报告**：
+7. **报告**：
    - friction：静默（不需要告诉用户，他们不需要知道）
    - corrected：简短确认 "已记录 code-review 的 corrected 信号"
 
