@@ -164,15 +164,7 @@ def merge(base, overlay):
             base[key] = merge(base[key], value)
             continue
         if key in base and isinstance(base[key], list) and isinstance(value, list):
-            merged_list = []
-            seen = set()
-            for item in base[key] + value:
-                marker = json.dumps(item, ensure_ascii=False, sort_keys=True)
-                if marker in seen:
-                    continue
-                seen.add(marker)
-                merged_list.append(item)
-            base[key] = merged_list
+            base[key] = value
             continue
         base[key] = value
     return base
@@ -304,7 +296,7 @@ if ($Target -eq "codex" -or $Target -eq "all") {
     
     # 部署配置（从 config/ 复制）
     Safe-LinkFile "$CodexDir\AGENTS.md" "$ConfigRoot\codex\AGENTS.md"
-    Safe-Copy $CodexAgents "$CodexDir\agents"
+    Safe-Link "$CodexDir\agents" $CodexAgents
     Safe-Link "$CodexDir\skills" $RepoSkills
     if (Test-Path "$env:USERPROFILE\.agents\skills") {
         Write-Host "Legacy Codex skill root detected at $env:USERPROFILE\.agents\skills. Archive or remove it to avoid duplicate skill scanning."

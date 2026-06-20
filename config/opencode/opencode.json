@@ -31,17 +31,9 @@
     "prune": true,
     "reserved": 12000
   },
-  "plugin": [
+    "plugin": [
     "@tarquinen/opencode-dcp@latest",
     "opencode-pty",
-    "context-mode",
-    "opencode-goal-plugin"
-  ],
-  "command": {
-    "goal": {
-      "description": "Set a session-scoped goal and auto-continue until complete.",
-      "template": "$ARGUMENTS",
-      "agent": "build"
-    }
-  }
+    "context-mode"
+  ]
 }
