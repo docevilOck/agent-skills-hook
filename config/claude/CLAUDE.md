@@ -15,25 +15,12 @@
   - 技能来源（`~/.claude/skills`）
   - 可选指令文件（`~/.claude/settings.json`）若存在
 
-## 检索工具边界
-
-- `codegraph_*`：结构化事实查询主入口
-- `ctx_*`：上下文节流、沙箱执行、续接检索
-- `semble`：语义候选发现，结果必须二次验证
-- `grep` / `Read`：字面量搜索与已知路径核对
-
 ## 子代理路由
 
 - 开始实际执行前，先判断是否适合使用 Claude Code 内置子代理；默认提高分发倾向。
 - `Explore`：大范围代码搜索、跨目录定位、根因分析。目标不明确或输出会污染主上下文时优先。
 - `Plan`：实现前拆方案、比较设计路径、定义验证检查点。跨模块时优先。
 - `general-purpose`：多步执行、批量整理、运行命令汇总结论。无需主上下文保留全部细节时使用。
-- `code-reviewer`：代码审查（质量/安全/性能/可维护性），按严重程度分级输出报告。代码审阅默认交由此只读子代理。
-- `final-gate-reviewer`：实现与设计一致性最终验收（spec/detail/exec plan/code/evidence 逐项核对）。仅输出 pass/need-info/blocked。
-- `slop-cleaner`：AI slop 清理（受限范围内代码清理），由 ddev-gate 调度。可在限定范围内编辑文件。
-- `c-pro-reviewer`：C 语言编码规范审查（设计/注释/命名/错误处理/内存/风格），仅 .c/.h 项目生效。由 ddev-gate 调度。
-- `optimizer-agent`：Skill 优化信号分析（去重/过期检查/冲突标记/优先级排序）。
-- `gate-agent`：Skill 门禁判断（评估编辑是否解决历史信号集群）。
 - 主代理核对子代理发现并最终输出。
 - 仅当任务很小、目标位置明确、无需额外搜索时，才由主代理直接完成。
 

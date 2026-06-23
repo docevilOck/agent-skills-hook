@@ -37,7 +37,7 @@ cd windows
 ```
 
 部署将：
-- `AGENTS.md` 和 `CLAUDE.md` 复制到各运行时用户目录
+- `AGENTS.md` 和 `CLAUDE.md` 通过 SymbolicLink（Windows）/ 软链接（Linux）指向仓库 `config/` 目录
 - `skills/` 通过 Junction（Windows）或软链接（Linux）指向仓库 `agents/skills/`
 - `opencode.json` 深合并到 `~/.config/opencode/opencode.json`
 - `agents/` 目录复制到 `~/.codex/agents/`（Codex）

@@ -1,5 +1,5 @@
 # agent-skills-hook Windows 部署脚本
-# 使用 Junction 目录链接部署 skills，配置使用复制方式
+# 使用 SymbolicLink / Junction 链接方式部署 skills 和配置文件
 
 param(
     [string]$Target = "all",
@@ -382,7 +382,7 @@ if ($Target -eq "claude" -or $Target -eq "all") {
     # 部署配置（从 config/ 复制）
     New-Item -ItemType Directory -Path "$ClaudeDir" -Force | Out-Null
     Safe-LinkFile "$ClaudeDir\AGENTS.md" "$ConfigRoot\AGENTS.md"
-    Safe-Copy "$ConfigRoot\claude\CLAUDE.md" "$ClaudeDir\CLAUDE.md"
+    Safe-LinkFile "$ConfigRoot\claude\CLAUDE.md" "$ClaudeDir\CLAUDE.md"
     Safe-Link "$ClaudeDir\agents" "$ConfigRoot\claude\agents"
     Safe-Link "$ClaudeDir\skills" $RepoSkills
     

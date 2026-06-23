@@ -17,29 +17,15 @@
   - 技能来源（`~/.codex/skills`、`./.codex/skills`）
   - Execpolicy 规则路径（`~/.codex/rules/*.rules`）
 
-## 检索工具边界
-
-- `codegraph_*`：结构化事实查询主入口
-- `ctx_*`：上下文节流、沙箱执行、续接检索
-- `semble`：语义候选发现，结果必须二次验证
-- `grep` / `Read`：字面量搜索与已知路径核对
-
 ## 子代理路由
 
 主代理优先自己做。仅以下情况分发子代理：
 
-- 目标不明确需探索 → `explorer`
-- 跨文件多步推理 → `worker`
-- 方案设计/规划 → `planner`
-- 改动后复核 → `reviewer`
-- 代码审查（质量/安全/性能）→ `code-reviewer`
-- 实现与设计一致性最终验收 → `final-gate-reviewer`
-- AI slop 清理（受限范围代码清理）→ `slop-cleaner`
-- C 语言编码规范审查 → `c-pro-reviewer`
-- Skill 优化信号分析 → `optimizer-agent`
-- Skill 门禁判断 → `gate-agent`
+- `Explore`：大范围代码搜索、跨目录定位、根因分析。目标不明确或输出会污染主上下文时优先。
+- `Plan`：实现前拆方案、比较设计路径、定义验证检查点。跨模块时优先。
+- `general-purpose`：多步执行、批量整理、运行命令汇总结论。无需主上下文保留全部细节时使用。
 
-**子代理只读不写**：`slop-cleaner` 可在限定范围内编辑文件，其余子代理只输出结论，Write/Edit/文档落盘一律主代理动手。
+**子代理只读不写**：只输出结论，Write/Edit/文档落盘一律主代理动手。
 
 **禁止分发**：单文件读/写/编辑、单工具调用完成、任务描述=工具描述、已知答案只差确认。
 
