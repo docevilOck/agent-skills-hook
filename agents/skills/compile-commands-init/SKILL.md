@@ -96,6 +96,21 @@ cp build/compile_commands.json .
 - 如果日志来自 IDE，尽量先执行 IDE 自带 Rebuild/Clean，再复制完整输出
 - 如果项目包含多个 target，优先抓当前目标的一次完整重建日志
 
+**诊断：build_log.txt 异常短小**
+
+如果 `make clean && make` 后 `build_log.txt` 仅包含少量行（例如仅 1-2 行
+"nothing to be done" 或行数远少于项目源文件数），说明 clean 不彻底或未生效
+——所有目标仍是 up-to-date 状态，实际未重新编译任何文件。
+
+此时**不要**更换 shell 重定向或捕获方式反复抓取——根因是增量构建，不是
+日志捕获失败。立即执行：
+
+1. 检查构建产物目录（如 `out/`、`build/`）是否确实为空；若有残留 `.o`，
+   手动删除或排查 clean 目标为何未覆盖
+2. 确认 clean 已生效后再次 `make -j 2>&1 | tee build_log.txt`
+3. 检查 `build_log.txt` 是否包含实际编译命令行（带有 `-c`、`-o` 等编译参数）；
+   若仍为空或极短，重复第 1 步
+
 **第二步：用 CompilerGen.py 生成**
 
 ```bash
@@ -113,9 +128,15 @@ python <skill-dir>/scripts/CompilerGen.py <compiler>
 如果日志里是 `armcc.exe -c ...`，就传 `armcc`；不要误传 `armclang`。
 
 脚本自动生成 `compile_commands.json` 和 `.clangd`，并在成功后默认清理 `build_log.txt` 这类脚本临时产物。
-生成 `compile_commands.json` 时，脚本会扫描每个源码文件直接 `#include "..."` 的本地头文件，
-并为可解析到的 `.h/.hpp/.hh/.hxx` 头文件补充 `-x c-header` 或 `-x c++-header` 显式条目，
-避免 clangd 只能用错误或残缺的推断上下文解析头文件。
+生成 `compile_commands.json` 时，脚本会自动补充两类头文件编译条目：
+
+1. **直接 `#include "..."` 头文件**：扫描每个源码文件的 `#include "..."` 指令，
+   为可解析到的 `.h/.hpp/.hh/.hxx` 头文件补充 `-x c-header` 或 `-x c++-header` 显式条目
+2. **`-D` 宏配置头文件**：扫描编译参数中的 `-DCONFIG_FILE="xxx.h"` 模式
+   （如 mbedTLS 的 `-DMBEDTLS_CONFIG_FILE="tp807_tls13_config.h"`），
+   为这些由宏间接指定的配置头文件也自动生成编译条目
+
+两类补充均避免 clangd 只能用错误或残缺的推断上下文解析头文件。
 
 对于 ARMCC / ARMCLANG 日志，脚本会尽量保留真实预包含语义，把 `--preinclude` / `-include`
 转换成 clangd 可识别的 `-include <header>`。
@@ -131,6 +152,12 @@ python <skill-dir>/scripts/CompilerGen.py <compiler>
 ```bash
 python <skill-dir>/scripts/CompilerGen.py <compiler> --keep-build-log
 ```
+
+**超时风险**：大型项目（数百以上源文件）的 `build_log.txt` 可能达到数 MB，
+CompilerGen.py 解析全部编译命令并扫描头文件依赖耗时可能超过 60 秒。
+如果使用 `timeout` 或限制了执行时间的 shell 环境，请确保超时值足够大
+（建议 300 秒以上），避免脚本被中途截断。脚本使用原子写入（先写 `.tmp`
+再 `os.replace`），即使被截断也不会损坏已有 `compile_commands.json`。
 
 ---
 
@@ -159,6 +186,8 @@ which clangd && clangd --version || echo "clangd 未安装，可后续安装验�
 
 - `compile_commands.json` 条目数是否明显过少；若只有少量文件，优先怀疑 clean/rebuild 不完整
 - `compile_commands.json` 是否包含关键头文件条目；例如 `ssl_tls13_keys.h` 这类被源码直接包含的头文件应有自己的 `file` 条目
+- 检查 JSON 是否完整：如果条目数异常少或末尾行缺失（JSON 解析失败），说明脚本可能被超时截断，应延长超时重新运行
+- 检查 `-D` 宏配置头文件是否已覆盖：搜索 `MBEDTLS_CONFIG_FILE`、`OTP_CONFIG_FILE` 等宏指定的头文件是否出现在 `compile_commands.json` 的 `file` 字段中
 - 检查关键预包含头是否仍存在；例如 ARMCC 项目应能看到 `-include xxx_cfg.h`
 - **硬性门禁：gbk_src 副本残留检测**。必须运行以下检查，0 matched 才算通过：
   ```bash
