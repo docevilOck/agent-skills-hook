@@ -1,0 +1,41 @@
+{
+  "optimization_id": "opt_20260623_compile-commands-init",
+  "skill": "compile-commands-init",
+  "timestamp": "2026-06-23T08:15:59.298528+00:00",
+  "mode": "text_edit",
+  "edits": [
+    {
+      "type": "add",
+      "reason": "c_001: 补充build_log.txt异常短小时的诊断流程"
+    },
+    {
+      "type": "replace",
+      "reason": "c_002: 文档化-D宏配置头文件自动扫描"
+    },
+    {
+      "type": "add",
+      "reason": "c_002: 补充超时风险+原子写入说明"
+    },
+    {
+      "type": "add",
+      "reason": "c_002: 补充验证检查项（JSON完整性+D宏覆盖）"
+    }
+  ],
+  "gate_result": {
+    "c_001": {
+      "verdict": "NO",
+      "reason": "诊断章节直接覆盖增量构建识别流程"
+    },
+    "c_002": {
+      "verdict": "NO",
+      "reason": "超时建议+宏头文件文档+验证检查全覆盖"
+    }
+  },
+  "pre_optimization_hash": "1d36656540d4b2993bd5d7fcb015fc49e4a267800dc888e35ec147740bd38718",
+  "post_optimization_hash": "4e0c92f3c387da78b1c1395b06039878064c0af804e78f610c313656aa490762",
+  "signal_ids": [
+    "20260615T014955_compile-commands-init_536C42",
+    "20260616T051403_compile-commands-init_345cc9"
+  ],
+  "pre_skill_backup": "---\nname: compile-commands-init\ndescription: 为 C/C++ 项目初始化 compile_commands.json 和 .clangd 配置文件，使 clangd LSP 能正确进行代码补全、跳转和诊断。Linux 下使用 bear 拦截构建命令生成，Windows 下使用构建日志配合 CompilerGen.py 生成，并在生成后自动清理脚本临时产物。触发词：compile_commands.json、clangd、编译数据库、代码跳转、LSP 配置、生成 compile_commands。\n---\n\n# Compile Commands 初始化\n\n## 概述\n\n为 C/C++ 项目生成 `compile_commands.json`（clangd 编译数据库）和 `.clangd` 配置文件，\n使 clangd 能正确解析项目头文件路径、宏定义和编译选项。\n\n## 核心流程\n\n1. 检测运行平台（Linux / Windows）\n2. 编译或抓取日志之前先执行一次 clean，避免旧产物和过期命令污染结果\n3. 按平台选择生成策略，生成 `compile_commands.json`\n4. 为源码直接包含的本地头文件补充显式编译数据库条目\n5. 生成 `.clangd` 配置文件\n6. 验证生成结果\n\n---\n\n## 步骤 1：平台检测\n\n```bash\nuname -s  # Linux 或 MINGW*/MSYS*/CYGWIN*\n```\n\n- `Linux` → 使用 bear\n- `MINGW*` / `MSYS*` / `CYGWIN*`（Windows）→ 使用 CompilerGen.py\n\n---\n\n## 步骤 2：生成 compile_commands.json\n\n### 统一前置：先 clean\n\n无论 Linux 还是 Windows，只要准备重新构建或重新抓构建日志，都先执行 clean。\n\n目的：\n\n- 避免旧 `.o`、旧中间目录、旧增量日志干扰本次编译数据库\n- 避免只编译少量文件，导致 `compile_commands.json` 不完整\n- 避免沿用过时的 include 路径、宏定义或条件编译开关\n\n执行要求：\n\n- 优先使用仓库已有 clean 命令\n- 没有标准 clean 目标时，先找项目文档、构建脚本或 IDE 工程里的清理入口\n- 不要手工大面积删除不确定目录；只清理构建系统本来就会清理的产物\n\n常见命令示例：\n\n```bash\nmake clean\ncmake --build build --target clean\n```\n\n### Linux — bear\n\n```bash\n# 安装（如未安装）\nsudo apt install bear -y 2>/dev/null || sudo dnf install bear -y 2>/dev/null\n\n# 先 clean，再完整构建并拦截（根据实际构建命令调整）\nmake clean 2>/dev/null || true\nbear -- make -j$(nproc)\n```\n\n如果项目使用 CMake：\n```bash\ncmake --build build --target clean\ncmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON\ncp build/compile_commands.json .\n```\n\n### Windows — 构建日志 + CompilerGen.py\n\n**第一步：获取构建日志**\n\n将完整编译输出保存为 `build_log.txt`。方式取决于构建系统：\n\n- **Makefile**（Git Bash/MSYS2）：\n  ```bash\n  # 先 clean，再抓完整日志\n  make clean 2>/dev/null || true\n  make -j 2>&1 | tee build_log.txt\n  ```\n- **Keil MDK / IAR**：从 IDE 构建输出窗口复制完整编译日志，保存为 `build_log.txt`\n- **已有日志文件**：直接使用现有的构建日志\n\n要求：\n\n- 不要直接复用明显过期的 `build_log.txt`\n- 如果日志来自 IDE，尽量先执行 IDE 自带 Rebuild/Clean，再复制完整输出\n- 如果项目包含多个 target，优先抓当前目标的一次完整重建日志\n\n**第二步：用 CompilerGen.py 生成**\n\n```bash\npython <skill-dir>/scripts/CompilerGen.py <compiler>\n```\n\n脚本支持的编译器名：\n| 名称 | 匹配的编译器 |\n|------|-------------|\n| `armcc` | armcc / armcc.exe |\n| `armclang` | armclang / armclang.exe |\n| `gcc` | gcc / arm-none-eabi-gcc |\n\n注意：传给 `CompilerGen.py` 的编译器名必须和 `build_log.txt` 里的真实编译器一致。\n如果日志里是 `armcc.exe -c ...`，就传 `armcc`；不要误传 `armclang`。\n\n脚本自动生成 `compile_commands.json` 和 `.clangd`，并在成功后默认清理 `build_log.txt` 这类脚本临时产物。\n生成 `compile_commands.json` 时，脚本会扫描每个源码文件直接 `#include \"...\"` 的本地头文件，\n并为可解析到的 `.h/.hpp/.hh/.hxx` 头文件补充 `-x c-header` 或 `-x c++-header` 显式条目，\n避免 clangd 只能用错误或残缺的推断上下文解析头文件。\n\n对于 ARMCC / ARMCLANG 日志，脚本会尽量保留真实预包含语义，把 `--preinclude` / `-include`\n转换成 clangd 可识别的 `-include <header>`。\n\n如果项目使用了 `repository-encoding-normalizer`（gbk_encode 在 `out/.../gbk_src/` 下生成 GBK 编码副本），\n构建日志中的编译命令会指向副本路径而非原始源码。生成 `compile_commands.json` 后，必须将所有\n`file` 字段从副本路径回写到原始源码路径：副本路径中去除 `gbk_src/` 子目录前缀即为原始路径\n（例如 `out/tp80k/gbk_src/app/main.c` → `app/main.c`）。回写规则：将 file 中 `gbk_src/` 及之前\n的目录部分替换为项目根目录中对应的原始源路径。必须确保最终交付的数据库中没有任何 `gbk_src` 条目残留。\n\n如需保留 `build_log.txt`：\n\n```bash\npython <skill-dir>/scripts/CompilerGen.py <compiler> --keep-build-log\n```\n\n---\n\n## 步骤 3：.clangd 配置原则\n\n`.clangd` 只负责移除 clangd 不兼容或无意义的编译器参数，并指定 `CompilationDatabase: .`。\n\n不要在 `.clangd` 中额外添加 `--target`、`-mcpu`、`-mfpu`、`-mfloat-abi` 或系统头路径。\n这些信息应来自 `compile_commands.json` 的真实构建命令。额外追加目标参数会和不同项目、\n不同芯片或不同工具链的编译数据库冲突，导致 clangd 索引残缺、头文件 inactive region 判断错误。\n\n## 步骤 4：验证\n\n```bash\n# 检查文件存在\nls -la compile_commands.json .clangd\n\n# 验证 JSON\npython -c \"import json; data=json.load(open('compile_commands.json')); print(f'OK: {len(data)} entries')\"\n\n# 检查 clangd（如已安装）\nwhich clangd && clangd --version || echo \"clangd 未安装，可后续安装验证\"\n```\n\n验证时额外检查：\n\n- `compile_commands.json` 条目数是否明显过少；若只有少量文件，优先怀疑 clean/rebuild 不完整\n- `compile_commands.json` 是否包含关键头文件条目；例如 `ssl_tls13_keys.h` 这类被源码直接包含的头文件应有自己的 `file` 条目\n- 检查关键预包含头是否仍存在；例如 ARMCC 项目应能看到 `-include xxx_cfg.h`\n- **硬性门禁：gbk_src 副本残留检测**。必须运行以下检查，0 matched 才算通过：\n  ```bash\n  python -c \"import json; data=json.load(open('compile_commands.json')); gbk=[e for e in data if 'gbk_src' in e.get('file','')]; print(f'gbk_src残留: {len(gbk)} 条'); [print(f'  {e[\\\"file\\\"]}') for e in gbk]\"\n  ```\n  若有残留，必须逐条回写 file 字段到原始源码路径（去除 gbk_src/ 前缀），直到上述命令输出 0 条为止\n- `.clangd` 中不应出现全局 `CompileFlags.Add` 注入目标架构参数\n- 如果未传 `--keep-build-log`，确认 `build_log.txt` 已被自动清理\n\n---\n\n## 资源\n\n| 资源 | 路径 | 用途 |\n|------|------|------|\n| CompilerGen.py | `scripts/CompilerGen.py` | Windows 下从构建日志解析生成 compile_commands.json 和 .clangd |\n"
+}
