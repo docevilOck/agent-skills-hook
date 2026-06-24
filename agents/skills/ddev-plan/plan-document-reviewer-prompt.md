@@ -21,6 +21,7 @@ Task tool (general-purpose):
     |----------|------------------|
     | Completeness | TODOs, placeholders, incomplete tasks, missing steps |
     | Spec Alignment | Plan covers spec requirements, and only includes work explicitly required by the spec/design/plan inputs |
+    | Cross-cutting Coverage | Plan tasks cover all cross-cutting change points (dispatch tables, callback registrations, enum maps, build system) identified in spec/detail docs |
     | Task Decomposition | Tasks have clear boundaries, steps are actionable |
     | Buildability | Could an engineer follow this plan without getting stuck? |
 
