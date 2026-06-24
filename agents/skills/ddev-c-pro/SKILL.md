@@ -10,20 +10,131 @@ description: 用于 C 语言项目的编写、审阅、重构和调试。当代�
 
 ## 设计规范
 
+### 状态与数据封装
+
 - **非必要不用全局变量**。状态封装在结构体中，通过 context pointer 传参。
 - **参数超过 4–5 个用结构体封装**：`int module_init(const module_cfg_t *cfg);`
-- **返回值约定**：0 成功，非零错误码。每个模块定义专属状态枚举。
-- **内存**：明确 ownership（谁分配谁释放），优先调用方传 buffer + capacity，避免隐式 malloc。
-- **错误处理**：显式返回错误码，不依赖 errno。公开 API 必须校验 NULL pointer 和越界参数。
-- **命名**：类型 `_t` 后缀，公开 API 统一模块前缀，宏全大写 + 模块前缀。私有函数用 `static` 限制可见。
+- 配置、运行时状态、输入载荷、输出结果分开建模，不要混在一个大结构体里。
 - **每个 `.c` 对应一个 `.h`**，内部类型和函数不出现在 header。
+
+### 错误码体系
+
+- **返回值约定**：0 成功，非零错误码。每个模块定义专属 `_status_t` 或 `_ret_t` 枚举。
+- **禁止混用 errno 和自定义错误码**。公开 API 不依赖 errno。
+- 大型项目建议错误码编码：`(MODULE_ID << 8) | ERROR_CODE`，方便跨模块定位。
+- 每个模块提供 `const char *module_strerror(module_status_t code)` 用于调试输出。
+- 通用错误码保留范围：`0` 成功，`-1`/`ERR_GENERIC` 通用失败，`-2`/`ERR_INVALID_ARG` 参数错误。
 
 ```c
 // 推荐：参数封装 + 返回码 + 调用方传 buffer
-typedef enum { MODULE_OK = 0, MODULE_ERR_INVALID_ARG, MODULE_ERR_TIMEOUT } module_status_t;
+typedef enum {
+    MODULE_OK = 0,
+    MODULE_ERR_INVALID_ARG,
+    MODULE_ERR_BUSY,
+    MODULE_ERR_TIMEOUT,
+    MODULE_ERR_OVERFLOW,
+} module_status_t;
 
 module_status_t module_encode(const input_t *in, uint8_t *out, size_t out_cap, size_t *out_len);
 ```
+
+### 结构体设计
+
+- **成员排序**：按语义分组（配置块 → 运行时状态 → 缓存/缓冲区 → 输出结果），每组之间用空行分隔。内存极度紧张时再考虑按对齐优化重排。
+- **指定初始化器**：优先用 C99 指定初始化，禁止 `memset` + 逐字段赋值。
+  ```c
+  // 推荐
+  module_cfg_t cfg = { .baud = 115200, .parity = PARITY_NONE };
+  // 禁止
+  module_cfg_t cfg;
+  memset(&cfg, 0, sizeof(cfg));
+  cfg.baud = 115200;
+  cfg.parity = PARITY_NONE;
+  ```
+- **bit-field 谨慎使用**：位序依赖编译器实现。跨平台或涉及序列化/协议的字段禁止用 bit-field，改用位掩码 + 移位。
+- **柔性数组成员（FAM）**：用于变长载荷时合法，但必须配合长度字段；禁止 FAM 结构体按值传递或放在栈上。
+- **跨端通信结构体**：必须显式标注 endian 转换函数，用固定宽度类型（`uint16_t` 非 `short`）。
+- 如需要 ABI 兼容或版本持久化，结构体末尾预留 `uint8_t reserved[N]`。
+
+### 函数设计
+
+- **长度上限**：单函数 ≤ 80 行（不含注释和空行）。超过则按职责拆分私有 `static` 辅助函数。
+- **圈复杂度**：单函数分支路径数 ≤ 10。长链 `if/else` 超过 4 个固定分支改用 `switch`、表驱动或状态机。
+- **`inline` 函数**：仅用于 ≤ 5 行的简单访问器/包装器；≥ 10 行的实现不要放 `.h`。
+- **回调注册**：回调函数签名统一 typedef → 注册函数 → 调用点，三步缺一不可。
+  ```c
+  typedef void (*uart_rx_cb_t)(uint8_t byte, void *user_data);
+  void uart_set_rx_callback(uart_t *u, uart_rx_cb_t cb, void *user_data);
+  ```
+- **变参函数（`...`）禁止在公开 API 中使用**，调试日志可用 `__attribute__((format(printf, ...)))` 做编译期格式检查。
+- **纯函数标记**：不访问全局状态、不修改参数的函数标注 `__attribute__((const))` 或 `__attribute__((pure))` 辅助编译器优化。
+
+### 中断/并发安全
+
+- **ISR 三禁**：禁止调用非 ISR-safe 函数、禁止阻塞操作（while 死等）、禁止动态内存分配（`malloc`/`free`）。
+- **`volatile` 仅用于**：MMIO 寄存器、ISR 与主循环间共享的标志变量。`volatile` 不保证原子性 —— 多字节变量在 ISR 中读写必须配合临界区保护。
+- **共享数据保护策略**：
+  - 单生产者/单消费者简单标志 → `volatile sig_atomic_t` 或 `_Atomic`
+  - 多字节共享变量 → `__disable_irq()` / `__enable_irq()` 临界区
+  - 复杂共享结构体 → 关中断 + 最小临界区（只保护读写操作，不保护处理逻辑）
+- **禁止在主循环和 ISR 中同时写同一个非原子变量**，即使"看起来不会冲突"。
+- 多核/RTOS 场景：任务间共享资源用互斥锁，ISR 与任务间用关中断 + 无锁单向队列。
+
+### 栈与静态内存
+
+- **大数组不放栈**：超过 256 字节的数组/缓冲区默认放静态区（`static`）或堆，不放函数局部栈。
+- **递归深度约束**：禁止依赖递归处理未知深度数据。如果必须递归，在函数注释中显式声明最大深度。
+- **固件全局结构体**标注预期内存分区：`.bss` 零初始化 / `.data` 带初值 / `.noinit` 复位后保留。
+- **启动文件**中必须显式声明栈大小和堆大小，并在注释中说明计算依据。
+- **VLA（变长数组）禁止**：不在栈上分配运行时决定大小的数组。用静态区 buffer 或堆分配。
+- 静态分配 buffer 时使用 `static_assert(sizeof(buffer) >= MIN_REQUIRED, "...")` 做编译期验证。
+
+### 返回值与错误处理
+
+- **显式返回错误码**，不依赖 errno。公开 API 必须校验 NULL pointer 和越界参数。
+- **内存**：明确 ownership（谁分配谁释放），优先调用方传 buffer + capacity，避免隐式 malloc。
+- **错误路径资源回滚**：分配多个资源后任一失败，必须回滚已分配的资源，用 `goto` 统一清理出口（唯一允许的 `goto` 用法）。
+
+## 头文件规范
+
+- **自包含（self-contained）**：每个头文件必须独立可编译。用以下方式验证：
+  ```c
+  // 模块自身头文件必须最先 include，确保不依赖 include 顺序
+  #include "module_under_test.h"
+  #include <stdint.h>
+  // ...
+  ```
+- **include guard**：推荐 `#pragma once`（现代编译器通用）；若需最大兼容性用 `#ifndef MODULE_H_` / `#define MODULE_H_` / `#endif` 传统守卫。
+- **include 顺序**：对应自身的 `.h` → 标准库 `<stdint.h>` `<stdbool.h>` 等 → 第三方库 → 本项目其他模块。空行分隔四组。
+- **前向声明优先**：当仅用到类型的指针/引用时，用前向声明而非 `#include`，减少编译依赖。
+  ```c
+  // 头文件中：前向声明即可
+  typedef struct uart_s uart_t;
+  int uart_send(uart_t *u, const uint8_t *data, size_t len);
+  // .c 文件中再 include 完整定义
+  ```
+- **最小化 include**：头文件只 include 自身必需的类型。实现文件（`.c`）需要的头文件不放进 `.h`。
+- **禁止在头文件中暴露内部类型**：仅公开 API 需要的 typedef、enum、struct 定义放 `.h`，内部辅助类型放 `.c`。
+- 头文件中不定义变量（`extern` 声明即可）、不定义 `static` 函数实现。
+- 每个 `.c` 对应一个 `.h`，公开 `.h`，私有的 `static` 函数声明放 `.c` 顶部。
+
+## 常量与宏规范
+
+- **类型选择**：
+  - `enum`：状态码、错误码、有限集合的离散值
+  - `static const`：只读常量数据（数组、结构体）
+  - `#define`：编译期常量、条件编译开关（`#if`/`#ifdef`）、版本号
+- **宏函数必须用 `do { ... } while (0)` 包装**，避免 if/else 悬挂问题：
+  ```c
+  #define LOG_ERR(fmt, ...) do { \
+      if (g_log_level >= LOG_LVL_ERR) { printf("[ERR] " fmt "\n", ##__VA_ARGS__); } \
+  } while (0)
+  ```
+- **宏参数加括号**：`#define MAX(a, b) ((a) > (b) ? (a) : (b))` — 函数式宏必须标注多次求值风险（副作用参数如 `MAX(i++, j)` 会导致 bug）。
+- **禁止宏覆盖标准库符号、关键字**。禁止用宏改变语言语义（如 `#define private public`）。
+- 多语句宏用 `do-while(0)` 包装；多行宏对齐续行符 `\`。
+- 条件编译用 `#if` 而非 `#ifdef` 做特性开关（`#if FEATURE_ENABLED` 优于 `#ifdef FEATURE_ENABLED`，前者遗漏定义时报错而非静默跳过）。
+- 复杂表达式拆成 `static inline` 函数优于宏，利用类型检查和调试友好性。
 
 ## 注释规范（Doxygen）
 
@@ -51,17 +162,27 @@ int module_init(const module_cfg_t *cfg);
 
 - **设计**：是否有不必要全局变量、参数是否过多、模块边界是否清晰
 - **API**：ownership、lifetime、error reporting、参数校验是否明确
-- **Header**：include guard、最小化 include、无意外全局定义
-- **内存**：buffer length、分配策略、所有权是否清晰
+- **Header**：include guard、最小化 include、自包含、前向声明优先、无内部类型泄露
+- **内存**：buffer length、分配策略、所有权是否清晰；大数组是否在栈上
+- **中断/并发**：ISR 中是否禁止阻塞/分配/非安全调用；共享变量是否有保护；volatile 使用是否合理
+- **错误码**：是否定义了模块专属状态枚举、是否混用 errno、是否提供 strerror
+- **结构体**：指定初始化器、bit-field 风险、endian 转换、成员语义分组
+- **函数**：长度和复杂度是否超标、inline 是否合理、回调是否 typedef
+- **宏**：参数是否加括号、多语句是否 do-while(0)、是否用 static inline 更合适
 - **可移植性**：用 `stdint.h` fixed-width types、注意 endian、避免 compiler extension
-- **注释**：公开 API 是否有 Doxygen、关键逻辑是否有说明
+- **注释**：公开 API 是否有 Doxygen、关键逻辑是否有说明、结构体成员是否有行内注释
 - **构建**：启用 `-Wall -Wextra`，CI 加 static analysis（clang-tidy、cppcheck）
+- **命名**：类型 `_t` 后缀、公开 API 模块前缀、宏全大写 + 模块前缀、私有函数 `static`
 
 ## 风格 & 测试
 
 - 缩进 4 空格，大括号 K&R 风格，每行 ≤100 字符，指针 `*` 靠变量名，单行 if 也加大括号。
 - 优先使用 `stdint.h` / `stdbool.h` / `stddef.h`。
+- **命名规范**：类型 `_t` 后缀（`module_cfg_t`），公开 API 统一模块前缀（`module_init`），宏全大写 + 模块前缀（`MODULE_BUF_SIZE`），私有函数 `static` 限制可见。
 - 纯逻辑与 I/O 分离以便 host 端单测；推荐 Unity/Ceedling/CTest；CI 中 `-Wall -Wextra -Werror`。
+- **推荐编译警告**（GCC/Clang）：`-Wall -Wextra -Wshadow -Wundef -Wconversion -Wenum-conversion -Wmissing-prototypes -Wstrict-prototypes -Wcast-align`。
+- 静态分析：CI 中集成 clang-tidy 或 cppcheck；关注 `readability-*`、`bugprone-*`、`performance-*` 规则集。
+- **测试文件命名**：`test_<module>.c`，放在 `test/` 目录。mock 硬件依赖通过回调注入或链接期替换。
 
 ## 输出要求
 
