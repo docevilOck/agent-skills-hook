@@ -95,6 +95,43 @@ module_status_t module_encode(const input_t *in, uint8_t *out, size_t out_cap, s
 - **内存**：明确 ownership（谁分配谁释放），优先调用方传 buffer + capacity，避免隐式 malloc。
 - **错误路径资源回滚**：分配多个资源后任一失败，必须回滚已分配的资源，用 `goto` 统一清理出口（唯一允许的 `goto` 用法）。
 
+### 标准库替代函数（优先使用工程封装）
+
+许多嵌入式固件工程会对标准库函数做二次封装，增加边界检查、错误日志、内存池管理或平台适配。**编写、审查或计划代码时，必须先检查工程中是否存在标准库函数的替代封装，优先使用工程封装而非裸调标准库。**
+
+#### 常见标准库函数及其典型替代封装
+
+| 标准库函数 | 典型工程封装 | 工程封装的常见增强 |
+|-----------|-------------|------------------|
+| `malloc` / `calloc` | `os_malloc` / `pvPortMalloc` / `mod_mem_alloc` | 内存池、对齐、失败日志 |
+| `free` | `os_free` / `vPortFree` / `mod_mem_free` | 内存池回收、指针置 NULL |
+| `memcpy` / `memmove` | `mod_memcpy_s` / `safe_memcpy` | 长度校验、重叠检查 |
+| `memset` | `mod_memset` / 无替代（通常直接使用） | — |
+| `strcpy` / `strncpy` | `mod_strcpy_s` / `safe_strcpy` | 缓冲区大小强制传入 |
+| `strcat` / `strncat` | `mod_strcat_s` / `safe_strcat` | 剩余空间检查 |
+| `strlen` | 通常直接使用 / `mod_strnlen` | 最大长度限制 |
+| `sprintf` / `snprintf` | `mod_snprintf` / `log_snprintf` | 截断检测、返回值校验 |
+| `sscanf` | `mod_sscanf` / 无替代 | 输入校验 |
+| `fopen` / `fclose` | `mod_fs_open` / `fs_fopen` | 文件系统抽象、错误映射 |
+| `fread` / `fwrite` | `mod_fs_read` / `fs_fwrite` | 重试、超时、错误恢复 |
+| `printf` | `log_info` / `LOG_INFO` / 无替代 | 日志级别、模块标签 |
+| `assert` | `MOD_ASSERT` / `configASSERT` | 平台特定断言行为 |
+
+#### 审查前收集
+
+在开始编写代码或做审查之前，必须：
+
+1. **检查工程的标准库替代文档**：如果 `docs/architecture/stdlib-wrappers.md` 存在，先读取该文档，了解工程中已有的全部替代封装
+2. **搜索工程头文件**：如果替代文档不存在，搜索 `*.h` 中的内存分配/字符串操作/文件 I/O 封装函数
+3. **优先使用工程封装**：所有通过搜索发现的工程封装函数，如果提供了标准库函数的等价功能，必须优先使用
+
+#### 强制约束
+
+- 如果工程存在 `malloc` 替代（如 `os_malloc`），**禁止直接使用 `malloc`**
+- 如果工程存在字符串安全操作封装，**禁止使用裸 `strcpy`/`strcat`/`sprintf`**
+- 审查时发现裸调标准库函数而工程中存在替代封装 → `blocked`
+- 如果工程的标准库替代文档（`docs/architecture/stdlib-wrappers.md`）不存在或已过期，应在审查意见中标注 `need-info`，建议先运行 `ddev-arch` 的标准库审计步骤
+
 ## 头文件规范
 
 - **自包含（self-contained）**：每个头文件必须独立可编译。用以下方式验证：
@@ -168,6 +205,7 @@ int module_init(const module_cfg_t *cfg);
 - **错误码**：是否定义了模块专属状态枚举、是否混用 errno、是否提供 strerror
 - **结构体**：指定初始化器、bit-field 风险、endian 转换、成员语义分组
 - **函数**：长度和复杂度是否超标、inline 是否合理、回调是否 typedef
+- **标准库替代**：是否裸调了工程中有替代封装的标准库函数（malloc/strcpy/sprintf/fopen 等）；若工程存在 `stdlib-wrappers.md`，是否已读取并遵守
 - **宏**：参数是否加括号、多语句是否 do-while(0)、是否用 static inline 更合适
 - **可移植性**：用 `stdint.h` fixed-width types、注意 endian、避免 compiler extension
 - **注释**：公开 API 是否有 Doxygen、关键逻辑是否有说明、结构体成员是否有行内注释
