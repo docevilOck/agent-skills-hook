@@ -140,21 +140,36 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 - 必须显式核对 spec、detail、exec plan、code、evidence 这五类输入
 - 必须显式核对 exec plan 是否只是执行映射，还是偷偷承担了新的设计决策
 - 必须把 data flow、flow、结构体设计与代码逐项对上
+- **必须使用 `codegraph_impact` 评估改动影响面**：对关键符号做影响半径分析，确认实际影响范围与 spec/detail 声明的范围一致；若存在文档未声明的受影响模块，视为偏离
 - 发现任何未批准差异时，必须返回 `blocked`
-- 不允许用“基本一致”“差不多符合”“核心没问题”这类模糊表述放行
+- 不允许用”基本一致””差不多符合””核心没问题”这类模糊表述放行
 - 如果本轮代码已经过 `ddev-clean` 清理，必须按**清理后的最终代码**重做对照，不能沿用清理前结论
 
-审查提示模板见 [ddev-gate-reviewer-prompt.md](ddev-gate-reviewer-prompt.md)。
+审查提示模板见 [final-gate-reviewer-prompt.md](final-gate-reviewer-prompt.md)。
 
 ## ddev-c-pro 规范审查 agent 要求
 
 - 必须是独立视角，不能复用一致性验收 agent 的结论
 - 必须加载 `ddev-c-pro` skill，按其中定义的设计规范、注释规范、命名规范、风格偏好逐项审查
+- **必须使用 `codegraph_impact` 评估改动影响面**：确认规范审查范围内外的符号依赖，避免遗漏受影响的文件
 - 重点检查：全局变量是否必要、参数是否过多未封装、Doxygen 注释是否完整、命名是否遵循模块前缀规范、错误处理是否用显式返回码、内存 ownership 是否明确
 - 只审查 C 代码规范层面，不重复做架构一致性判断
 - 发现违规项必须返回 `blocked`，并附具体修改项清单
 - 不允许用"基本规范""大体符合"等模糊表述放行
 - 如果本轮代码已经是 ddev-c-pro 审查修改后的代码，必须基于最终版本重新审查，不能沿用前次结论
+
+c-pro 审查提示模板见 [c-pro-reviewer-prompt.md](c-pro-reviewer-prompt.md)。
+
+## ddev-clean 清理 agent 要求
+
+- 必须是独立视角，在自己的受限范围内工作
+- 必须加载 `ddev-clean` skill，遵守 regression-tests-first、显式 cleanup plan、最小 diff、最小作用域规则
+- **必须使用 `codegraph_impact` 评估清理影响面**：在删除/重命名符号前，确认没有外部调用方；清理操作不得波及范围外代码
+- 清理范围默认继承一致性验收的范围，如果能拿到更窄 changed-files 列表则进一步收敛
+- 如果清理产生代码修改，主 agent 必须补验证证据并重新进入一致性验收
+- 如果清理没有代码修改，直接保留一致性验收结论
+
+cleaner 提示模板见 [cleaner-prompt.md](cleaner-prompt.md)。
 
 ## 重点检查项
 
