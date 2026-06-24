@@ -81,7 +81,6 @@ description: Unified retrieval tool routing rules. Use for choosing among codegr
 - 子代理输出结论而非原始工具调用
 - 提示规则：写「分析 A 并总结 B」，禁止写「读取 X 告诉我内容」或「把 Y 改成 Z」
 
-## 迁移说明
+## 版本说明
 
-- `codegraph-tool-routing` 保留为兼容入口，但新规则统一收敛到 `tool-routing`
-- 三套运行时入口文档后续都应优先加载 `tool-routing`
+- 本 skill 是唯一检索工具路由入口，融合了原 `codegraph-tool-routing` 的 CodeGraph-first 规则和 `ctx_*`/`semble`/`grep`/`Read` 四层分流

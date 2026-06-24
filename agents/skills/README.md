@@ -103,7 +103,6 @@
 | 技能 | 说明 | 触发方式 |
 |------|------|----------|
 | `tool-routing` | 统一检索工具路由规则，调度 `codegraph_*`、`ctx_*`、`semble`、`grep`/`Read` 四层职责。 | 自动 — 全局加载（由 AGENTS.md 强制执行） |
-| `codegraph-tool-routing` | CodeGraph 路由的遗留兼容入口。新规则已迁移至 `tool-routing`。 | 自动 — 运行时仍引用旧入口时 |
 | `skill` | 管理本地 skills：列出、添加、删除、搜索、编辑、设置向导。 | 自动 — 需要管理 skills 时 |
 | `skill-forced-eval` | 每轮请求强制评估可用 skills 并加载匹配项。 | 自动 — 全局加载（由 AGENTS.md 强制执行） |
 | `skill-recorder` | 在 skill 使用过程中记录 corrected 和 friction 信号，写入目标 skill 的 `.skillopt/pending/` 目录。 | 自动 — 由 AGENTS.md 全局指令调用 |
