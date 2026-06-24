@@ -132,6 +132,44 @@ module_status_t module_encode(const input_t *in, uint8_t *out, size_t out_cap, s
 - 审查时发现裸调标准库函数而工程中存在替代封装 → `blocked`
 - 如果工程的标准库替代文档（`docs/architecture/stdlib-wrappers.md`）不存在或已过期，应在审查意见中标注 `need-info`，建议先运行 `ddev-arch` 的标准库审计步骤
 
+#### 第三方库封装适配（禁止第三方库脱离工程体系）
+
+引入或使用第三方库（如 FatFs、lwIP、mbedTLS、FreeRTOS、protobuf-c 等）时，**禁止让第三方库直接裸调标准库函数**。必须通过适配层注入工程的替代封装，确保第三方库运行在工程统一的内存/IO/断言体系内。
+
+**适配方式（按优先级）：**
+
+1. **利用第三方库的配置宏**：多数嵌入式第三方库提供了内存分配/断言/IO 的配置入口：
+   ```c
+   // FatFs 示例：在 ffconf.h 中重定向
+   #define ff_memalloc(n)  os_malloc(n)
+   #define ff_memfree(p)   os_free(p)
+   
+   // FreeRTOS 示例：在 FreeRTOSConfig.h 中重定向
+   #define configASSERT(x)  MOD_ASSERT(x)
+   
+   // mbedTLS 示例：在 mbedtls_config.h 中重定向
+   #define MBEDTLS_PLATFORM_MEMORY
+   #define mbedtls_calloc(n, s)  os_calloc(n, s)
+   #define mbedtls_free(p)       os_free(p)
+   ```
+2. **如果第三方库不支持配置宏，写轻量适配层**：新建 `thirdparty/<libname>/<libname>_port.c`，实现第三方库期望的接口签名，内部转发到工程封装：
+   ```c
+   // thirdparty/lwip/lwip_port.c
+   #include "os/heap.h"
+   
+   // lwIP 期望的内存分配函数 → 转发到工程封装
+   void *mem_malloc(mem_size_t size) { return os_malloc((size_t)size); }
+   void  mem_free(void *ptr)          { os_free(ptr); }
+   ```
+3. **如果第三方库不支持任何方式替换，必须在架构文档中显式声明风险**：标注该库绕过了工程体系，明确允许的例外范围。
+
+**强制约束：**
+
+- 引入第三方库时，**必须在 spec/detail 阶段就确认其 stdlib 依赖是否能通过工程封装满足**
+- 适配代码必须与第三方库源码分离（放在独立 `_port.c` 或配置头文件中），不直接修改第三方库原始文件
+- 审查时发现第三方库裸调标准库而无适配封装 → `blocked`
+- `docs/architecture/stdlib-wrappers.md` 中必须记录每个第三方库的适配策略
+
 ## 头文件规范
 
 - **自包含（self-contained）**：每个头文件必须独立可编译。用以下方式验证：
