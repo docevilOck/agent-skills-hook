@@ -75,9 +75,16 @@ agent 自检测到 skill 描述不完整导致额外消耗。满足**任一**即
    - skill_root = 包含该 skill 的 SKILL.md 的目录
    - 不存在则创建 `.skillopt/pending/`
 
-6. **写信号**：追加一行 JSON 到 `<skill_root>/.skillopt/pending/signal.json`
+6. **写信号**：追加一行 JSON 到 `<skill_root>/.skillopt/pending/signal.json`（**文件名必须是 `signal.json`，禁止使用 `signal.jsonl`**）
    - JSONL 格式（每行一个完整 JSON 对象，行尾无逗号）
    - 不覆盖已有信号
+
+6.5 **校验信号可扫描**（所有信号写完后执行一次）：
+   - 运行扫描脚本：`python <skills_root>/skill-optimizer/scripts/scan_signals.py --json`
+   - 其中 `<skills_root>` 为 skill 目录的父目录（如 `~/.claude/skills`）
+   - 解析 JSON 输出，检查目标 skill（如 `"skill": "skill-recorder"`）是否出现在 result 数组中
+   - 若目标 skill 未出现 → **报错**："信号未被 scan_signals.py 识别，请检查文件名是否为 `signal.json`（非 `signal.jsonl`）"
+   - 校验通过 → 继续步骤 7
 
 7. **报告**：
    - friction：静默（不需要告诉用户，他们不需要知道）
