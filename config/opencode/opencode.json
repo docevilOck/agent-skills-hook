@@ -18,9 +18,6 @@
       "type": "local",
       "enabled": true,
       "command": [
-        "uvx",
-        "--from",
-        "semble[mcp]",
         "semble"
       ],
       "timeout": 60000
