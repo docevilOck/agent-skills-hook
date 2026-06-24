@@ -42,7 +42,7 @@ spec 文档默认落到 `docs/plans/YY-MM-DD_name/spec/<feature-name>.md`。
 1. 如果仓库存在 `docs/architecture/`，先阅读 `01_架构总览.md` 和相关模块文档，确认本次改动是否在项目级架构规范允许范围内。
 2. 先出本次 spec 图，并标出遵守了哪些项目级约束。
 3. 再交给 `ddev-diagram`，按规范手写 ASCII 图到 `.md`。
-4. 图确认后，可选进入 `pc-test-writer`，判断本次修改是否可在 PC 上写测试 demo 直接验证；如果可以则产出测试用例文档和 demo 代码。若不需 PC 测试或不可测试，直接跳过本步骤。
+4. 图确认后，可选进入 `ddev-pc-test`，判断本次修改是否可在 PC 上写测试 demo 直接验证；如果可以则产出测试用例文档和 demo 代码。若不需 PC 测试或不可测试，直接跳过本步骤。
 5. 若无需 PC 测试或跳过步骤 4，进入 `ddev-detail` 继续细化结构体和数据流；若步骤 4 已产出测试，仍可按需进入 detail 补充实现细节。
 6. 再进入 `ddev-plan`，把已确认设计拆成执行计划。
 7. 实现完成并拿到验证证据后，默认进入 `ddev-gate`，按图对照代码实现是否一致。若步骤 4 产出了测试 demo，`ddev-gate` 阶段必须跑通该 demo。

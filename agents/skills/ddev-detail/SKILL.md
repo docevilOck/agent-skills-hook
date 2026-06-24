@@ -36,7 +36,7 @@ detail 文档默认采用“图优先，文辅佐”表达，只写本次改动�
 - `structures/<name>.md`
 - `dataflow/<name>.md`
 - `flows/<name>.md`
-- `tests/<name>.md`（可选，由 `pc-test-writer` skill 产出）
+- `tests/<name>.md`（可选，由 `ddev-pc-test` skill 产出）
 
 `overview` / `index` 类总览文档必须放在 `detail/` 根目录，不要放进 `structures/`、`dataflow/`、`flows/` 或 `tests/`。子目录只放对应职责的详述文档和图源。
 
@@ -206,7 +206,7 @@ detail/
 ├── flows/
 │   ├── main.md                    # 主流程图与简述
 │   ├── exceptions.md              # 异常路径流程
-└── tests/                         # 可选，由 pc-test-writer 产出
+└── tests/                         # 可选，由 ddev-pc-test 产出
     ├── protocol-overview.md       # 测试总览与可测试性结论
     ├── protocol-cases.md          # 测试用例清单
     └── protocol-env.md            # 测试环境与依赖
@@ -272,7 +272,7 @@ detail/
 - `structures/`：结构体定义文档
 - `dataflow/`：数据流规划文档
 - `flows/`：流程图文档
-- `tests/`：PC 测试用例文档（由 `pc-test-writer` skill 产出，可选）
+- `tests/`：PC 测试用例文档（由 `ddev-pc-test` skill 产出，可选）
 
 如果内容复杂，可以在这些目录下继续使用“入口索引 + 分主题子文档”的方式，而不是强行维持单层平铺。
 
@@ -320,10 +320,10 @@ detail/
 
 这一步确认完之后：
 
-- 可选进入 `pc-test-writer`，判断本次修改是否可在 PC 上写测试 demo 直接验证；如果可以则产出测试用例文档和 demo 代码。如果不需 PC 测试或不可测试，直接跳过。
+- 可选进入 `ddev-pc-test`，判断本次修改是否可在 PC 上写测试 demo 直接验证；如果可以则产出测试用例文档和 demo 代码。如果不需 PC 测试或不可测试，直接跳过。
 - 再进入 `ddev-plan` 把已经确认的内容拆成可执行步骤。
 
-如果实现已完成、准备验收，则把这些 detail 文档作为 `ddev-gate` 的直接输入。若此前通过 `pc-test-writer` 产出了测试 demo，`ddev-gate` 阶段必须跑通该 demo。
+如果实现已完成、准备验收，则把这些 detail 文档作为 `ddev-gate` 的直接输入。若此前通过 `ddev-pc-test` 产出了测试 demo，`ddev-gate` 阶段必须跑通该 demo。
 - 在 detail 过程中发现结构冲突、边界发现、数据流约束时，调用 `ddev-decision-log` 将发现写入 `findings/detail/`。
 
 ## 参考
