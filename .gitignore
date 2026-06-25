@@ -26,5 +26,6 @@ docs/
 .omx/
 
 # Runtime artifacts (OpenCode plugins, skill-optimizer signals)
+.system/
 **/.opencode/
 **/.skillopt/
