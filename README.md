@@ -1,222 +1,105 @@
 # agent-skills-hook
 
-## 简介
-这是一个把"Hook 机制"落地到 Codex CLI / OpenCode / Claude Code 的配置仓库，目标是：
-- 提高 AI 对 skills 的触发与使用概率
-- 固定会话起止输出（`SessionStart` / `Stop`）
-- 在危险命令前给出 execpolicy 安全提示
-- 强化嵌入式 C 开发工作流，优先覆盖 Make/CMake、构建诊断、固件审查与硬件影响分析
+Claude Code / Codex CLI / OpenCode 三套 AI 编码运行时的共享配置与技能分发仓库。
 
-## 功能
-- 会话启动提示（`SessionStart`）
-- 每次请求前强制技能评估（`Skill Forced Eval`）
-- 危险命令前缀提示（execpolicy rules）
-- 任务完成收尾总结（`Stop`）
-- Codex / Claude Code 的轻量优先协作路由
-- OpenCode 的基础配置与默认部署
-- 三套 agent 共用的 `tool-routing` 检索路由
-- `context-mode` plugin 与 `semble_offline_bundle` 默认部署入口
-- 面向嵌入式 C 的 agent 分工：规划、实现、构建修复、固件审查、硬件影响审查
+## 做什么
+
+- **单一配置源**：`config/` 目录维护三套运行时的入口文档（CLAUDE.md / AGENTS.md）、子代理定义、MCP 服务器注册和插件配置，部署时通过符号链接 / Junction 同步到各自用户目录，改一处全生效。
+- **共享技能库**：`agents/skills/` 提供 60+ 个跨运行时共用的技能（skills），覆盖文档写作、代码审查、嵌入式调试、项目管理、媒体爬取等场景，由 `skill-forced-eval` 按请求自动匹配加载。
+- **一键部署**：`linux/deploy.sh` 和 `windows/deploy.ps1` 自动完成链接创建、配置合并、MCP 注册、插件安装，部署前自动备份现有配置。
+- **离线模型**：`semble_offline_bundle/` 预置 Semble 语义搜索模型的离线缓存，部署时自动恢复到 Hugging Face 缓存目录。
 
 ## 目录结构
 
 ```
 agent-skills-hook/
-├── config/                   # 单一配置源（自包含）
-│   ├── AGENTS.md            # 共享入口
-│   ├── claude/CLAUDE.md     # Claude Code 配置
-│   ├── codex/AGENTS.md      # Codex CLI 配置
-│   ├── opencode/AGENTS.md   # OpenCode 配置
-│   ├── opencode/opencode.json # OpenCode 主配置
-│
-├── linux/deploy.sh          # Linux 部署脚本（软链接）
-├── semble_offline_bundle/   # Semble 默认离线模型资产
-├── windows/deploy.ps1       # Windows 部署脚本（Junction 链接）
+├── AGENTS.md                       # 仓库总则（部署到 ~/.claude/AGENTS.md）
+├── config/                         # 单一配置源
+│   ├── AGENTS.md                   # 共享入口（部署到 ~/.claude/AGENTS.md）
+│   ├── claude/
+│   │   ├── CLAUDE.md               # Claude Code 全局指令
+│   │   └── agents/                 # Claude Code 子代理定义（.md）
+│   ├── codex/
+│   │   ├── AGENTS.md               # Codex CLI 全局指令
+│   │   └── agents/                 # Codex 子代理定义（.toml）
+│   ├── opencode/
+│   │   ├── AGENTS.md               # OpenCode 全局指令
+│   │   ├── opencode.json           # OpenCode 主配置（模型 / MCP / 插件）
+│   │   ├── dcp.jsonc               # DCP 插件配置
+│   │   └── agents/                 # OpenCode 子代理定义（.md）
+│   └── shared/
+│       └── mcp_servers.json        # 共享 MCP 服务器定义
+├── agents/skills/                  # 共享技能库（60+ skills）
+├── linux/deploy.sh                 # Linux 部署脚本（软链接）
+├── windows/deploy.ps1              # Windows 部署脚本（SymbolicLink / Junction）
 ├── scripts/
-│   └── deploy-codegraph.ps1     # CodeGraph 索引部署
-├── agents/skills/           # 共享技能库
-│
-└── README.md
+│   └── session-catchup.py          # 会话续接脚本
+├── semble_offline_bundle/          # Semble 离线模型缓存
+└── docs/                           # 计划 / 报告 / 规格文档
 ```
 
-### 设计原则
-- **单一配置源**：所有运行时配置位于 `config/`，避免双线维护
-- **自包含文件**：每个入口文件包含完整规则，不依赖外部引用
-- **平台差异仅在部署**：Linux 用软链接，Windows 用 Junction 链接，配置内容完全相同
-
 ## 快速开始
-
-### 1. 克隆仓库
 
 ```bash
 git clone <repo-url>
 ```
 
-### 2. 部署配置
-
-#### Linux
+### Linux
 
 ```bash
-cd linux
-chmod +x deploy.sh
+cd linux && chmod +x deploy.sh
 
-# 默认部署所有运行时
+# 部署全部运行时
 ./deploy.sh TARGET=all
 
-# 指定目标
+# 或指定目标
+./deploy.sh TARGET=claude
 ./deploy.sh TARGET=codex
 ./deploy.sh TARGET=opencode
-./deploy.sh TARGET=claude
 ```
 
-#### Windows
+### Windows
 
 ```powershell
 cd windows
 
-# 默认部署所有运行时
+# 部署全部运行时
 .\deploy.ps1 -Target "all"
 
-# 指定目标
+# 或指定目标
+.\deploy.ps1 -Target "claude"
 .\deploy.ps1 -Target "codex"
 .\deploy.ps1 -Target "opencode"
-.\deploy.ps1 -Target "claude"
 ```
 
-### 3. 重启运行时
+部署后重启对应运行时即可生效。
 
-部署后重启对应运行时生效：
-- Codex CLI: 重启终端或重新运行 `codex`
-- OpenCode: 重启 OpenCode
-- Claude Code: 重启 Claude Code
+## 部署内容
 
-## 嵌入式 C 工作流
+| 运行时 | 部署项 |
+|--------|--------|
+| Claude Code | `~/.claude/AGENTS.md`、`CLAUDE.md`、`skills/`（Junction→`agents/skills/`）、`agents/`（Junction→`config/claude/agents/`）、MCP 服务器（user scope） |
+| Codex CLI | `~/.codex/AGENTS.md`、`skills/`（Junction→`agents/skills/`）、`agents/`（Junction→`config/codex/agents/`）、MCP 服务器 |
+| OpenCode | `~/.config/opencode/AGENTS.md`、`opencode.json`（深合并）、`dcp.jsonc`（深合并）、`skills/`（Junction→`agents/skills/`）、`agents/`（Junction→`config/opencode/agents/`）、插件安装 |
 
-当前仓库的默认协作方式偏向嵌入式开发：
+所有运行时共享同一份 `mcp_servers.json`（codegraph + semble + context-mode），部署脚本会通过各运行时的 CLI 自动注册。`opencode.json` 和 `dcp.jsonc` 采用深合并策略，不会覆盖用户本地的私有配置（如 provider / API Key）。
 
-- 小改动默认直接处理，避免把简单工作流变重。
-- 遇到 Make/CMake、交叉编译、链接、启动文件、宏或包含路径问题时，优先升级给 `build_resolver`。
-- 遇到 ISR、`volatile`、共享状态、寄存器访问、缓冲区、超时等固件风险时，要求经过 `firmware_reviewer`。
-- 遇到 GPIO、时钟、UART、SPI、I2C、CAN、DMA、timer、board-support 等改动时，要求经过 `hardware_impact`。
-- 多文件功能、状态机、初始化时序或模块边界调整时，先拆解，再落地，最后回归审查。
+## 更新与回滚
 
-### 嵌入式相关 Skills
+修改 `config/` 或 `agents/skills/` 后重新运行部署脚本即可。
 
-- `embedded-workflow-cache-init`
-  - 初始化项目内 `.agents/cache` 的 embedded 工作流缓存。
-  - 适用于先落盘 `VID/PID`、刷写参数、固件产物路径，或在已提供逻辑分析仪映射/测试方法时初始化 KingstVIS 相关缓存。
-- `repo-firmware-flasher`
-  - 从仓库事实提取刷写参数，生成和复用下载配置，并执行探测、分包或刷写。
-- `embedded-debug-workflow`
-  - 编排“改代码 -> 编译 -> 刷写 -> 串口抓取 -> 可选 USB/逻辑分析”闭环调试流程。
-- `kingstvis-socket`
-  - 通过 SocketAPI 驱动 KingstVIS 进行抓取和导出，优先生成 CSV 供 AI 分析。
+部署前自动备份到：
+- Linux：`~/.codex-backups/`、`~/.opencode-backups/`、`~/.claude-backups/`
+- Windows：`$env:USERPROFILE\.codex-backups\`、`$env:USERPROFILE\.opencode-backups\`、`$env:USERPROFILE\.claude-backups\`
 
-### 通用 Skills
+从对应备份目录拷回目标用户目录即可恢复。
 
-- `grill-me`
-  - 对计划或设计进行逐题追问式梳理，直到关键分支和依赖被逐步澄清。
-  - 仅在用户明确点名 `grill-me` 或明确要求“grill me”时使用；默认不自动触发。
+## 前置依赖
 
-## 验证与回滚
+部署脚本会自动检查并安装缺失依赖：
+- **codegraph**：通过 `npm i -g @colbymchenry/codegraph` 安装
+- **semble**：Linux 通过 pip 安装，Windows 通过 uvx 运行
+- **uv**（Windows）：若不存在则通过 pip 安装
+- **opencode CLI**：插件安装需要，缺失时跳过
 
-### 验证部署
-
-当前各运行时都会使用自己的用户级配置目录：Codex 部署 `AGENTS.md`、`agents/`、`skills/`，OpenCode 部署 `AGENTS.md`、`opencode.json`、`skills/`，并同步 `~/.claude/skills`，Claude Code 部署 `AGENTS.md`、`CLAUDE.md`、`skills/`。
-
-## CodeGraph 部署
-
-- 部署脚本现在会自动检查本机是否存在 `codegraph`
-- 若未安装，会自动执行 `npm i -g @colbymchenry/codegraph`
-- 会自动把 `config/opencode/opencode.json` 合并到 `~/.config/opencode/opencode.json`
-- OpenCode 配置会注册 `codegraph serve --mcp`
-- 代码检索相关提示词与使用约束已写入对应运行时的 `AGENTS.md`
-- 注意：部署不会替每个仓库自动创建索引；进入新仓库时仍需执行 `codegraph init -i <repo>`
-
-## Retrieval Stack 部署
-
-- 三套运行时入口文档都已切到 `tool-routing`，统一约束四层职责：
-  - `codegraph_*`：结构化事实查询
-  - `ctx_*`：上下文节流、沙箱执行、续接检索
-  - `semble`：语义候选发现
-  - `grep` / `Read`：字面量与已知路径核对
-- `config/opencode/opencode.json` 会把 `context-mode` 作为 plugin 模板合并到 OpenCode 本地配置
-- 部署脚本会先确保 `semble` 包本体可用，再处理离线模型缓存
-- 部署脚本会检查仓库内 `semble_offline_bundle/model/minishlab--potion-code-16M/model.safetensors`
-  - 若存在：自动恢复到本机 Hugging Face 缓存，并写入 `refs/main`
-  - 若缺失：打印 `skip offline model deploy` 类日志，不中断其他运行时部署
-- 当前默认模型 snapshot：`86848193a842865570d9c8d3e7d268b66ab52752`
-
-### 验证入口
-
-- `python -m json.tool config/opencode/opencode.json`
-- `pwsh -NoProfile -File .\windows\deploy.ps1 -Target "opencode"`
-- `bash -n linux/deploy.sh`
-- `python -m pip show semble`
-
-### 验证部署
-
-当前各运行时都会使用自己的用户级配置目录：Codex 部署 `AGENTS.md`、`agents/`、`skills/`，OpenCode 部署 `AGENTS.md`、`opencode.json`、`skills/`，并同步 `~/.claude/skills`，Claude Code 部署 `AGENTS.md`、`CLAUDE.md`、`skills/`。
-
-### 验证
-
-**Linux（skills/agents 软链接，配置文件复制或合并）**：
-```bash
-ls -la ~/.codex/skills ~/.codex/agents ~/.codex/AGENTS.md
-ls -la ~/.config/opencode/skills ~/.config/opencode/AGENTS.md ~/.config/opencode/opencode.json
-ls -la ~/.claude/skills ~/.claude/CLAUDE.md
-```
-
-**Windows（Junction 链接）**：
-```powershell
-Test-Path "$env:USERPROFILE\.codex\AGENTS.md"
-Test-Path "$env:USERPROFILE\.codex\agents"
-Test-Path "$env:USERPROFILE\.config\opencode\AGENTS.md"
-Test-Path "$env:USERPROFILE\.config\opencode\opencode.json"
-Test-Path "$env:USERPROFILE\.claude\CLAUDE.md"
-```
-
-### 回滚
-
-备份目录位于：
-- Linux: `~/.codex-backups/`、`~/.opencode-backups/`、`~/.claude-backups/`
-- Windows: `$env:USERPROFILE\.codex-backups\`、`$env:USERPROFILE\.opencode-backups\`、`$env:USERPROFILE\.claude-backups\`
-
-恢复时请从对应运行时的备份子目录拷回目标用户目录。
-- Windows 当前脚本不会单独备份部署前的 `~/.config/opencode/opencode.json`；如需完整回滚该文件，请在运行部署脚本前自行备份。
-
-Codex 恢复示例：
-```bash
-# Linux
-cp -a ~/.codex-backups/agent-skills-hook-<timestamp>/codex/* ~/.codex/
-```
-
-```powershell
-# Windows
-Copy-Item "$env:USERPROFILE\.codex-backups\agent-skills-hook-<timestamp>\codex\*" "$env:USERPROFILE\.codex\" -Recurse -Force
-```
-
-## 文件说明
-
-| 文件 | 用途 |
-|------|------|
-| `config/AGENTS.md` | 共享入口，定义仓库总则 |
-| `config/claude/CLAUDE.md` | Claude Code 运行时配置（自包含） |
-| `config/codex/AGENTS.md` | Codex CLI 运行时配置（自包含） |
-| `config/opencode/AGENTS.md` | OpenCode 运行时配置（自包含） |
-| `config/opencode/opencode.json` | OpenCode 主配置 |
-| `linux/deploy.sh` | Linux 部署脚本（软链接方式） |
-| `windows/deploy.ps1` | Windows 部署脚本（Junction 链接方式） |
-
-## 维护说明
-
-更新配置只需修改 `config/` 目录下的文件，然后重新运行部署脚本即可。
-
-- Codex 部署维护 `~/.codex/AGENTS.md`、`agents/`、`skills/`
-- Codex 代理定义从 `config/codex/agents` 部署到 `~/.codex/agents`
-- OpenCode 部署维护 `~/.config/opencode/AGENTS.md`、`opencode.json`、`skills/`，并同步 `~/.claude/skills`
-- `config/opencode/opencode.json` 只保存共享配置模板，不保存 provider/API Key；部署脚本会把这些字段深合并到本地配置，保留未被模板覆盖的私有配置。
-- Claude Code 部署维护 `~/.claude/AGENTS.md`、`CLAUDE.md`、`skills/`
-
-- Linux 用户：修改后重新运行 `linux/deploy.sh`。其中 `skills/` 与 Codex `agents/` 通过软链接指向仓库内容，`AGENTS.md`、`CLAUDE.md` 与 OpenCode `opencode.json` 通过复制或合并更新。
-- Windows 用户：修改后重新运行 `windows/deploy.ps1`。其中 `AGENTS.md`、`CLAUDE.md`、`agents/` 通过复制更新，`skills/` 通过 Junction 链接指向仓库，OpenCode `opencode.json` 通过合并更新。
+进入新仓库后需手动执行 `codegraph init -i <repo>` 建立索引。
