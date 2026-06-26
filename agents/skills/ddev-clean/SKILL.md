@@ -122,6 +122,10 @@ Remaining Risks:
 
 **Bad:** Collapse multiple smell categories into one large refactor with no intermediate verification.
 
+## Gate 审查模式
+
+当本 skill 被 ddev-gate 作为 slop 清理子代理加载时，必须使用 `reviewer-prompt.md` 作为任务模板执行清理。该模板定义了清理输入、scope 约束、regression-tests-first 规则和输出格式。
+
 ## 进度记录
 
 当本 skill 被 ddev-exec 或 ddev-gate 工作流调用时，清理完成后须将 diff 摘要写入项目根目录的 `progress.md`：

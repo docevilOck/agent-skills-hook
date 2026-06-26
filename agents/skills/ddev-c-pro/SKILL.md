@@ -251,6 +251,10 @@ module_status_t module_encode(const input_t *in, uint8_t *out, size_t out_cap, s
 4. 已知则附 build/test 命令。
 5. 指出需集成验证的风险点。
 
+## 审查模式
+
+当本 skill 被 ddev-gate 作为 C 编码规范审查子代理加载时，必须使用 `reviewer-prompt.md` 作为任务模板执行审查。该模板定义了审查输入、维度优先级、CodeGraph 辅助查询方法和输出格式。
+
 ## 进度记录
 
 当本 skill 被 ddev-exec 或 ddev-gate 工作流调用时，审查完成后须将结果写入项目根目录的 `progress.md`：
