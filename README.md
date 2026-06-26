@@ -1,222 +1,210 @@
 # agent-skills-hook
 
-## 简介
-这是一个把"Hook 机制"落地到 Codex CLI / OpenCode / Claude Code 的配置仓库，目标是：
-- 提高 AI 对 skills 的触发与使用概率
-- 固定会话起止输出（`SessionStart` / `Stop`）
-- 在危险命令前给出 execpolicy 安全提示
-- 强化嵌入式 C 开发工作流，优先覆盖 Make/CMake、构建诊断、固件审查与硬件影响分析
+Claude Code / Codex CLI / OpenCode 三套 AI 编码运行时的共享配置与技能分发仓库。
 
-## 功能
-- 会话启动提示（`SessionStart`）
-- 每次请求前强制技能评估（`Skill Forced Eval`）
-- 危险命令前缀提示（execpolicy rules）
-- 任务完成收尾总结（`Stop`）
-- Codex / Claude Code 的轻量优先协作路由
-- OpenCode 的基础配置与默认部署
-- 三套 agent 共用的 `tool-routing` 检索路由
-- `context-mode` plugin 与 `semble_offline_bundle` 默认部署入口
-- 面向嵌入式 C 的 agent 分工：规划、实现、构建修复、固件审查、硬件影响审查
+## 做什么
+
+- **单一配置源**：`config/` 维护三套运行时的入口指令、子代理定义、MCP 注册和插件配置，部署时通过符号链接 / Junction 同步到各自用户目录。
+- **共享技能库**：`agents/skills/` 提供 60+ 个跨运行时共用的技能，由 `skill-forced-eval` 按请求自动匹配加载。
+- **一键部署**：`linux/deploy.sh` 和 `windows/deploy.ps1` 自动完成链接创建、配置合并、MCP 注册、插件安装，部署前自动备份。
 
 ## 目录结构
 
 ```
 agent-skills-hook/
-├── config/                   # 单一配置源（自包含）
-│   ├── AGENTS.md            # 共享入口
-│   ├── claude/CLAUDE.md     # Claude Code 配置
-│   ├── codex/AGENTS.md      # Codex CLI 配置
-│   ├── opencode/AGENTS.md   # OpenCode 配置
-│   ├── opencode/opencode.json # OpenCode 主配置
-│
-├── linux/deploy.sh          # Linux 部署脚本（软链接）
-├── semble_offline_bundle/   # Semble 默认离线模型资产
-├── windows/deploy.ps1       # Windows 部署脚本（Junction 链接）
-├── scripts/
-│   └── deploy-codegraph.ps1     # CodeGraph 索引部署
-├── agents/skills/           # 共享技能库
-│
-└── README.md
+├── config/                         # 单一配置源
+│   ├── AGENTS.md                   # 仓库总则
+│   ├── claude/CLAUDE.md            # Claude Code 全局指令
+│   ├── codex/AGENTS.md             # Codex CLI 全局指令
+│   ├── opencode/                   # OpenCode 配置 + 插件
+│   └── shared/mcp_servers.json     # 共享 MCP 服务器定义
+├── agents/skills/                  # 共享技能库
+├── linux/deploy.sh                 # Linux 部署
+├── windows/deploy.ps1              # Windows 部署
+└── docs/                           # 计划 / 报告 / 规格文档
 ```
-
-### 设计原则
-- **单一配置源**：所有运行时配置位于 `config/`，避免双线维护
-- **自包含文件**：每个入口文件包含完整规则，不依赖外部引用
-- **平台差异仅在部署**：Linux 用软链接，Windows 用 Junction 链接，配置内容完全相同
 
 ## 快速开始
 
-### 1. 克隆仓库
+### Linux
 
 ```bash
 git clone <repo-url>
-```
-
-### 2. 部署配置
-
-#### Linux
-
-```bash
-cd linux
-chmod +x deploy.sh
-
-# 默认部署所有运行时
+cd linux && chmod +x deploy.sh
 ./deploy.sh TARGET=all
-
-# 指定目标
-./deploy.sh TARGET=codex
-./deploy.sh TARGET=opencode
-./deploy.sh TARGET=claude
 ```
 
-#### Windows
+### Windows
 
 ```powershell
+git clone <repo-url>
 cd windows
-
-# 默认部署所有运行时
 .\deploy.ps1 -Target "all"
-
-# 指定目标
-.\deploy.ps1 -Target "codex"
-.\deploy.ps1 -Target "opencode"
-.\deploy.ps1 -Target "claude"
 ```
 
-### 3. 重启运行时
+部署后重启对应运行时即可生效。修改 `config/` 或 `agents/skills/` 后重新跑部署脚本更新。
 
-部署后重启对应运行时生效：
-- Codex CLI: 重启终端或重新运行 `codex`
-- OpenCode: 重启 OpenCode
-- Claude Code: 重启 Claude Code
+部署前自动备份到 `~/.claude-backups/`、`~/.codex-backups/`、`~/.opencode-backups/`。
 
-## 嵌入式 C 工作流
+## 技能分类
 
-当前仓库的默认协作方式偏向嵌入式开发：
+### ddev 开发工作流（核心流水线）
 
-- 小改动默认直接处理，避免把简单工作流变重。
-- 遇到 Make/CMake、交叉编译、链接、启动文件、宏或包含路径问题时，优先升级给 `build_resolver`。
-- 遇到 ISR、`volatile`、共享状态、寄存器访问、缓冲区、超时等固件风险时，要求经过 `firmware_reviewer`。
-- 遇到 GPIO、时钟、UART、SPI、I2C、CAN、DMA、timer、board-support 等改动时，要求经过 `hardware_impact`。
-- 多文件功能、状态机、初始化时序或模块边界调整时，先拆解，再落地，最后回归审查。
+端到端的规格驱动开发流程，从架构设计到最终验收。
 
-### 嵌入式相关 Skills
-
-- `embedded-workflow-cache-init`
-  - 初始化项目内 `.agents/cache` 的 embedded 工作流缓存。
-  - 适用于先落盘 `VID/PID`、刷写参数、固件产物路径，或在已提供逻辑分析仪映射/测试方法时初始化 KingstVIS 相关缓存。
-- `repo-firmware-flasher`
-  - 从仓库事实提取刷写参数，生成和复用下载配置，并执行探测、分包或刷写。
-- `embedded-debug-workflow`
-  - 编排“改代码 -> 编译 -> 刷写 -> 串口抓取 -> 可选 USB/逻辑分析”闭环调试流程。
-- `kingstvis-socket`
-  - 通过 SocketAPI 驱动 KingstVIS 进行抓取和导出，优先生成 CSV 供 AI 分析。
-
-### 通用 Skills
-
-- `grill-me`
-  - 对计划或设计进行逐题追问式梳理，直到关键分支和依赖被逐步澄清。
-  - 仅在用户明确点名 `grill-me` 或明确要求“grill me”时使用；默认不自动触发。
-
-## 验证与回滚
-
-### 验证部署
-
-当前各运行时都会使用自己的用户级配置目录：Codex 部署 `AGENTS.md`、`agents/`、`skills/`，OpenCode 部署 `AGENTS.md`、`opencode.json`、`skills/`，并同步 `~/.claude/skills`，Claude Code 部署 `AGENTS.md`、`CLAUDE.md`、`skills/`。
-
-## CodeGraph 部署
-
-- 部署脚本现在会自动检查本机是否存在 `codegraph`
-- 若未安装，会自动执行 `npm i -g @colbymchenry/codegraph`
-- 会自动把 `config/opencode/opencode.json` 合并到 `~/.config/opencode/opencode.json`
-- OpenCode 配置会注册 `codegraph serve --mcp`
-- 代码检索相关提示词与使用约束已写入对应运行时的 `AGENTS.md`
-- 注意：部署不会替每个仓库自动创建索引；进入新仓库时仍需执行 `codegraph init -i <repo>`
-
-## Retrieval Stack 部署
-
-- 三套运行时入口文档都已切到 `tool-routing`，统一约束四层职责：
-  - `codegraph_*`：结构化事实查询
-  - `ctx_*`：上下文节流、沙箱执行、续接检索
-  - `semble`：语义候选发现
-  - `grep` / `Read`：字面量与已知路径核对
-- `config/opencode/opencode.json` 会把 `context-mode` 作为 plugin 模板合并到 OpenCode 本地配置
-- 部署脚本会先确保 `semble` 包本体可用，再处理离线模型缓存
-- 部署脚本会检查仓库内 `semble_offline_bundle/model/minishlab--potion-code-16M/model.safetensors`
-  - 若存在：自动恢复到本机 Hugging Face 缓存，并写入 `refs/main`
-  - 若缺失：打印 `skip offline model deploy` 类日志，不中断其他运行时部署
-- 当前默认模型 snapshot：`86848193a842865570d9c8d3e7d268b66ab52752`
-
-### 验证入口
-
-- `python -m json.tool config/opencode/opencode.json`
-- `pwsh -NoProfile -File .\windows\deploy.ps1 -Target "opencode"`
-- `bash -n linux/deploy.sh`
-- `python -m pip show semble`
-
-### 验证部署
-
-当前各运行时都会使用自己的用户级配置目录：Codex 部署 `AGENTS.md`、`agents/`、`skills/`，OpenCode 部署 `AGENTS.md`、`opencode.json`、`skills/`，并同步 `~/.claude/skills`，Claude Code 部署 `AGENTS.md`、`CLAUDE.md`、`skills/`。
-
-### 验证
-
-**Linux（skills/agents 软链接，配置文件复制或合并）**：
-```bash
-ls -la ~/.codex/skills ~/.codex/agents ~/.codex/AGENTS.md
-ls -la ~/.config/opencode/skills ~/.config/opencode/AGENTS.md ~/.config/opencode/opencode.json
-ls -la ~/.claude/skills ~/.claude/CLAUDE.md
-```
-
-**Windows（Junction 链接）**：
-```powershell
-Test-Path "$env:USERPROFILE\.codex\AGENTS.md"
-Test-Path "$env:USERPROFILE\.codex\agents"
-Test-Path "$env:USERPROFILE\.config\opencode\AGENTS.md"
-Test-Path "$env:USERPROFILE\.config\opencode\opencode.json"
-Test-Path "$env:USERPROFILE\.claude\CLAUDE.md"
-```
-
-### 回滚
-
-备份目录位于：
-- Linux: `~/.codex-backups/`、`~/.opencode-backups/`、`~/.claude-backups/`
-- Windows: `$env:USERPROFILE\.codex-backups\`、`$env:USERPROFILE\.opencode-backups\`、`$env:USERPROFILE\.claude-backups\`
-
-恢复时请从对应运行时的备份子目录拷回目标用户目录。
-- Windows 当前脚本不会单独备份部署前的 `~/.config/opencode/opencode.json`；如需完整回滚该文件，请在运行部署脚本前自行备份。
-
-Codex 恢复示例：
-```bash
-# Linux
-cp -a ~/.codex-backups/agent-skills-hook-<timestamp>/codex/* ~/.codex/
-```
-
-```powershell
-# Windows
-Copy-Item "$env:USERPROFILE\.codex-backups\agent-skills-hook-<timestamp>\codex\*" "$env:USERPROFILE\.codex\" -Recurse -Force
-```
-
-## 文件说明
-
-| 文件 | 用途 |
+| 技能 | 说明 |
 |------|------|
-| `config/AGENTS.md` | 共享入口，定义仓库总则 |
-| `config/claude/CLAUDE.md` | Claude Code 运行时配置（自包含） |
-| `config/codex/AGENTS.md` | Codex CLI 运行时配置（自包含） |
-| `config/opencode/AGENTS.md` | OpenCode 运行时配置（自包含） |
-| `config/opencode/opencode.json` | OpenCode 主配置 |
-| `linux/deploy.sh` | Linux 部署脚本（软链接方式） |
-| `windows/deploy.ps1` | Windows 部署脚本（Junction 链接方式） |
+| `ddev-arch` | 项目级架构规范初始化，建立模块边界与变更门禁 |
+| `ddev-spec` | 编写 spec 文档（图优先），定义改动边界与流程 |
+| `ddev-detail` | 梳理结构体定义、数据流和流程（图优先） |
+| `ddev-diagram` | 手写 ASCII 架构图/流程图/数据流图到 .md |
+| `ddev-pc-test` | 判断是否可在 PC 写测试 demo 验证，生成测试用例 |
+| `ddev-plan` | 将 spec/detail 拆解为可执行实现步骤 |
+| `ddev-exec` | 按计划顺序执行任务，含进度跟踪 |
+| `ddev-gate` | 实现一致性最终验收（一致性→清理→规范 三阶段） |
+| `ddev-clean` | 代码 slop 清理，死代码删除/去重/命名修正 |
+| `ddev-c-pro` | C 语言设计规范、Doxygen 注释、命名与风格约束 |
+| `ddev-doc-review` | 文档审查（独立子代理，五维度检查） |
+| `ddev-decision-log` | 决策记录，贯穿全流程 |
+| `code-review` | 代码审查，依赖 codegraph 做结构影响分析 |
+| `comment-generator` | 为 C 函数生成 Doxygen 标准中文注释 |
+| `compile-commands-init` | C/C++ 项目 compile_commands.json 与 clangd 配置 |
+| `trace-flow` | 调用链追踪 |
 
-## 维护说明
+### ddev 使用指南
 
-更新配置只需修改 `config/` 目录下的文件，然后重新运行部署脚本即可。
+ddev 是一套"先想清楚再动手"的规格驱动开发流程。典型用法：
 
-- Codex 部署维护 `~/.codex/AGENTS.md`、`agents/`、`skills/`
-- Codex 代理定义从 `config/codex/agents` 部署到 `~/.codex/agents`
-- OpenCode 部署维护 `~/.config/opencode/AGENTS.md`、`opencode.json`、`skills/`，并同步 `~/.claude/skills`
-- `config/opencode/opencode.json` 只保存共享配置模板，不保存 provider/API Key；部署脚本会把这些字段深合并到本地配置，保留未被模板覆盖的私有配置。
-- Claude Code 部署维护 `~/.claude/AGENTS.md`、`CLAUDE.md`、`skills/`
+```
+ddev-arch        ← 项目初始化时跑一次，建立架构约束
+    ↓
+ddev-spec        ← 每次改动前：画边界 + 入口 + 流程
+    ↓
+ddev-detail      ← 需要时：细化结构体 / 数据流
+    ↓
+ddev-pc-test     ← 可选：能写 PC 测试就写，生成 demo
+    ↓
+ddev-plan        ← 拆成可执行任务清单
+    ↓
+ddev-exec        ← 逐个执行，自动跟踪进度
+    ↓
+ddev-gate        ← 三道关卡验收：一致性 → 清理 → C 规范
+    ↓
+完成
+```
 
-- Linux 用户：修改后重新运行 `linux/deploy.sh`。其中 `skills/` 与 Codex `agents/` 通过软链接指向仓库内容，`AGENTS.md`、`CLAUDE.md` 与 OpenCode `opencode.json` 通过复制或合并更新。
-- Windows 用户：修改后重新运行 `windows/deploy.ps1`。其中 `AGENTS.md`、`CLAUDE.md`、`agents/` 通过复制更新，`skills/` 通过 Junction 链接指向仓库，OpenCode `opencode.json` 通过合并更新。
+辅助技能全程可用：
+- `ddev-diagram` — 任何阶段需要画图时调用
+- `ddev-decision-log` — 做技术决策时记录
+- `ddev-doc-review` — 文档写完后派独立子代理审查
+- `code-review` — 代码改动后做质量/安全检查
+
+实际使用时不需要每次都跑全流程。小改动可以直接 `ddev-spec → ddev-plan → ddev-exec → ddev-gate`。纯 bug 修复甚至可以跳过 spec，直接从 `ddev-plan` 开始。
+
+### 代码审查、验证与调试
+
+| 技能 | 说明 |
+|------|------|
+| `requesting-code-review` | 完成任务/功能后请求代码审查 |
+| `receiving-code-review` | 接收审查反馈，技术严谨验证后实现 |
+| `verification-before-completion` | 完成前验证——先跑命令确认输出，再宣称通过 |
+| `systematic-debugging` | 系统化调试流程，修复前先定位根因 |
+| `debug-locate-assistant` | C/C++ 回归定位，精确到 file:line/function |
+| `visual-verdict` | 截图与参考图的视觉 QA 结构化对比 |
+| `protocol-semantic-guard` | 协议/指令集语义守卫，改 wire protocol 时用 |
+| `image-understanding` | 图片对比/视觉回归/UI diff 检测 |
+
+### 嵌入式与硬件调试
+
+| 技能 | 说明 |
+|------|------|
+| `embedded-debug-workflow` | 改代码→编译刷写→串口抓日志 闭环联调 |
+| `embedded-workflow-cache-init` | 初始化嵌入式调试缓存（VID/PID、固件产物、传输参数） |
+| `serial-log-debug` | Windows 串口日志捕获、收发、TX/RX 追踪 |
+| `repo-firmware-flasher` | 基于仓库代码推导刷写参数并执行刷写 |
+| `repo-usb-communicator` | 定位 USB 设备参数，脚本打开/收发数据 |
+| `kingstvis-socket` | KingstVIS 逻辑分析仪 SocketAPI 采集/导出 |
+
+### 文档与内容创作
+
+| 技能 | 说明 |
+|------|------|
+| `doc-coauthoring` | 结构化文档协作写作流程 |
+| `docx` | Word 文档创建/编辑/批注/修订 |
+| `pdf` | PDF 抽取/创建/合并/表单填写 |
+| `pptx` | PPT 创建/编辑/布局/演讲者备注 |
+| `guizang-ppt-skill` | 横向翻页网页 PPT（杂志风/瑞士风两种主题） |
+| `presentation-design` | 演示文稿设计与评估 |
+| `defuddle` | 网页干净 Markdown 提取，去广告导航 |
+| `algorithmic-art` | p5.js 算法艺术生成 |
+| `json-canvas` | Obsidian JSON Canvas 文件创建/编辑 |
+| `xlsx` | Excel 创建/编辑/公式/数据分析 |
+| `xlsx-manipulation` | openpyxl 编程操作 Excel |
+
+### 数据采集与分析
+
+| 技能 | 说明 |
+|------|------|
+| `mediacrawler` | 小红书/抖音/B站/微博 多平台数据爬取 |
+| `bilibili-analyzer` | B站视频下载→拆帧→AI 分析→专题文档 |
+| `china-news-crawler` | 微信公众号/今日头条/网易/搜狐/腾讯新闻提取 |
+| `hv-analysis` | 横纵分析法深度研究（历时+共时双轴） |
+
+### 版本控制与工程规范
+
+| 技能 | 说明 |
+|------|------|
+| `git-commit-standard` | 标准提交流程（版本号递进+固件产物+README 更新） |
+| `git-commit-template` | Conventional Commits 提交模板 |
+| `model-version-locator` | 固件仓库机型宏和版本号定位 |
+| `repository-encoding-normalizer` | 源码仓库 UTF-8 统一 + 编译时 GBK 自动转换 |
+
+### Obsidian 集成
+
+| 技能 | 说明 |
+|------|------|
+| `obsidian-cli` | Obsidian vault 交互、笔记管理、插件开发调试 |
+| `obsidian-markdown` | Obsidian Flavored Markdown（wikilinks/callouts/properties） |
+| `obsidian-bases` | Obsidian Bases 视图/过滤器/公式/汇总 |
+
+### 浏览器与 Web
+
+| 技能 | 说明 |
+|------|------|
+| `agent-browser` | 浏览器自动化 CLI（导航/填表/截图/数据提取） |
+| `webapp-testing` | Playwright 本地 Web 应用测试与调试 |
+
+### 元技能与基础设施
+
+| 技能 | 说明 |
+|------|------|
+| `skill-forced-eval` | **核心调度器**——每轮请求强制评估匹配技能 |
+| `tool-routing` | 工具路由规则（codegraph/ctx/semble/grep 选择策略） |
+| `skill` | 技能管理：列表/添加/删除/搜索/编辑 |
+| `find-skills` | 查找和安装社区技能 |
+| `skill-recorder` | 技能使用信号记录（corrected/friction） |
+| `skill-optimizer` | 基于信号集群优化 skill（8 步管线） |
+| `skill-init` | skill-optimizer 系统初始化 |
+| `writing-skills` | 创建/编辑/验证 skills 和 SKILL.md |
+| `using-superpowers` | 执行类 skills 使用说明 |
+| `using-git-worktrees` | 隔离 git worktree 创建与验证 |
+| `plan` | 战略规划（含可选访谈流程） |
+| `grill-me` | 高强度追问——逐项压实计划/设计的关键分支 |
+| `neat-freak` | 会话结束知识洁癖清理——同步文档与代码 |
+| `pdf_demo_skill` | PDF 处理能力演示 |
+
+## 更新与回滚
+
+修改 `config/` 或 `agents/skills/` 后重新运行部署脚本即可生效。
+
+回滚：从 `~/.claude-backups/` / `~/.codex-backups/` / `~/.opencode-backups/` 拷回目标目录覆盖。
+
+## 前置依赖
+
+部署脚本自动检查并安装：
+- **codegraph**：`npm i -g @colbymchenry/codegraph`
+- **semble**：Linux pip / Windows uvx
+- **uv**（Windows）：pip 安装
+- **opencode CLI**：缺失时跳过插件安装
+
+进入新仓库后需手动执行 `codegraph init -i <repo>` 建立索引。

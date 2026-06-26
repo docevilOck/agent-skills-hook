@@ -382,7 +382,7 @@ if ($Target -eq "claude" -or $Target -eq "all") {
     # 部署配置（从 config/ 复制）
     New-Item -ItemType Directory -Path "$ClaudeDir" -Force | Out-Null
     Safe-LinkFile "$ClaudeDir\AGENTS.md" "$ConfigRoot\AGENTS.md"
-    Safe-LinkFile "$ConfigRoot\claude\CLAUDE.md" "$ClaudeDir\CLAUDE.md"
+    Safe-LinkFile "$ClaudeDir\CLAUDE.md" "$ConfigRoot\claude\CLAUDE.md"
     Safe-Link "$ClaudeDir\agents" "$ConfigRoot\claude\agents"
     Safe-Link "$ClaudeDir\skills" $RepoSkills
     
