@@ -66,9 +66,9 @@ function Safe-Link {
         New-Item -ItemType Directory -Path $ParentDir -Force | Out-Null
     }
 
-    if (Test-Path $LinkPath) {
-        $item = Get-Item $LinkPath -Force
-        if ($item.LinkType -and $item.Target -eq $TargetPath) {
+    $existingItem = Get-Item $LinkPath -Force -ErrorAction SilentlyContinue
+    if ($existingItem) {
+        if ($existingItem.LinkType -and $existingItem.Target -eq $TargetPath) {
             return
         }
         Remove-Item $LinkPath -Recurse -Force
@@ -89,15 +89,18 @@ function Safe-LinkFile {
         New-Item -ItemType Directory -Path $ParentDir -Force | Out-Null
     }
 
-    if (Test-Path $LinkPath) {
-        $item = Get-Item $LinkPath -Force
-        if ($item.LinkType -eq 'SymbolicLink' -and $item.Target -eq $TargetPath) {
+    $existingItem = Get-Item $LinkPath -Force -ErrorAction SilentlyContinue
+    if ($existingItem) {
+        if ($existingItem.LinkType -eq 'SymbolicLink' -and $existingItem.Target -eq $TargetPath) {
             return
         }
         Remove-Item $LinkPath -Force
     }
 
-    New-Item -ItemType SymbolicLink -Path $LinkPath -Target $TargetPath -Force | Out-Null
+    cmd /c "mklink `"$LinkPath`" `"$TargetPath`"" 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to create symlink: $LinkPath -> $TargetPath"
+    }
     Write-Host "Linked: $LinkPath -> $TargetPath"
 }
 
