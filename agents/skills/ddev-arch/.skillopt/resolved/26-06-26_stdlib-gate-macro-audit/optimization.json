@@ -1,0 +1,39 @@
+{
+  "optimization_id": "opt_20260626_ddev-arch_c001",
+  "skill": "ddev-arch",
+  "timestamp": "2026-06-26T07:30:00Z",
+  "mode": "text_edit",
+  "edits": [
+    {
+      "type": "replace",
+      "target": "子代理搜索方法步骤3-4",
+      "reason": "新增条件编译门控审计步骤，原第三方库检查顺延为步骤5"
+    },
+    {
+      "type": "replace",
+      "target": "产出文档模板-断言与第三方库之间",
+      "reason": "插入条件编译门控章节和门控宏速查表"
+    },
+    {
+      "type": "replace",
+      "target": "强制约束",
+      "reason": "新增两条约束：审计门控宏 + 文档含门控章节"
+    },
+    {
+      "type": "replace",
+      "target": "验收标准表格",
+      "reason": "新增条件编译门控检查项"
+    }
+  ],
+  "gate_result": {
+    "c_001": {
+      "verdict": "NO",
+      "reason": "新 skill 的 stdlib 审计章节已补全条件编译门控宏审计步骤，缺陷不会再现"
+    }
+  },
+  "pre_optimization_hash": "ce7e02bae1b3b766873a3dba15d77bcb08935fececf54a31a842c013eae4e177",
+  "post_optimization_hash": "9128d276a15254d7e4da6a2944ceec4542a4855d543159ecbd4e9ad367dda6d3",
+  "signal_ids": [
+    "20260626T064423_ddev-arch_2edeae"
+  ]
+}
