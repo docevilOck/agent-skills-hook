@@ -32,7 +32,7 @@ spec 文档默认落到 `docs/plans/YY-MM-DD_name/spec/<feature-name>.md`。
 
 默认优先用于嵌入式 C / 纯 C / Rust / HTML 的改动，尤其是 BSP、驱动、协议、板级初始化和静态页面这类需要看边界的工作。
 
-对于 C 项目（`.c` / `.h`），本阶段必须加载 `ddev-c-pro` skill，将其中的设计规范、命名规范、注释规范作为 spec 约束一并写入文档，不得留到编码阶段临场决定。
+对于 C 项目（`.c` / `.h`），本阶段必须加载 `ddev-c-pro` 和 `ddev-comment-gen` skill，将其中的设计规范、命名规范、注释规范作为 spec 约束一并写入文档，不得留到编码阶段临场决定。
 
 对于嵌入式 C / 纯 C 改动，这一步不只是”把模块关系画出来”，还要提前约束 AI 和实现者的结构选择，避免后续编码阶段直接滑向全局变量、长链 `if/else` 和职责混杂的大函数。
 
@@ -213,7 +213,7 @@ spec 文档默认落到 `docs/plans/YY-MM-DD_name/spec/<feature-name>.md`。
 - 函数边界必须先按职责切开，避免后续出现”校验 + 解析 + 决策 + 执行”全塞进一个函数
 - 参数超过 4–5 个的函数，spec 阶段就要规划用结构体封装
 - 模块命名、类型命名（`_t` 后缀）、API 前缀、错误码枚举必须按 `ddev-c-pro` 规范提前约定
-- 公开 API 的 Doxygen 注释标准（`@brief` / `@param` / `@return`）在 spec 文档中就要明确要求
+- 公开 API 的 Doxygen 注释标准（`@brief` / `@param` / `@return`）在 spec 文档中就要明确要求，参照 `ddev-comment-gen` skill
 
 如果这些点在 spec 阶段说不清，说明还不该进入实现计划。
 
@@ -228,7 +228,7 @@ spec 文档默认落到 `docs/plans/YY-MM-DD_name/spec/<feature-name>.md`。
 - 哪些接口是对外暴露的，哪些函数必须保持 `static` 私有
 - 错误码和异常出口是集中处理还是分层返回
 - 模块公开 API 命名前缀、类型 `_t` 后缀、宏命名规则是否已按 `ddev-c-pro` 规范约定
-- Doxygen 注释是否已在 spec 约束中明确要求
+- Doxygen 注释是否已在 spec 约束中明确要求（参照 `ddev-comment-gen` skill）
 
 ## 图怎么选
 
@@ -265,7 +265,7 @@ spec 文档默认落到 `docs/plans/YY-MM-DD_name/spec/<feature-name>.md`。
 - 运行时状态是否已经收敛到明确的上下文对象
 - 关键分支是否已经选定为守卫式返回、`switch`、表驱动或状态机，而不是含糊留给实现时发挥
 - 是否已经识别需要避免的全局变量、魔法状态值和职责过载函数
-- 命名规范、Doxygen 注释要求是否已按 `ddev-c-pro` skill 在 spec 约束中明确
+- 命名规范是否已按 `ddev-c-pro` skill 在 spec 约束中明确；Doxygen 注释要求是否已按 `ddev-comment-gen` skill 在 spec 约束中明确
 
 ## 自检
 

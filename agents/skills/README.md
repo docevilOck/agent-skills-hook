@@ -37,7 +37,7 @@
 | `requesting-code-review` | 在完成任务、实现重要功能或准备合并前，派发审查子代理确认工作满足要求。 | 自动 — 任务完成/准备合并时 |
 | `receiving-code-review` | 接收代码审查反馈时的技术评估与验证流程，避免表面附和或盲目照做。 | 自动 — 收到审查反馈时 |
 | `ddev-clean` | AI 生成代码的反 slop 清理重构工作流，逐臭味清理并保持行为不变。 | 自动 — 需要清理/重构 AI 生成代码 |
-| `comment-generator` | 为新增函数添加 Doxygen 标准中文注释；函数内代码改动可选择性添加少量注释；确保注释与实际行为一致。 | 自动 — 修改代码、重构、新增函数时 |
+| `ddev-comment-gen` | C 项目注释审查节点。在 ddev-c-pro 通过后，逐文件/函数/结构体核验 Doxygen 注释完整性，缺失则补全。 | 自动 — C 项目 c-pro 审查通过后 |
 | `systematic-debugging` | 系统性调试方法论：在提出修复之前先定位根因，避免随手打补丁掩盖底层问题。 | 自动 — 遇到 bug、测试失败或异常行为时 |
 | `verification-before-completion` | 完成前强制验证：必须先运行验证命令并确认输出，再做任何成功声明。 | 自动 — 准备声称工作已完成/已修复时 |
 | `protocol-semantic-guard` | 协议和指令集相关代码变更的语义守卫。修改有线协议、命令编码、解析表、标签、属性、枚举等时使用。 | 自动 — 修改协议/指令集相关代码时 |
@@ -71,22 +71,28 @@
   ▼ detail 确认后 → ddev-plan 拆解执行计划 → ddev-exec 驱动编码
   │
   ▼ 代码写完
-③ ddev-gate                 ← 最终验收门禁（两段循环）
+③ ddev-gate                 ← 最终验收门禁（四段循环）
      ├─ 第一段：拉独立审查 agent，对照 architecture + detail 文档逐项核对代码实现
      │          ├─ 一致 → pass，进入第二段
      │          └─ 不一致 → 打回修改，修改后重新进入本 skill
-     └─ 第二段：拉独立 subagent 调用 ddev-clean 做垃圾代码清理
-                ├─ 清理未改代码 → 最终 pass，任务完成
-                └─ 清理改了代码 → 重新回到第一段做一致性重审
+     ├─ 第二段：拉独立 subagent 调用 ddev-clean 做垃圾代码清理
+     │          ├─ 清理未改代码 → 保留结论，进入第三段
+     │          └─ 清理改了代码 → 重新回到第一段做一致性重审
+     ├─ 第三段：拉独立 subagent 加载 ddev-c-pro 做 C 编码规范审查
+     │          ├─ 通过 → pass，进入第四段
+     │          └─ 不通过 → 打回修改，修改后重新进入本 skill
+     └─ 第四段：拉独立 subagent 加载 ddev-comment-gen 做注释完整性审查
+                ├─ 通过 → 最终 pass，任务完成
+                └─ 不通过 → 补全注释，修改后重新进入本 skill
 ```
 
 | 阶段 | 技能 | 核心职责 | 关键约束 |
 |------|------|----------|----------|
 | ① 设计 | `ddev-spec` | 在编码前用图讲清改动边界、模块关系、接入点和主流程 | 仅产出 spec 文档，不得直接改代码；图优先、文辅佐；遵守项目级 `docs/architecture/` 约束 |
 | ② 细化 | `ddev-detail` | spec 确认后细化结构体定义、数据流图和关键流程图 | spec 文档必须先获确认才能进入此阶段；图优先、文辅佐 |
-| ③ 验收 | `ddev-gate` | 代码实现完成后逐项核对是否与 spec/detail 文档一致，通过后执行 slop 清理 | 一致性不通过就打回重改，循环直到 pass；slop 清理后若改代码需重新验收 |
+| ③ 验收 | `ddev-gate` | 代码实现完成后逐项核对是否与 spec/detail 文档一致，通过后执行 slop 清理、C 规范审查和注释审查 | 一致性不通过就打回重改，循环直到 pass；c-pro 和 comment-gen 均通过方可放行 |
 
-> **联动技能**：`ddev-diagram`（画图规范）、`ddev-plan`（拆解执行计划）、`ddev-exec`（执行计划）、`ddev-clean`（被 ddev-gate 调用的代码清理）。
+> **联动技能**：`ddev-diagram`（画图规范）、`ddev-plan`（拆解执行计划）、`ddev-exec`（执行计划）、`ddev-clean`（被 ddev-gate 调用的代码清理）、`ddev-c-pro`（C 编码规范审查）、`ddev-comment-gen`（注释完整性审查）。
 
 ## 三、项目管理
 

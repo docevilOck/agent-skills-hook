@@ -211,22 +211,6 @@ module_status_t module_encode(const input_t *in, uint8_t *out, size_t out_cap, s
 - 条件编译用 `#if` 而非 `#ifdef` 做特性开关（`#if FEATURE_ENABLED` 优于 `#ifdef FEATURE_ENABLED`，前者遗漏定义时报错而非静默跳过）。
 - 复杂表达式拆成 `static inline` 函数优于宏，利用类型检查和调试友好性。
 
-## 注释规范（Doxygen）
-
-公开 API 用 Doxygen 格式：
-
-```c
-/**
- * @brief  一句话说明。
- * @param  cfg  参数描述及约束，不可为 NULL。
- * @return      0 成功，非 0 为错误码。
- */
-int module_init(const module_cfg_t *cfg);
-```
-
-文件头：`@file` + `@brief`。结构体成员用 `/**< 说明 */` 行内注释。
-常用标签：`@brief` / `@param` / `@return` / `@note` / `@warning` / `@see` / `@todo`。
-
 ## 工作原则
 
 1. **确定 C 方言**：断言语言特性前先确认标准（C99/C11/C17/C23）和编译器（GCC/Clang/MSVC）。
@@ -246,7 +230,6 @@ int module_init(const module_cfg_t *cfg);
 - **标准库替代**：是否裸调了工程中有替代封装的标准库函数（malloc/strcpy/sprintf/fopen 等）；若工程存在 `stdlib-wrappers.md`，是否已读取并遵守
 - **宏**：参数是否加括号、多语句是否 do-while(0)、是否用 static inline 更合适
 - **可移植性**：用 `stdint.h` fixed-width types、注意 endian、避免 compiler extension
-- **注释**：公开 API 是否有 Doxygen、关键逻辑是否有说明、结构体成员是否有行内注释
 - **构建**：启用 `-Wall -Wextra`，CI 加 static analysis（clang-tidy、cppcheck）
 - **命名**：类型 `_t` 后缀、公开 API 模块前缀、宏全大写 + 模块前缀、私有函数 `static`
 

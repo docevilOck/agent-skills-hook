@@ -14,6 +14,7 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 1. **先拉独立审查 agent**，把**代码实现**与以下设计输入做逐项对照
 2. **一致性通过后，再拉独立 subagent 调用 `ddev-clean`**，在受限范围内做垃圾代码清理和可维护性提升；若清理改了代码，再重新回到一致性验收
 3. **cleaner 阶段结束后，拉独立 subagent 加载 `ddev-c-pro` skill**，按 C 语言编码规范审查最终代码；若审查不通过，修改后重新回到一致性验收
+4. **c-pro 审查通过后，拉独立 subagent 加载 `ddev-comment-gen` skill**，对最终代码做注释完整性和规范性审查；若审查不通过，修改后重新回到一致性验收
 
 第一段一致性验收要对照的设计输入包括：
 
@@ -37,7 +38,9 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 
 一致性重审通过后，还需再拉一个独立 subagent 加载 `ddev-c-pro` skill，按 C 语言编码规范审查最终代码。如果 ddev-c-pro 审查不通过，修改后同样要重新进入这个 skill 从头验收。
 
-只有在**清理后的最终代码**通过一致性验收、且 **ddev-c-pro 规范审查**也通过后，主 agent 才能宣称”计划已经完成”。
+ddev-c-pro 规范审查通过后，还需再拉一个独立 subagent 加载 `ddev-comment-gen` skill，对最终代码做注释完整性和规范性审查。如果 comment-gen 审查不通过，修改后同样要重新进入这个 skill 从头验收。
+
+只有在**清理后的最终代码**通过一致性验收、**ddev-c-pro 规范审查**和 **ddev-comment-gen 注释审查**均通过后，主 agent 才能宣称”计划已经完成”。
 
 ## 何时使用
 
@@ -52,7 +55,7 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 
 如果只是想让另一个视角找 bug，优先用 `requesting-code-review`。
 
-如果目标是**实现与设计一致性验收**，并在通过后继续做一轮受限 deslop / maintainability cleanup，再经 ddev-c-pro 代码规范审查，最后复核一致性，用这个 skill。
+如果目标是**实现与设计一致性验收**，并在通过后继续做一轮受限 deslop / maintainability cleanup，再经 ddev-c-pro 代码规范审查和 ddev-comment-gen 注释审查，最后复核一致性，用这个 skill。
 
 如果主 agent 正准备宣称“已经完成计划”“已经按计划实现完成”“可以正式收尾”，这个 skill 是必经门禁。
 
@@ -95,7 +98,7 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 
 后续 `ddev-clean` 的作用范围默认也必须继承这份范围；如果能拿到更窄的 changed-files 列表，优先把清理范围进一步收敛到 changed files。
 
-`ddev-c-pro` 规范审查的范围与 cleaner 一致，审查最终版本的代码文件。
+`ddev-c-pro` 规范审查和 `ddev-comment-gen` 注释审查的范围与 cleaner 一致，审查最终版本的代码文件。
 
 如果为了满足 `ddev-clean` 的 regression-tests-first 规则，必须补最小测试覆盖，则允许把**锁定既有行为所必需的最小测试文件**纳入 cleanup 附属范围；这些测试文件也必须计入 cleanup 范围说明和后续验证证据。
 
@@ -124,11 +127,17 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 15. 如果清理 subagent 做出了代码修改，主 agent 必须补充这些修改对应的验证证据，并重新拉独立审查 agent，再做一次完整一致性验收。
 16. 只有当**最后一次一致性验收**输出 `pass` 时，主 agent 才能进入 ddev-c-pro 规范审查阶段。
 17. 主 agent 拉一个新的独立 subagent，加载 `ddev-c-pro` skill，对**清理后的最终代码**做规范审查。
-18. ddev-c-pro 审查 subagent 按 ddev-c-pro skill 中的设计规范、注释规范（Doxygen）、命名规范、风格偏好逐项审查。
+18. ddev-c-pro 审查 subagent 按 ddev-c-pro skill 中的设计规范、命名规范、风格偏好逐项审查。
 19. ddev-c-pro 审查 subagent 输出 `pass` 或 `blocked`，`blocked` 时必须附带需修改项清单。
 20. 如果 ddev-c-pro 审查 `blocked`，主 agent 必须按清单修改代码，然后重新进入这个 skill（从一致性验收重新开始完整流程）。
 21. 如果 ddev-c-pro 审查的修改涉及结构、接口或流程变更，必须在修改后回到一致性验收重审。
-22. 只有当 ddev-c-pro 审查也输出 `pass` 时，主 agent 才能宣称”已经按计划完成”。
+22. 只有当 ddev-c-pro 审查也输出 `pass` 时，主 agent 才能进入 ddev-comment-gen 注释审查阶段。
+23. 主 agent 拉一个新的独立 subagent，加载 `ddev-comment-gen` skill，对**通过 c-pro 审查的最终代码**做注释审查。
+24. ddev-comment-gen 审查 subagent 按 ddev-comment-gen skill 中的审查维度逐文件、逐函数、逐结构体验证注释完整性。
+25. ddev-comment-gen 审查 subagent 输出 `pass` 或 `blocked`，`blocked` 时必须附带缺失项清单和补全建议。
+26. 如果 ddev-comment-gen 审查 `blocked`，主 agent 必须按清单补全注释，然后重新进入这个 skill（从一致性验收重新开始完整流程）。
+27. 如果 ddev-comment-gen 审查的修改涉及函数签名或行为变更，必须在修改后回到一致性验收重审。
+28. 只有当 ddev-c-pro 审查和 ddev-comment-gen 审查均输出 `pass` 时，主 agent 才能宣称”已经按计划完成”。
 
 如果没有新的、可归属到本轮结论的验证证据，最多输出 `need-info`，不能输出 `pass`。
 
@@ -145,20 +154,32 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 - 不允许用”基本一致””差不多符合””核心没问题”这类模糊表述放行
 - 如果本轮代码已经过 `ddev-clean` 清理，必须按**清理后的最终代码**重做对照，不能沿用清理前结论
 
-审查提示模板见 [final-gate-reviewer-prompt.md](final-gate-reviewer-prompt.md)。
+审查提示模板见 [reviewer-prompt.md](reviewer-prompt.md)。
 
 ## ddev-c-pro 规范审查 agent 要求
 
 - 必须是独立视角，不能复用一致性验收 agent 的结论
-- 必须加载 `ddev-c-pro` skill，按其中定义的设计规范、注释规范、命名规范、风格偏好逐项审查
+- 必须加载 `ddev-c-pro` skill，按其中定义的设计规范、命名规范、风格偏好逐项审查
 - **必须使用 `codegraph_impact` 评估改动影响面**：确认规范审查范围内外的符号依赖，避免遗漏受影响的文件
-- 重点检查：全局变量是否必要、参数是否过多未封装、Doxygen 注释是否完整、命名是否遵循模块前缀规范、错误处理是否用显式返回码、内存 ownership 是否明确
+- 重点检查：全局变量是否必要、参数是否过多未封装、命名是否遵循模块前缀规范、错误处理是否用显式返回码、内存 ownership 是否明确
 - 只审查 C 代码规范层面，不重复做架构一致性判断
 - 发现违规项必须返回 `blocked`，并附具体修改项清单
 - 不允许用"基本规范""大体符合"等模糊表述放行
 - 如果本轮代码已经是 ddev-c-pro 审查修改后的代码，必须基于最终版本重新审查，不能沿用前次结论
 
-c-pro 审查提示模板见 [c-pro-reviewer-prompt.md](c-pro-reviewer-prompt.md)。
+c-pro 审查提示模板见 [reviewer-prompt.md](../ddev-c-pro/reviewer-prompt.md)。
+
+## ddev-comment-gen 审查 agent 要求
+
+- 必须是独立视角，不能复用 c-pro 审查 agent 的结论
+- 必须加载 `ddev-comment-gen` skill，按其中定义的审查维度逐文件、逐函数、逐结构体验证注释完整性
+- **必须使用 `codegraph_impact` 评估改动影响面**：确认所有目标文件的公开 API、结构体、枚举均已纳入审查
+- 重点检查：文件头 @file 注释、公开函数 Doxygen 完整性、结构体/枚举成员行内注释、关键逻辑说明注释、注释与代码行为一致性
+- 只审查注释规范层面，不重复做编码规范或架构一致性判断
+- 发现缺失或不足必须返回 `blocked`，并附带逐项缺失清单和补全建议文本
+- 不允许用"基本齐全""大体符合"等模糊表述放行
+
+comment-gen 审查提示模板见 [reviewer-prompt.md](../ddev-comment-gen/reviewer-prompt.md)。
 
 ## ddev-clean 清理 agent 要求
 
@@ -169,7 +190,7 @@ c-pro 审查提示模板见 [c-pro-reviewer-prompt.md](c-pro-reviewer-prompt.md)
 - 如果清理产生代码修改，主 agent 必须补验证证据并重新进入一致性验收
 - 如果清理没有代码修改，直接保留一致性验收结论
 
-cleaner 提示模板见 [cleaner-prompt.md](cleaner-prompt.md)。
+cleaner 提示模板见 [reviewer-prompt.md](../ddev-clean/reviewer-prompt.md)。
 
 ## 重点检查项
 
@@ -187,7 +208,7 @@ cleaner 提示模板见 [cleaner-prompt.md](cleaner-prompt.md)。
 - 是否把本应拆分的职责重新塞回大函数
 - 是否出现未在设计中说明的长链 `if/else`
 
-对于通用 C 项目，代码规范审查由 `ddev-c-pro` skill 专门负责，此处一致性验收不重复做风格/注释/命名审查。
+对于通用 C 项目，代码规范审查由 `ddev-c-pro` skill 专门负责，注释审查由 `ddev-comment-gen` skill 专门负责，此处一致性验收不重复做风格/注释/命名审查。
 
 对于嵌入式 C / 纯 C，额外重点检查：
 
@@ -223,7 +244,7 @@ cleaner 提示模板见 [cleaner-prompt.md](cleaner-prompt.md)。
 - 未覆盖风险已明确说明
 - task_plan.md 存在且所有 checkbox 已完成、所有错误已解决、check-complete 验证通过
 - 若经历过 `ddev-clean` 清理，则清理后的最终代码也已重新完成一致性验收
-- 若项目为 C 代码（`.c` / `.h`），则 `ddev-c-pro` 规范审查已通过
+- 若项目为 C 代码（`.c` / `.h`），则 `ddev-c-pro` 规范审查和 `ddev-comment-gen` 注释审查均已通过
 
 ### `need-info`
 
@@ -255,6 +276,7 @@ cleaner 提示模板见 [cleaner-prompt.md](cleaner-prompt.md)。
 - 结论依赖关键证据，但证据不存在
 - `ddev-clean` 修改了代码，但清理后的实现还没有重新完成一致性验收
 - `ddev-c-pro` 规范审查 `blocked`，且修改后尚未重新完成完整门禁流程
+- `ddev-comment-gen` 注释审查 `blocked`，且修改后尚未重新完成完整门禁流程
 
 判定原则：
 
@@ -274,6 +296,7 @@ cleaner 提示模板见 [cleaner-prompt.md](cleaner-prompt.md)。
 6. 未覆盖风险：明确还没验证到哪里
 7. 如果进入过 `ddev-clean`，要明确说明：清理是否改代码、清理范围是什么、清理后是否已重新验收
 8. ddev-c-pro 规范审查结论：是否已审查、审查结果、若 blocked 则附修改项清单
+9. ddev-comment-gen 注释审查结论：是否已审查、审查结果、若 blocked 则附缺失项清单
 
 如果没有发现不一致，也不能只说“通过”，仍要说明对照了什么。
 
@@ -289,6 +312,7 @@ cleaner 提示模板见 [cleaner-prompt.md](cleaner-prompt.md)。
 - 如需独立质量复核，联动 `requesting-code-review`
 - 如需在一致性通过后做垃圾代码清理和可维护性提升，联动 `ddev-clean`
 - 如需在清理后做 C 语言编码规范审查，联动 `ddev-c-pro`
+- 如需在 c-pro 通过后做注释完整性和规范性审查，联动 `ddev-comment-gen`
 - 默认在 `ddev-exec` 的末尾作为最终收口门禁
 - 验收结论（pass / need-info / blocked）调用 `ddev-decision-log` 写入 `findings/gate/`
 
@@ -300,4 +324,4 @@ cleaner 提示模板见 [cleaner-prompt.md](cleaner-prompt.md)。
 
 如果进入了 `ddev-clean` 清理阶段，最终放行对象是**清理后的最终代码**，不是清理前那一版代码。
 
-对于 C 代码项目，`ddev-c-pro` 规范审查是必经环节，未通过 ddev-c-pro 审查不能给最终 `pass`。
+对于 C 代码项目，`ddev-c-pro` 规范审查和 `ddev-comment-gen` 注释审查是必经环节，两者均通过才能给最终 `pass`。
