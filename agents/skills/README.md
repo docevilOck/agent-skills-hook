@@ -78,10 +78,10 @@
      ├─ 第二段：拉独立 subagent 调用 ddev-clean 做垃圾代码清理
      │          ├─ 清理未改代码 → 保留结论，进入第三段
      │          └─ 清理改了代码 → 重新回到第一段做一致性重审
-     ├─ 第三段：拉独立 subagent 加载 ddev-c-pro 做 C 编码规范审查
+     ├─ 第三段：拉独立 subagent 做编码规范审查（C 项目加载 ddev-c-pro，其他语言按需路由）
      │          ├─ 通过 → pass，进入第四段
      │          └─ 不通过 → 打回修改，修改后重新进入本 skill
-     └─ 第四段：拉独立 subagent 加载 ddev-comment-gen 做注释完整性审查
+     └─ 第四段：拉独立 subagent 做注释/文档审查（C 项目加载 ddev-comment-gen，其他语言按需路由）
                 ├─ 通过 → 最终 pass，任务完成
                 └─ 不通过 → 补全注释，修改后重新进入本 skill
 ```
@@ -90,7 +90,7 @@
 |------|------|----------|----------|
 | ① 设计 | `ddev-spec` | 在编码前用图讲清改动边界、模块关系、接入点和主流程 | 仅产出 spec 文档，不得直接改代码；图优先、文辅佐；遵守项目级 `docs/architecture/` 约束 |
 | ② 细化 | `ddev-detail` | spec 确认后细化结构体定义、数据流图和关键流程图 | spec 文档必须先获确认才能进入此阶段；图优先、文辅佐 |
-| ③ 验收 | `ddev-gate` | 代码实现完成后逐项核对是否与 spec/detail 文档一致，通过后执行 slop 清理、C 规范审查和注释审查 | 一致性不通过就打回重改，循环直到 pass；c-pro 和 comment-gen 均通过方可放行 |
+| ③ 验收 | `ddev-gate` | 代码实现完成后逐项核对是否与 spec/detail 文档一致，通过后执行 slop 清理、编码规范审查和注释审查 | 一致性不通过就打回重改，循环直到 pass；规范审查和注释审查按语言路由（C 项目经 c-pro + comment-gen），均通过方可放行 |
 
 > **联动技能**：`ddev-diagram`（画图规范）、`ddev-plan`（拆解执行计划）、`ddev-exec`（执行计划）、`ddev-clean`（被 ddev-gate 调用的代码清理）、`ddev-c-pro`（C 编码规范审查）、`ddev-comment-gen`（注释完整性审查）。
 
