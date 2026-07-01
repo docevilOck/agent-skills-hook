@@ -1,0 +1,46 @@
+{
+  "optimization_id": "opt_20260701_git-commit-template_na_fallback",
+  "skill": "git-commit-template",
+  "timestamp": "2026-07-01T11:41:54.672174",
+  "mode": "text_edit",
+  "edits": [
+    {
+      "type": "replace",
+      "target": "| 版本 | 版本源文件或发布版本号 | 不把长版本信息塞进标题 |",
+      "new": "| 版本 | 版本源文件或发布版本号；若无版本号，填 `N/A` | 不把长版本信息塞进标题；禁止在没有版本号时尝试查找或推导版本号 |",
+      "reason": "字段说明增加 N/A 兜底 + 禁止查找推导",
+      "source_cluster_id": "c_001"
+    },
+    {
+      "type": "replace",
+      "target": "版本：<artifact-or-release-version>",
+      "new": "版本：<artifact-or-release-version，无版本号则填 N/A>",
+      "reason": "模板占位符直接提示 N/A",
+      "source_cluster_id": "c_001"
+    },
+    {
+      "type": "replace",
+      "target": "- 正文与版本头、README/changelog、归档产物不一致。",
+      "new": "- 正文与版本头、README/changelog、归档产物不一致。\n- 在没有版本号时尝试查找或推导版本号（如搜索 VERSION 宏、package.json 等），应直接填 `N/A`。",
+      "reason": "常见错误新增错误模式",
+      "source_cluster_id": "c_001"
+    }
+  ],
+  "gate_result": {
+    "clusters_total": 1,
+    "clusters_passed": 1,
+    "verdicts": [
+      {
+        "cluster_id": "c_001",
+        "verdict": "NO",
+        "reason": "三处修改显式覆盖信号缺口"
+      }
+    ]
+  },
+  "pre_optimization_hash": "c7a6a441be2f998163d9326efa8affafa783f490d9ba8d700b0b2fc09579af72",
+  "post_optimization_hash": "ac22a63609dd46486c720362b012ec7274b1a74441364baaf1bb24b29569d1a1",
+  "signal_ids": [
+    "20260630T110000_git-commit-template_fe5085"
+  ],
+  "pre_skill_backup": "---\nname: git-commit-template\ndescription: 进行代码提交时触发。提供统一的提交标题（Conventional Commits）、正文模板、字段含义、写作风格和正反示例。应由 git-commit-standard 等提交流程 skill 强制加载。\n---\n\n# git-commit-template\n\n提交说明的书写规范与模板。不负责提交流程（版本、固件、changelog 同步等），只定义 commit message 怎么写。\n\n## 标题（Subject）\n\n标题使用 Conventional Commits 格式，英文小写 `type`，可追加 `scope`，中文描述：\n\n```\n<type>[scope]: <中文描述>\n```\n\n### Commit Types\n\n| type | 用途 |\n|------|------|\n| `feat` | 新功能 |\n| `fix` | 修复缺陷 |\n| `docs` | 文档变更 |\n| `style` | 格式/风格（无逻辑变更） |\n| `refactor` | 代码重构（无功能/修复变更） |\n| `perf` | 性能优化 |\n| `test` | 新增/更新测试 |\n| `build` | 构建/依赖变更 |\n| `ci` | CI/配置变更 |\n| `chore` | 维护/杂项 |\n\n示例：\n- `refactor: 简化编码规范流程并增强编译指令生成`\n- `feat[agent-browser]: 新增截图对比功能`\n- `fix: 修复 skills 链接在 Windows 下失效`\n\n## 正文模板\n\n**主题行**可使用 Conventional Commits 简写（如 `feat: xxx`、`fix: xxx`），但**正文必须包含**以下字段（格式优先参考仓库既有提交历史）：\n\n```text\n版本：<artifact-or-release-version>\n时间：<date>\n修改者：<git config user.name>\n更改点：\n1）修改原因：\n   1. <why-1>\n   2. <why-2>\n2）修改依据：\n   1. <basis-1>\n   2. <basis-2>\n3）修改方法：\n   1. <how-1>\n   2. <how-2>\n4）修改影响：\n   1. <impact-1>\n   2. <impact-2>\n```\n\n若仓库已有自己的模板，按仓库模板。\n\n## 字段说明\n\n| 字段 | 来源 | 说明 |\n|------|------|------|\n| type[scope] | 标题 | Conventional Commits 格式 |\n| 版本 | 版本源文件或发布版本号 | 不把长版本信息塞进标题 |\n| 时间 | 当前日期 | 格式沿用仓库历史；若无固定格式，使用 `YYYY.MM.DD` |\n| 修改者 | `git config user.name` | 除非仓库另有要求 |\n| 修改原因 | 本次改动要解决什么问题 | 从用户/产品/业务角度说明 |\n| 修改依据 | 基于什么理由做这个修改 | 需求、bug、设计文档等 |\n| 修改方法 | 关键实现手段摘要 | 只写方法摘要，不展开实现细节 |\n| 修改影响 | 对用户/系统/兼容性的影响 | 只写关键结果，不写过细技术影响 |\n\n## 写作风格\n\n- **标题**：`type[scope]: 中文描述`，聚焦提交目的，简练清晰。\n- **正文**：只描述本次真实业务、代码、文档、兼容性和影响变化。不要写提交流程、是否递进版本、是否归档固件、后续应该做什么等流程话术。\n- **默认禁止一整段说明式写法**：在 `修改原因/修改依据/修改方法/修改影响` 后直接跟一大句完整说明而不分点（除非仓库历史模板明确要求单段写法）。\n- **同一一级字段下最多 3 条子点**：先压缩语言，再检查是否还能继续合并同类项。能写成一条摘要时，不拆成多条细节。\n- **同一一级字段下存在两个及以上独立主题时**：拆成 `1.` `2.` `3.` 子点，不要把多个主题塞进一个长句、分号串联句或并列从句里。\n- **\"修改方法\" 默认不写过细实现细节**：不写具体函数级处理步骤、内部状态机细节、输入输出字节级变化、调试日志点布置、具体兼容分支和兜底路径。\n- **\"修改影响\" 默认不写过细技术影响**：不写某种旧报文/旧字段/旧格式会被拒绝、某个中间态如何切换、内部 session/payload 如何分段推进、过细的协议兼容边界。\n- 不要把\"已按默认流程检查/同步固件和 README/changelog\"写成变更点或原因；默认流程是否执行记录在任务汇报中即可。\n\n## 正反示例\n\n### 修改方法\n\n推荐（短句概括，最多 3 点）：\n```\n3）修改方法：\n   1. 收口提交正文模板\n   2. 增加最多 3 点约束\n   3. 补充正反示例\n```\n\n不推荐（长句串联、函数级细节）：\n```\n3）修改方法：收口提交正文模板并增加最多 3 点约束，同时补充正反示例以\n避免提交时继续输出整段长句。修改了 validate_template() 函数内部的状态机\n处理，增加了字段级校验和回退逻辑。\n```\n\n### 修改影响\n\n推荐（用户/业务视角）：\n```\n4）修改影响：\n   1. 提交模板统一为四字段结构\n   2. 不再接受整段式提交说明\n```\n\n不推荐（过细技术影响）：\n```\n4）修改影响：\n   1. 旧的单段提交格式会被拒绝\n   2. 内部 session 状态切换逻辑不变\n   3. 兼容旧版本 review 工具\n```\n\n## 常见错误\n\n- 在 commit message 里写\"按默认流程检查/同步固件和 README\"造成提交说明噪音。\n- 在 commit message 或版本履历里写\"不修改版本宏\"\"不归档固件产物\"\"后续需要更新固件\"等流程说明。\n- 标题塞入过长版本字符串。\n- 多个独立影响面挤在一条长句里，导致兼容性、策略和行为混在一起。\n- 一级字段下分出 5-8 条碎点，没有先压缩语言、合并同类项。\n- 正文与版本头、README/changelog、归档产物不一致。\n"
+}
