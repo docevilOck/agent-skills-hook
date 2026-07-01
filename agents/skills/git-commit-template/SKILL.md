@@ -40,7 +40,7 @@ description: 进行代码提交时触发。提供统一的提交标题（Convent
 **主题行**可使用 Conventional Commits 简写（如 `feat: xxx`、`fix: xxx`），但**正文必须包含**以下字段（格式优先参考仓库既有提交历史）：
 
 ```text
-版本：<artifact-or-release-version>
+版本：<artifact-or-release-version，无版本号则填 N/A>
 时间：<date>
 修改者：<git config user.name>
 更改点：
@@ -65,7 +65,7 @@ description: 进行代码提交时触发。提供统一的提交标题（Convent
 | 字段 | 来源 | 说明 |
 |------|------|------|
 | type[scope] | 标题 | Conventional Commits 格式 |
-| 版本 | 版本源文件或发布版本号 | 不把长版本信息塞进标题 |
+| 版本 | 版本源文件或发布版本号；若无版本号，填 `N/A` | 不把长版本信息塞进标题；禁止在没有版本号时尝试查找或推导版本号 |
 | 时间 | 当前日期 | 格式沿用仓库历史；若无固定格式，使用 `YYYY.MM.DD` |
 | 修改者 | `git config user.name` | 除非仓库另有要求 |
 | 修改原因 | 本次改动要解决什么问题 | 从用户/产品/业务角度说明 |
@@ -128,3 +128,4 @@ description: 进行代码提交时触发。提供统一的提交标题（Convent
 - 多个独立影响面挤在一条长句里，导致兼容性、策略和行为混在一起。
 - 一级字段下分出 5-8 条碎点，没有先压缩语言、合并同类项。
 - 正文与版本头、README/changelog、归档产物不一致。
+- 在没有版本号时尝试查找或推导版本号（如搜索 VERSION 宏、package.json 等），应直接填 `N/A`。
