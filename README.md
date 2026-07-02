@@ -71,7 +71,7 @@ cd windows
 | `ddev-pc-test` | 判断是否可在 PC 写测试 demo 验证，生成测试用例 |
 | `ddev-plan` | 将 spec/detail 拆解为可执行实现步骤 |
 | `ddev-exec` | 按计划顺序执行任务，含进度跟踪 |
-| `ddev-final` | 最终质量检查，含 lint/typecheck/测试验证 |
+| `ddev-final` | 最终设计归档，记录实现与原计划的差异 |
 | `ddev-gate` | 实现一致性最终验收（一致性→清理→规范 三阶段） |
 | `ddev-clean` | 代码 slop 清理，死代码删除/去重/命名修正 |
 | `ddev-c-pro` | C 语言设计规范、Doxygen 注释、命名与风格约束 |
