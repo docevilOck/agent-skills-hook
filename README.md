@@ -5,7 +5,7 @@ Claude Code / Codex CLI / OpenCode 三套 AI 编码运行时的共享配置与�
 ## 做什么
 
 - **单一配置源**：`config/` 维护三套运行时的入口指令、子代理定义、MCP 注册和插件配置，部署时通过符号链接 / Junction 同步到各自用户目录。
-- **共享技能库**：`agents/skills/` 提供 60+ 个跨运行时共用的技能，由 `skill-forced-eval` 按请求自动匹配加载。
+- **共享技能库**：`agents/skills/` 提供 64 个跨运行时共用的技能，由 `skill-forced-eval` 按请求自动匹配加载。
 - **一键部署**：`linux/deploy.sh` 和 `windows/deploy.ps1` 自动完成链接创建、配置合并、MCP 注册、插件安装，部署前自动备份。
 
 ## 目录结构
@@ -27,7 +27,7 @@ agent-skills-hook/
 │   │   ├── agents/                 # OpenCode 子代理定义
 │   │   └── prompts/               # 共享提示词模板
 │   └── shared/mcp_servers.json     # 共享 MCP 服务器定义
-├── agents/skills/                  # 共享技能库（76 目录）
+├── agents/skills/                  # 共享技能库（64 个技能）
 ├── linux/deploy.sh                 # Linux 部署（软链接）
 ├── windows/deploy.ps1              # Windows 部署（Junction）
 ├── scripts/                        # 辅助脚本
@@ -71,6 +71,7 @@ cd windows
 | `ddev-pc-test` | 判断是否可在 PC 写测试 demo 验证，生成测试用例 |
 | `ddev-plan` | 将 spec/detail 拆解为可执行实现步骤 |
 | `ddev-exec` | 按计划顺序执行任务，含进度跟踪 |
+| `ddev-final` | 最终质量检查，含 lint/typecheck/测试验证 |
 | `ddev-gate` | 实现一致性最终验收（一致性→清理→规范 三阶段） |
 | `ddev-clean` | 代码 slop 清理，死代码删除/去重/命名修正 |
 | `ddev-c-pro` | C 语言设计规范、Doxygen 注释、命名与风格约束 |
@@ -188,17 +189,12 @@ ddev-gate        ← 三道关卡验收：一致性 → 清理 → C 规范
 
 | 技能 | 说明 |
 |------|------|
-| `skill-forced-eval` | **核心调度器**——每轮请求强制评估匹配技能 |
-| `tool-routing` | 工具路由规则（codegraph/ctx/grep 选择策略） |
 | `skill` | 技能管理：列表/添加/删除/搜索/编辑 |
 | `find-skills` | 查找和安装社区技能 |
 | `skill-recorder` | 技能使用信号记录（corrected/friction） |
 | `skill-optimizer` | 基于信号集群优化 skill（8 步管线） |
 | `skill-init` | skill-optimizer 系统初始化 |
 | `writing-skills` | 创建/编辑/验证 skills 和 SKILL.md |
-| `using-superpowers` | 执行类 skills 使用说明 |
-| `using-git-worktrees` | 隔离 git worktree 创建与验证 |
-| `plan` | 战略规划（含可选访谈流程） |
 | `grill-me` | 高强度追问——逐项压实计划/设计的关键分支 |
 | `neat-freak` | 会话结束知识洁癖清理——同步文档与代码 |
 | `pdf_demo_skill` | PDF 处理能力演示 |
