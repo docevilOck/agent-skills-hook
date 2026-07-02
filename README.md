@@ -5,7 +5,7 @@ Claude Code / Codex CLI / OpenCode 三套 AI 编码运行时的共享配置与�
 ## 做什么
 
 - **单一配置源**：`config/` 维护三套运行时的入口指令、子代理定义、MCP 注册和插件配置，部署时通过符号链接 / Junction 同步到各自用户目录。
-- **共享技能库**：`agents/skills/` 提供 64 个跨运行时共用的技能，由 `skill-forced-eval` 按请求自动匹配加载。
+- **共享技能库**：`agents/skills/` 提供 62 个跨运行时共用的技能，由 `skill-forced-eval` 按请求自动匹配加载。
 - **一键部署**：`linux/deploy.sh` 和 `windows/deploy.ps1` 自动完成链接创建、配置合并、MCP 注册、插件安装，部署前自动备份。
 
 ## 目录结构
@@ -27,7 +27,7 @@ agent-skills-hook/
 │   │   ├── agents/                 # OpenCode 子代理定义
 │   │   └── prompts/               # 共享提示词模板
 │   └── shared/mcp_servers.json     # 共享 MCP 服务器定义
-├── agents/skills/                  # 共享技能库（64 个技能）
+├── agents/skills/                  # 共享技能库（62 个技能）
 ├── linux/deploy.sh                 # Linux 部署（软链接）
 ├── windows/deploy.ps1              # Windows 部署（Junction）
 ├── scripts/                        # 辅助脚本
@@ -77,7 +77,6 @@ cd windows
 | `ddev-c-pro` | C 语言设计规范、Doxygen 注释、命名与风格约束 |
 | `ddev-doc-review` | 文档审查（独立子代理，五维度检查） |
 | `ddev-decision-log` | 决策记录，贯穿全流程 |
-| `code-review` | 代码审查，依赖 codegraph 做结构影响分析 |
 | `ddev-comment-gen` | C 项目注释生成与审查，Doxygen 标准中文注释 |
 | `compile-commands-init` | C/C++ 项目 compile_commands.json 与 clangd 配置 |
 | `trace-flow` | 调用链追踪 |
@@ -116,8 +115,7 @@ ddev-gate        ← 三道关卡验收：一致性 → 清理 → C 规范
 
 | 技能 | 说明 |
 |------|------|
-| `requesting-code-review` | 完成任务/功能后请求代码审查 |
-| `receiving-code-review` | 接收审查反馈，技术严谨验证后实现 |
+| `code-review` | 代码审查，依赖 codegraph 做结构影响分析 |
 | `verification-before-completion` | 完成前验证——先跑命令确认输出，再宣称通过 |
 | `systematic-debugging` | 系统化调试流程，修复前先定位根因 |
 | `debug-locate-assistant` | C/C++ 回归定位，精确到 file:line/function |

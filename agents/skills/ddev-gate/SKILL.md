@@ -53,7 +53,7 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 
 如果只是想先检查有没有跑验证命令，优先用 `verification-before-completion`。
 
-如果只是想让另一个视角找 bug，优先用 `requesting-code-review`。
+如果只是想让另一个视角找 bug，优先用 `code-review`。
 
 如果目标是**实现与设计一致性验收**，并在通过后继续做一轮受限 deslop / maintainability cleanup，再经编码规范审查和注释审查，最后复核一致性，用这个 skill。
 
@@ -317,7 +317,7 @@ cleaner 提示模板见 [reviewer-prompt.md](../ddev-clean/reviewer-prompt.md)�
 - 上游通常来自 `ddev-spec`
 - detail 输入通常来自 `ddev-detail`
 - 如需补验证证据，联动 `verification-before-completion`
-- 如需独立质量复核，联动 `requesting-code-review`
+- 如需独立质量复核，联动 `code-review`
 - 如需在一致性通过后做垃圾代码清理和可维护性提升，联动 `ddev-clean`
 - 如需在清理后做编码规范审查，联动对应语言的编码规范 skill（C 项目联动 `ddev-c-pro`）
 - 如需在规范审查通过后做注释完整性和规范性审查，联动对应语言的注释审查 skill（C 项目联动 `ddev-comment-gen`）
