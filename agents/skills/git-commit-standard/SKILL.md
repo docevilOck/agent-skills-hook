@@ -1,6 +1,6 @@
 ---
 name: git-commit-standard
-description: 【禁止自动加载 — 不可被 skill-forced-eval 匹配】仅限用户手动调用。加载后必须向用户确认版本号是否递进及递进方式、更新固件产物和 README。触发词仅限"按标准流程提交""按提交流程提交"，不含"提交""提交一下""commit"等泛化提交词。
+description: 【禁止自动加载 — 不可被「技能强制评估」自动匹配】仅限用户手动调用。加载后必须向用户确认版本号是否递进及递进方式、更新固件产物和 README。触发词仅限"按标准流程提交""按提交流程提交"，不含"提交""提交一下""commit"等泛化提交词。
 ---
 
 # git-commit-standard
@@ -31,7 +31,7 @@ description: 【禁止自动加载 — 不可被 skill-forced-eval 匹配】仅�
 
 **禁止使用：**
 
-- **agent 不得以任何理由自动加载本 skill**（包括但不限于：AGENTS.md 配置、skill-forced-eval、上下文推断、检测到 commit 操作）。
+- **agent 不得以任何理由自动加载本 skill**（包括但不限于：AGENTS.md 配置、技能强制评估、上下文推断、检测到 commit 操作）。
 - 只做代码调研、diff 查看、问题分析，不准备提交。
 
 ## Repository Rule Discovery

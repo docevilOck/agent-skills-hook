@@ -5,7 +5,7 @@ Claude Code / Codex CLI / OpenCode 三套 AI 编码运行时的共享配置与�
 ## 做什么
 
 - **单一配置源**：`config/` 维护三套运行时的入口指令、子代理定义、MCP 注册和插件配置，部署时通过符号链接 / Junction 同步到各自用户目录。
-- **共享技能库**：`agents/skills/` 提供 61 个跨运行时共用的技能，由 `skill-forced-eval` 按请求自动匹配加载。
+- **共享技能库**：`agents/skills/` 提供跨运行时共用的技能，通过系统指令中的「技能强制评估」按请求自动匹配加载。
 - **一键部署**：`linux/deploy.sh` 和 `windows/deploy.ps1` 自动完成链接创建、配置合并、MCP 注册、插件安装，部署前自动备份。
 
 ## 目录结构

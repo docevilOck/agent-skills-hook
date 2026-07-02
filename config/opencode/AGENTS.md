@@ -86,7 +86,7 @@
 每轮必须扫描可用 skill 列表，评估与当前请求的匹配度：
 - 加载最多 5 个匹配 skill，输出简短 "Skill Match" 块（各 skill + 一行理由）
 - 无匹配则输出 "Skill Match: none"
-- 禁止跳过、禁止递归评估自身（`skill-forced-eval`）
+- 禁止跳过。
 
 ### 技能工具强制使用
 
