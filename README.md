@@ -179,7 +179,7 @@ ddev-gate        ← 三道关卡验收：一致性 → 清理 → C 规范
 | 技能 | 说明 |
 |------|------|
 | `skill-forced-eval` | **核心调度器**——每轮请求强制评估匹配技能 |
-| `tool-routing` | 工具路由规则（codegraph/ctx/semble/grep 选择策略） |
+| `tool-routing` | 工具路由规则（codegraph/ctx/grep 选择策略） |
 | `skill` | 技能管理：列表/添加/删除/搜索/编辑 |
 | `find-skills` | 查找和安装社区技能 |
 | `skill-recorder` | 技能使用信号记录（corrected/friction） |
@@ -203,7 +203,6 @@ ddev-gate        ← 三道关卡验收：一致性 → 清理 → C 规范
 
 部署脚本自动检查并安装：
 - **codegraph**：`npm i -g @colbymchenry/codegraph`
-- **semble**：Linux pip / Windows uvx
 - **uv**（Windows）：pip 安装
 - **opencode CLI**：缺失时跳过插件安装
 

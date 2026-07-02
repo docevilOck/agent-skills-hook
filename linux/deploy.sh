@@ -11,10 +11,6 @@ STAMP="$(date +%Y%m%d-%H%M%S)"
 
 # Skills 位于仓库根目录
 REPO_SKILLS="$REPO_ROOT/agents/skills"
-SEMBLE_BUNDLE_ROOT="$REPO_ROOT/semble_offline_bundle"
-SEMBLE_MODEL_NAME="minishlab--potion-code-16M"
-SEMBLE_SNAPSHOT="86848193a842865570d9c8d3e7d268b66ab52752"
-
 # 配置源位于 config/ 目录（自包含）
 CONFIG_ROOT="$REPO_ROOT/config"
 CODEX_AGENTS="$CONFIG_ROOT/codex/agents"
@@ -126,21 +122,6 @@ show_codegraph_reminder() {
   echo "Per-repo indexing still needs 'codegraph init -i <repo>'."
 }
 
-ensure_semble_installed() {
-  if command -v semble >/dev/null 2>&1; then
-    echo "Semble already installed: $(command -v semble)"
-    return 0
-  fi
-
-  if ! command -v python3 >/dev/null 2>&1; then
-    echo "ERROR: semble not found in PATH, and python3 is unavailable. Install Python first." >&2
-    return 1
-  fi
-
-  echo "Semble not found. Installing semble via pip..."
-  python3 -m pip install --upgrade semble
-}
-
 install_opencode_plugins() {
   local opencode_dir="$1"
 
@@ -183,27 +164,6 @@ else:
       echo "  WARNING: Failed to install plugin '$pkg_name'"
     fi
   done <<< "$plugins"
-}
-
-deploy_semble_offline_model() {
-  local model_source="$SEMBLE_BUNDLE_ROOT/model/$SEMBLE_MODEL_NAME"
-  local weights_path="$model_source/model.safetensors"
-
-  if [ ! -f "$weights_path" ]; then
-    echo "Semble offline model bundle missing at $weights_path; skip offline model deploy."
-    return 0
-  fi
-
-  local cache_root="$HOME/.cache/huggingface/hub"
-  local repo_cache_dir="$cache_root/models--$SEMBLE_MODEL_NAME"
-  local snapshot_root="$repo_cache_dir/snapshots/$SEMBLE_SNAPSHOT"
-  local refs_dir="$repo_cache_dir/refs"
-
-  rm -rf "$snapshot_root"
-  mkdir -p "$snapshot_root" "$refs_dir"
-  cp -a "$model_source/." "$snapshot_root/"
-  printf '%s\n' "$SEMBLE_SNAPSHOT" > "$refs_dir/main"
-  echo "Semble offline model deployed to $snapshot_root"
 }
 
 deploy_mcp_servers() {
@@ -258,8 +218,6 @@ PY
 
 ensure_codegraph_installed
 show_codegraph_reminder
-ensure_semble_installed
-deploy_semble_offline_model
 
 # Codex 部署
 if [ "$TARGET" = "codex" ] || [ "$TARGET" = "all" ]; then

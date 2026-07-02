@@ -17,7 +17,7 @@ This skill activates when:
 
 ## Companion Skills
 
-Always load `tool-routing` alongside this skill to ensure correct codegraph/semble/grep dispatch during structural analysis.
+Always load `tool-routing` alongside this skill to ensure correct codegraph/grep dispatch during structural analysis.
 
 ## What It Does
 

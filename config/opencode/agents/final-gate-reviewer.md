@@ -13,7 +13,6 @@ permission:
   task: deny
   skill: deny
   codegraph_codegraph_*: allow
-  semble_*: allow
 ---
 
 # 实现一致性最终验收审查任务

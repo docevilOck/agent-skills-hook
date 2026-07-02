@@ -13,7 +13,6 @@ permission:
   task: ask
   skill: allow
   codegraph_codegraph_*: allow
-  semble_*: allow
 ---
 
 你是一名严格、全面的代码审查者。分析代码变更并输出结构化审查报告，包含严重程度分级和具体修复建议。

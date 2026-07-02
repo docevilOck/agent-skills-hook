@@ -1,7 +1,7 @@
 ---
 name: ddev-gate-reviewer
 description: 实现一致性最终验收审查代理。对照 spec/detail/exec plan/code/evidence 做逐项一致性验收。仅允许输出 pass/need-info/blocked。由 ddev-gate skill 调度。
-tools: Read, Grep, Glob, Bash, mcp__codegraph__codegraph_*, mcp__semble__*
+tools: Read, Grep, Glob, Bash, mcp__codegraph__codegraph_*
 model: inherit
 ---
 

@@ -14,9 +14,6 @@ $ErrorActionPreference = "Stop"
 
 $Stamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $RepoSkills = Join-Path $RepoRoot "agents\skills"
-$SembleBundleRoot = Join-Path $RepoRoot "semble_offline_bundle"
-$SembleModelName = "minishlab--potion-code-16M"
-$SembleSnapshot = "86848193a842865570d9c8d3e7d268b66ab52752"
 $ConfigRoot = Join-Path $RepoRoot "config"
 $CodexAgents = Join-Path $ConfigRoot "codex\agents"
 $SharedConfigRoot = Join-Path $ConfigRoot "shared"
@@ -205,39 +202,6 @@ function Show-CodeGraphReminder {
     Write-Host "Per-repo indexing still needs 'codegraph init -i <repo>'."
 }
 
-function Ensure-SembleInstalled {
-    $uvx = Get-Command uvx -ErrorAction SilentlyContinue
-    if ($null -eq $uvx) {
-        $uv = Get-Command uv -ErrorAction SilentlyContinue
-        if ($null -eq $uv) {
-            Write-Host "uv not found. Installing uv via pip..."
-            python -m pip install --upgrade uv
-        }
-    }
-    Write-Host "Semble MCP configured via uvx in opencode.json."
-}
-
-function Deploy-SembleOfflineModel {
-    $ModelSource = Join-Path $SembleBundleRoot "model\$SembleModelName"
-    $WeightsPath = Join-Path $ModelSource "model.safetensors"
-
-    if (-not (Test-Path $WeightsPath)) {
-        Write-Host "Semble offline model bundle missing at $WeightsPath; skip offline model deploy."
-        return
-    }
-
-    $CacheRoot = Join-Path $env:USERPROFILE ".cache\huggingface\hub"
-    $RepoCacheDir = Join-Path $CacheRoot "models--$SembleModelName"
-    $SnapshotRoot = Join-Path $RepoCacheDir "snapshots\$SembleSnapshot"
-    $RefsDir = Join-Path $RepoCacheDir "refs"
-
-    Copy-DirectoryTree $ModelSource $SnapshotRoot
-    New-Item -ItemType Directory -Path $RefsDir -Force | Out-Null
-    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
-    [System.IO.File]::WriteAllText((Join-Path $RefsDir "main"), $SembleSnapshot, $utf8NoBom)
-    Write-Host "Semble offline model deployed to $SnapshotRoot"
-}
-
 function Deploy-McpServers {
     param(
         [string]$Runtime,
@@ -282,8 +246,6 @@ function Deploy-McpServers {
 
 Ensure-CodeGraphInstalled
 Show-CodeGraphReminder
-Ensure-SembleInstalled
-Deploy-SembleOfflineModel
 
 # Codex 部署
 if ($Target -eq "codex" -or $Target -eq "all") {

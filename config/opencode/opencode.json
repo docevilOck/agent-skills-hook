@@ -13,14 +13,6 @@
         "--mcp"
       ],
       "timeout": 60000
-    },
-    "semble": {
-      "type": "local",
-      "enabled": true,
-      "command": [
-        "semble"
-      ],
-      "timeout": 60000
     }
   },
   "compaction": {
@@ -28,7 +20,7 @@
     "prune": true,
     "reserved": 12000
   },
-    "plugin": [
+  "plugin": [
     "@tarquinen/opencode-dcp@latest",
     "opencode-pty",
     "context-mode"
