@@ -72,7 +72,8 @@ cd windows
 | `ddev-plan` | 将 spec/detail 拆解为可执行实现步骤 |
 | `ddev-exec` | 按计划顺序执行任务，含进度跟踪 |
 | `ddev-final` | 最终设计归档，记录实现与原计划的差异 |
-| `ddev-gate` | 实现一致性最终验收（一致性→清理→规范 三阶段） |
+| `ddev-gate` | 实现一致性最终验收（一致性→清理→代码审查→规范→注释 五阶段） |
+| `ddev-code-review` | 代码质量审查，安全/性能/可维护性，按严重程度分级 |
 | `ddev-clean` | 代码 slop 清理，死代码删除/去重/命名修正 |
 | `ddev-c-pro` | C 语言设计规范、Doxygen 注释、命名与风格约束 |
 | `ddev-doc-review` | 文档审查（独立子代理，五维度检查） |
@@ -98,7 +99,7 @@ ddev-plan        ← 拆成可执行任务清单
     ↓
 ddev-exec        ← 逐个执行，自动跟踪进度
     ↓
-ddev-gate        ← 三道关卡验收：一致性 → 清理 → C 规范
+ddev-gate        ← 五道关卡验收：一致性 → 清理 → 代码审查 → C 规范 → 注释
     ↓
 完成
 ```
@@ -107,7 +108,7 @@ ddev-gate        ← 三道关卡验收：一致性 → 清理 → C 规范
 - `ddev-diagram` — 任何阶段需要画图时调用
 - `ddev-decision-log` — 做技术决策时记录
 - `ddev-doc-review` — 文档写完后派独立子代理审查
-- `code-review` — 代码改动后做质量/安全检查
+- `ddev-code-review` — 代码改动后做质量/安全检查
 
 实际使用时不需要每次都跑全流程。小改动可以直接 `ddev-spec → ddev-plan → ddev-exec → ddev-gate`。纯 bug 修复甚至可以跳过 spec，直接从 `ddev-plan` 开始。
 
@@ -115,7 +116,6 @@ ddev-gate        ← 三道关卡验收：一致性 → 清理 → C 规范
 
 | 技能 | 说明 |
 |------|------|
-| `code-review` | 代码审查，依赖 codegraph 做结构影响分析 |
 | `verification-before-completion` | 完成前验证——先跑命令确认输出，再宣称通过 |
 | `systematic-debugging` | 系统化调试流程，修复前先定位根因 |
 | `debug-locate-assistant` | C/C++ 回归定位，精确到 file:line/function |

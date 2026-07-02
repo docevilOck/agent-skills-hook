@@ -1,6 +1,6 @@
 ---
 name: code-reviewer
-description: 代码审查代理。对代码变更进行全面的质量、安全、性能和可维护性审查，按严重程度分级输出报告。由 code-review skill 调度。
+description: 代码审查代理。对代码变更进行全面的质量、安全、性能和可维护性审查，按严重程度分级输出报告。由 ddev-code-review skill 调度。
 tools: Read, Grep, Glob, Bash, WebFetch, Skill, mcp__codegraph__codegraph_*
 model: inherit
 ---

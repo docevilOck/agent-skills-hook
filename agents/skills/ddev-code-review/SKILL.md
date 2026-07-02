@@ -1,19 +1,20 @@
 ---
-name: code-review
-description: Run a comprehensive code review. Use codegraph for structural impact analysis before reviewing code quality, security, and maintainability.
+name: ddev-code-review
+description: 在 ddev-gate 工作流中执行代码质量审查。使用 codegraph 做结构影响分析，覆盖安全、性能、可维护性，按严重程度分级输出。
 ---
 
-# Code Review Skill
+# ddev-code-review — 代码质量审查
 
-Conduct a thorough code review for quality, security, and maintainability with severity-rated feedback. **Must use codegraph tools for structural impact analysis** before deep review.
+## 作用
+
+ddev-gate 工作流的代码质量审查阶段。使用 codegraph 做结构影响分析，覆盖安全、代码质量、性能、最佳实践和可维护性，按严重程度分级输出报告。
 
 ## When to Use
 
-This skill activates when:
-- User requests "review this code", "code review"
-- Before merging a pull request
-- After implementing a major feature
-- User wants quality assessment
+由 `ddev-gate` skill 在清理阶段之后、编码规范审查之前调度。也可独立触发于以下场景：
+- 用户请求 "review this code"
+- 合并 PR 前
+- 完成重要功能后
 
 ## Companion Skills
 
