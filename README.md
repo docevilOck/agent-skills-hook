@@ -14,13 +14,23 @@ Claude Code / Codex CLI / OpenCode 三套 AI 编码运行时的共享配置与�
 agent-skills-hook/
 ├── config/                         # 单一配置源
 │   ├── AGENTS.md                   # 仓库总则
-│   ├── claude/CLAUDE.md            # Claude Code 全局指令
-│   ├── codex/AGENTS.md             # Codex CLI 全局指令
-│   ├── opencode/                   # OpenCode 配置 + 插件
+│   ├── claude/
+│   │   ├── CLAUDE.md               # Claude Code 全局指令
+│   │   └── agents/                 # Claude Code 子代理定义
+│   ├── codex/
+│   │   ├── AGENTS.md               # Codex CLI 全局指令
+│   │   └── agents/                 # Codex CLI 子代理定义
+│   ├── opencode/
+│   │   ├── AGENTS.md               # OpenCode 全局指令
+│   │   ├── opencode.json           # OpenCode 主配置（MCP、模型、插件）
+│   │   ├── dcp.jsonc               # DCP 上下文管理配置
+│   │   ├── agents/                 # OpenCode 子代理定义
+│   │   └── prompts/               # 共享提示词模板
 │   └── shared/mcp_servers.json     # 共享 MCP 服务器定义
-├── agents/skills/                  # 共享技能库
-├── linux/deploy.sh                 # Linux 部署
-├── windows/deploy.ps1              # Windows 部署
+├── agents/skills/                  # 共享技能库（76 目录）
+├── linux/deploy.sh                 # Linux 部署（软链接）
+├── windows/deploy.ps1              # Windows 部署（Junction）
+├── scripts/                        # 辅助脚本
 └── docs/                           # 计划 / 报告 / 规格文档
 ```
 
@@ -67,7 +77,7 @@ cd windows
 | `ddev-doc-review` | 文档审查（独立子代理，五维度检查） |
 | `ddev-decision-log` | 决策记录，贯穿全流程 |
 | `code-review` | 代码审查，依赖 codegraph 做结构影响分析 |
-| `comment-generator` | 为 C 函数生成 Doxygen 标准中文注释 |
+| `ddev-comment-gen` | C 项目注释生成与审查，Doxygen 标准中文注释 |
 | `compile-commands-init` | C/C++ 项目 compile_commands.json 与 clangd 配置 |
 | `trace-flow` | 调用链追踪 |
 
@@ -203,7 +213,8 @@ ddev-gate        ← 三道关卡验收：一致性 → 清理 → C 规范
 
 部署脚本自动检查并安装：
 - **codegraph**：`npm i -g @colbymchenry/codegraph`
-- **uv**（Windows）：pip 安装
 - **opencode CLI**：缺失时跳过插件安装
+
+部分技能（如 mediacrawler、china-news-crawler）依赖 `uv` Python 包管理器，详见各技能的 SKILL.md。
 
 进入新仓库后需手动执行 `codegraph init -i <repo>` 建立索引。
