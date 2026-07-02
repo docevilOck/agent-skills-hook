@@ -131,7 +131,9 @@ detail/tests/
 - 测试架构图（ASCII 图：谁模拟什么、谁被测、数据怎么流转）
 - 子文档索引和阅读顺序
 
-图怎么画、怎么命名，统一遵循 [ddev-diagram](../ddev-diagram/SKILL.md)。
+### ⚠️ 硬门禁：画图前必须先加载 ddev-diagram
+
+**在任何 ASCII 图动笔之前，必须执行 `Skill("ddev-diagram")` 加载绘制规范。加载完成前禁止写任何 ASCII 图。**
 
 ### 测试用例文档最低要求
 

@@ -21,7 +21,7 @@ description: 文档审查技能。将文档审查任务派发给独立子代理�
 
 ## 核心流程
 
-0. 主 agent 读取 `findings/index.md`，定位 spec/detail 阶段的相关决策文件，了解上游设计上下文和已知约束
+0. **⚠️ 硬门禁**：主 agent **必须先 `Read` `findings/index.md`**，定位 spec/detail 阶段的相关决策文件。了解上游设计上下文和已知约束后，方可开始审查。
 1. 主 agent 定位待审查的文档路径和关联的代码改动范围
 2. 主 agent 读取文档和代码改动，整理审查上下文
 3. ⚠️ 主 agent **必须**派发 **General 子代理**执行审查（**禁止主 agent 自行审查**，见上方 HARD GATE）
@@ -29,7 +29,7 @@ description: 文档审查技能。将文档审查任务派发给独立子代理�
 5. 主 agent 汇总问题、评估严重度、向用户呈现
 6. **主 agent 在同一轮对话中立即逐项修复所有阻塞和重要问题**——不得推迟到后续步骤或下一轮对话
 7. 修复完成后，主 agent **必须再次派发子代理做完整独立重审**（见下方「重审协议」）
-8. 重审通过后，主 agent 调用 `ddev-decision-log`，将审查结论写入 `findings/review/`
+8. 重审通过后，**⚠️ 硬门禁**：主 agent **必须执行 `Skill("ddev-decision-log")`**，将审查结论写入 `findings/review/`。不可跳过此步骤。
 
 ## 审查维度
 

@@ -26,7 +26,11 @@ spec 文档默认采用”图优先，文辅佐”表达。只保留两类内容
 
 如果某件事容易和本次改动混淆，不要写“这个不做”；直接补一张边界图、入口图或对比图，正向说明这次实际落地范围。
 
-图怎么画、怎么命名、怎么渲染、怎么同步维护，统一遵循 [ddev-diagram](../ddev-diagram/SKILL.md)。
+图怎么画、怎么命名、怎么渲染、怎么同步维护：
+
+### ⚠️ 硬门禁：画图前必须先加载 ddev-diagram
+
+**在任何 ASCII 图动笔之前，必须执行 `Skill("ddev-diagram")` 加载绘制规范。加载完成前禁止写任何 ASCII 图。**
 
 spec 文档默认落到 `docs/plans/YY-MM-DD_name/spec/<feature-name>.md`。
 
@@ -38,7 +42,7 @@ spec 文档默认落到 `docs/plans/YY-MM-DD_name/spec/<feature-name>.md`。
 
 ## 联动顺序
 
-0. 进入 spec 设计前，读取 `findings/index.md` 和 `findings/spec/` 下最近的决策文件，了解已有的决策上下文和约束。
+0. **⚠️ 硬门禁**：进入 spec 设计前，**必须先 `Read` `findings/index.md`**。若文件存在，继续读取 `findings/spec/` 下最近的决策文件。了解已有的决策上下文和约束后，方可开始设计。
 1. 如果仓库存在 `docs/architecture/`，先阅读 `01_架构总览.md` 和相关模块文档，确认本次改动是否在项目级架构规范允许范围内。
 2. 先做代码现状分析（强制），了解现有模块结构、公开接口和文件布局。
 3. 再做现有框架对齐分析（强制），确定设计如何嵌入现有框架——复用哪些扩展点、沿用哪些模式、新增哪些机制及理由。
@@ -165,7 +169,11 @@ spec 文档默认落到 `docs/plans/YY-MM-DD_name/spec/<feature-name>.md`。
 
 ### 搜索范围
 
-从 `cross-cutting-patterns.md` 加载模式列表，按模式逐一搜索：
+### ⚠️ 硬门禁：联动分析前必须先读取 cross-cutting-patterns.md
+
+**进入联动搜索前，必须用 `Read` 读取 `references/cross-cutting-patterns.md`，加载完整的模式列表、搜索关键词和判断标准。禁止凭记忆或猜测选择搜索模式。**
+
+从已加载的 `cross-cutting-patterns.md` 中提取模式列表，按模式逐一搜索：
 
 1. 指令/消息分发表（`cmd_table`, `extra_cmd`, `msg_handler` 等）
 2. 回调/钩子注册（`callback_register`, `event_handler`, `hook_list` 等）

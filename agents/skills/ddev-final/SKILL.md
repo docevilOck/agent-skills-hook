@@ -70,7 +70,11 @@ docs/plans/YY-MM-DD_name/final/final_design.md
 
 ## 图怎么画
 
-遵循 ddev-diagram 规范（Unicode 制表符、正交连线、英文框内标签、一图一事）。
+### ⚠️ 硬门禁：画图前必须先加载 ddev-diagram
+
+**在任何 ASCII 图动笔之前，必须执行 `Skill("ddev-diagram")` 加载绘制规范。加载完成前禁止写任何 ASCII 图。**
+
+规范要点：Unicode 制表符、正交连线、英文框内标签、一图一事。
 
 优先画：
 1. 架构总览（模块框 + 调用关系）
