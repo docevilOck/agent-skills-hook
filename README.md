@@ -80,7 +80,6 @@ cd windows
 | `ddev-decision-log` | 决策记录，贯穿全流程 |
 | `ddev-comment-gen` | C 项目注释生成与审查，Doxygen 标准中文注释 |
 | `compile-commands-init` | C/C++ 项目 compile_commands.json 与 clangd 配置 |
-| `trace-flow` | 调用链追踪 |
 
 ### ddev 使用指南
 
