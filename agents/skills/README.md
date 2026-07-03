@@ -47,6 +47,7 @@
 | `ddev-gate` | 代码实现完成后核对是否与 spec 文档及 detail 文档一致，给出最终验收结论。 | 自动 — 实现完成后验收 |
 | `visual-verdict` | 结构化视觉 QA 判定，用于截图与参考图的对比验证。 | 自动 — 需要视觉对比判定时 |
 | `image-understanding` | 视觉回归与图像理解：截图对比、差异检测、CI 检查（通过 Playwright 或 Chromatic）。 | 自动 — 需要图片对比/视觉测试时 |
+| `adversarial-review` | 对 AI 的结论、分析或建议进行系统性质疑和对抗性审查。派发独立子代理以对抗立场拆解 AI 产出。触发词：质疑这个结论、帮我挑刺、挑战AI说法、adversarial review。 | 自动 |
 
 ### 实现工作流（ddev-spec → ddev-detail → ddev-gate 管线）
 
