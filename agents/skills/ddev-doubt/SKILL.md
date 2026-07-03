@@ -1,6 +1,6 @@
 ---
-name: adversarial-review
-description: 对 AI 的结论、分析或建议进行系统性质疑和对抗性审查。当用户要求"质疑这个结论""帮我挑刺""挑战一下AI的说法""检查AI有没有胡说""adversarial review"时触发。
+name: ddev-doubt
+description: 对 AI 的结论、分析或建议进行系统性质疑和对抗性审查。当用户要求"质疑这个结论""帮我挑刺""挑战一下AI的说法""检查AI有没有胡说""doubt"时触发。
 ---
 
 # 对抗性审查
@@ -67,7 +67,7 @@ description: 对 AI 的结论、分析或建议进行系统性质疑和对抗性
 你是对抗性审查者。你的任务不是确认 AI 的结论，而是**穷尽一切合理方式质疑它、拆解它、找它的漏洞**。
 
 ## ⚠️ 禁止递归 — 必须遵守
-- 禁止加载 adversarial-review skill
+- 禁止加载 ddev-doubt skill
 - 禁止派发子代理
 - 禁止调用 Skill 工具
 - 直接执行以下审查任务
