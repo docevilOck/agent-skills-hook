@@ -232,6 +232,9 @@ module_status_t module_encode(const input_t *in, uint8_t *out, size_t out_cap, s
 - **可移植性**：用 `stdint.h` fixed-width types、注意 endian、避免 compiler extension
 - **构建**：启用 `-Wall -Wextra`，CI 加 static analysis（clang-tidy、cppcheck）
 - **命名**：类型 `_t` 后缀、公开 API 模块前缀、宏全大写 + 模块前缀、私有函数 `static`
+- **安全**：硬编码凭据/密钥/令牌、缓冲区溢出、注入风险（格式字符串、命令注入）、路径遍历、敏感数据日志泄露、整数溢出导致的安全绕过
+- **架构性能**：跨模块调用链中的 N+1 模式、不合理算法选择（O(n²) 可优化为 O(n) 或 O(n log n)）、不必要的重复内存分配、缺失的缓存策略（如适用）
+- **死代码与重复**：未被调用的 static 函数、不可达分支、跨文件的重复逻辑（DRY 违规）
 
 ## 风格 & 测试
 
@@ -253,7 +256,9 @@ module_status_t module_encode(const input_t *in, uint8_t *out, size_t out_cap, s
 
 ## 审查模式
 
-当本 skill 被 ddev-gate 作为 C 编码规范审查子代理加载时，必须使用 `reviewer-prompt.md` 作为任务模板执行审查。该模板定义了审查输入、维度优先级、CodeGraph 辅助查询方法和输出格式。
+当本 skill 被 ddev-gate 作为 C 代码审查子代理加载时（已吸收原 `ddev-code-review` 的代码质量审查职责），必须使用 `reviewer-prompt.md` 作为任务模板执行审查。该模板定义了审查输入、维度优先级、CodeGraph 辅助查询方法和输出格式。
+
+审查覆盖范围：C 编码规范 + 代码质量（安全、架构性能、死代码/重复）。C 项目的 ddev-gate 流程中不再单独调用 `ddev-code-review`，由本 skill 统一完成。
 
 ## 进度记录
 

@@ -9,13 +9,22 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 
 这个 skill 用于代码实现阶段的最终验收。
 
-它不是普通代码审查，也不是只跑测试的验证门禁。它的核心任务分成五段：
+它不是普通代码审查，也不是只跑测试的验证门禁。它的核心任务根据项目语言分支：
+
+**C 项目（`.c` / `.h`）— 四段流程：**
 
 1. **先拉独立审查 agent**，把**代码实现**与以下设计输入做逐项对照
 2. **一致性通过后，再拉独立 subagent 调用 `ddev-clean`**，在受限范围内做垃圾代码清理和可维护性提升；若清理改了代码，再重新回到一致性验收
-3. **cleaner 阶段结束后，拉独立 subagent 调用 `ddev-code-review`**，基于 codegraph 做结构化代码质量审查（安全、性能、可维护性）；若审查不通过，修改后重新回到一致性验收
-4. **代码质量审查通过后，拉独立 subagent 做编码规范审查**：根据项目语言加载对应的编码规范 skill（C 项目加载 `ddev-c-pro`，其他语言按需加载对应的规范审查 skill）；若审查不通过，修改后重新回到一致性验收
-5. **编码规范审查通过后，拉独立 subagent 做注释/文档审查**：根据项目语言加载对应的注释审查 skill（C 项目加载 `ddev-comment-gen`，其他语言按需加载对应的注释审查 skill）；若审查不通过，修改后重新回到一致性验收
+3. **cleaner 阶段结束后，拉独立 subagent 加载 `ddev-c-pro`**，统一完成编码规范审查 + 代码质量审查（安全、架构性能、死代码/重复）。C 项目不再单独调用 `ddev-code-review`，由 c-pro 吸收其 C 相关职责。若审查不通过，修改后重新回到一致性验收
+4. **c-pro 审查通过后，拉独立 subagent 做注释/文档审查**：加载 `ddev-comment-gen`，对最终代码做注释完整性和规范性审查；若审查不通过，修改后重新回到一致性验收
+
+**非 C 项目 — 五段流程：**
+
+1. 一致性验收（同上）
+2. `ddev-clean` 清理（同上）
+3. `ddev-code-review` 代码质量审查（安全、性能、可维护性）；若审查不通过，修改后重新回到一致性验收
+4. 编码规范审查：根据语言加载对应的 skill，无对应 skill 则跳过；若审查不通过，修改后重新回到一致性验收
+5. 注释/文档审查：根据语言加载对应的 skill，无对应 skill 则跳过；若审查不通过，修改后重新回到一致性验收
 
 第一段一致性验收要对照的设计输入包括：
 
@@ -37,11 +46,11 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 
 但一致性 `pass` 还不是最终放行：主 agent 还必须再拉一个独立 subagent，受限调用 `ddev-clean` 做清理。如果清理阶段产生任何代码修改，就必须重新进入这个 skill，再次拉独立审查 agent 做一致性重审。
 
-一致性重审通过后，还需再拉一个独立 subagent 做编码规范审查。C 项目加载 `ddev-c-pro` skill，按 C 语言编码规范审查最终代码。其他语言项目根据实际语言加载对应的规范审查 skill。如果规范审查不通过，修改后同样要重新进入这个 skill 从头验收。
+一致性重审通过后，对 C 项目：拉独立 subagent 加载 `ddev-c-pro` skill，统一完成编码规范审查和代码质量审查（安全、架构性能、死代码/重复）。C 项目不再单独调用 `ddev-code-review`。对非 C 项目：先拉 `ddev-code-review` 做代码质量审查，再按语言加载编码规范审查 skill。如果审查不通过，修改后同样要重新进入这个 skill 从头验收。
 
-编码规范审查通过后，还需再拉一个独立 subagent 做注释/文档审查。C 项目加载 `ddev-comment-gen` skill，对最终代码做注释完整性和规范性审查。其他语言项目根据实际语言加载对应的注释审查 skill。如果注释审查不通过，修改后同样要重新进入这个 skill 从头验收。
+c-pro / 编码规范审查通过后，还需再拉一个独立 subagent 做注释/文档审查。C 项目加载 `ddev-comment-gen` skill，对最终代码做注释完整性和规范性审查。其他语言项目根据实际语言加载对应的注释审查 skill。如果注释审查不通过，修改后同样要重新进入这个 skill 从头验收。
 
-只有在**清理后的最终代码**通过一致性验收、**编码规范审查**和 **注释审查**均通过后，主 agent 才能宣称”计划已经完成”。
+只有在**清理后的最终代码**通过一致性验收、**代码规范与质量审查**（C 项目由 c-pro 统一完成，非 C 项目由 code-review + 语言规范审查完成）和 **注释审查**均通过后，主 agent 才能宣称”计划已经完成”。
 
 ## 何时使用
 
@@ -126,26 +135,22 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 13. 清理 subagent 必须遵守 `ddev-clean` 的 regression-tests-first、显式 cleanup plan、分 smell 分 pass、最小 diff、最小作用域规则。
 14. 如果清理 subagent 没有做出任何代码修改，主 agent 可直接保留第一轮一致性结论，进入最终收尾。
 15. 如果清理 subagent 做出了代码修改，主 agent 必须补充这些修改对应的验证证据，并重新拉独立审查 agent，再做一次完整一致性验收。
-16. 只有当**最后一次一致性验收**输出 `pass` 时，主 agent 才能进入代码质量审查阶段。
-17. 主 agent 拉一个新的独立 subagent 加载 `ddev-code-review` skill，对**当前代码范围**做结构化代码质量审查。
-18. 代码审查 subagent 输出报告，结论为 `APPROVE`、`REQUEST CHANGES` 或 `COMMENT`。`REQUEST CHANGES`（CRITICAL/HIGH）视为 `blocked`，修复后回到一致性验收重审。`COMMENT`（LOW/MEDIUM）不阻塞流程。
-19. 只有当代码质量审查输出 `APPROVE`（或 `COMMENT` 且主 agent 确认不阻塞）时，主 agent 才能进入编码规范审查阶段。
-20. 主 agent 根据项目语言路由编码规范审查：
-    - **C 项目**（`.c` / `.h`）：拉新的独立 subagent 加载 `ddev-c-pro` skill，对**清理后的最终代码**做规范审查
-    - **其他语言项目**：如果没有对应的编码规范 skill，跳过此阶段（在结论中标注”本语言暂无编码规范审查 skill，已跳过”）
-21. 编码规范审查 subagent 按对应 skill 中的设计规范、命名规范、风格偏好逐项审查。
-22. 编码规范审查 subagent 输出 `pass` 或 `blocked`，`blocked` 时必须附带需修改项清单。
-23. 如果编码规范审查 `blocked`，主 agent 必须按清单修改代码，然后重新进入这个 skill（从一致性验收重新开始完整流程）。
-24. 如果编码规范审查的修改涉及结构、接口或流程变更，必须在修改后回到一致性验收重审。
-25. 只有当编码规范审查也输出 `pass`（或合理跳过）时，主 agent 才能进入注释/文档审查阶段。
-26. 主 agent 根据项目语言路由注释审查：
+16. 只有当**最后一次一致性验收**输出 `pass` 时，主 agent 才能进入代码规范与质量审查阶段。
+17. **C 项目（`.c` / `.h`）**：主 agent 拉一个新的独立 subagent 加载 `ddev-c-pro` skill，对**当前代码范围**统一完成编码规范审查和代码质量审查（安全、架构性能、死代码/重复）。C 项目不再单独调用 `ddev-code-review`。
+18. c-pro 审查 subagent 按 `ddev-c-pro` 中的设计规范、命名规范、风格偏好、安全、架构性能、死代码/重复逐项审查，对问题按 CRITICAL/HIGH/MEDIUM/LOW 分级。
+19. c-pro 审查 subagent 输出 `pass` 或 `blocked`。存在 CRITICAL 或 HIGH → `blocked`。仅 MEDIUM/LOW → `pass`（在建议项中列出）。
+20. 如果 c-pro 审查 `blocked`，主 agent 必须按清单修改代码，然后重新进入这个 skill（从一致性验收重新开始完整流程）。
+21. 如果 c-pro 审查的修改涉及结构、接口或流程变更，必须在修改后回到一致性验收重审。
+22. **非 C 项目**：先拉独立 subagent 加载 `ddev-code-review` skill 做代码质量审查，结论 `REQUEST CHANGES`（CRITICAL/HIGH）视为 `blocked`。通过后再按语言加载编码规范审查 skill（如存在），不通过则回到一致性验收。
+23. 只有当代码规范与质量审查输出 `pass`（或合理跳过）时，主 agent 才能进入注释/文档审查阶段。
+24. 主 agent 根据项目语言路由注释审查：
     - **C 项目**（`.c` / `.h`）：拉新的独立 subagent 加载 `ddev-comment-gen` skill，对**通过规范审查的最终代码**做注释审查
     - **其他语言项目**：如果没有对应的注释审查 skill，跳过此阶段（在结论中标注”本语言暂无注释审查 skill，已跳过”）
-27. 注释审查 subagent 按对应 skill 中的审查维度逐文件、逐函数、逐结构体验证注释完整性。
-28. 注释审查 subagent 输出 `pass` 或 `blocked`，`blocked` 时必须附带缺失项清单和补全建议。
-29. 如果注释审查 `blocked`，主 agent 必须按清单补全注释，然后重新进入这个 skill（从一致性验收重新开始完整流程）。
-30. 如果注释审查的修改涉及函数签名或行为变更，必须在修改后回到一致性验收重审。
-31. 只有当代码质量审查、编码规范审查和注释审查均输出 `pass`（或合理跳过）时，主 agent 才能宣称”已经按计划完成”。
+25. 注释审查 subagent 按对应 skill 中的审查维度逐文件、逐函数、逐结构体验证注释完整性。
+26. 注释审查 subagent 输出 `pass` 或 `blocked`，`blocked` 时必须附带缺失项清单和补全建议。
+27. 如果注释审查 `blocked`，主 agent 必须按清单补全注释，然后重新进入这个 skill（从一致性验收重新开始完整流程）。
+28. 如果注释审查的修改涉及函数签名或行为变更，必须在修改后回到一致性验收重审。
+29. 只有当代码规范与质量审查和注释审查均输出 `pass`（或合理跳过）时，主 agent 才能宣称”已经按计划完成”。
 
 如果没有新的、可归属到本轮结论的验证证据，最多输出 `need-info`，不能输出 `pass`。
 
@@ -164,20 +169,25 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 
 审查提示模板见 [reviewer-prompt.md](reviewer-prompt.md)。
 
-## 编码规范审查 agent 要求（C 项目）
+## 代码规范与质量审查 agent 要求（C 项目）
 
 - 必须是独立视角，不能复用一致性验收 agent 的结论
-- 必须加载 `ddev-c-pro` skill，按其中定义的设计规范、命名规范、风格偏好逐项审查
-- **必须使用 `codegraph_impact` 评估改动影响面**：确认规范审查范围内外的符号依赖，避免遗漏受影响的文件
-- 重点检查：全局变量是否必要、参数是否过多未封装、命名是否遵循模块前缀规范、错误处理是否用显式返回码、内存 ownership 是否明确
-- 只审查 C 代码规范层面，不重复做架构一致性判断
-- 发现违规项必须返回 `blocked`，并附具体修改项清单
+- 必须加载 `ddev-c-pro` skill，统一完成编码规范审查和代码质量审查（已吸收 `ddev-code-review` 的 C 相关职责）
+- C 项目不再单独调用 `ddev-code-review`
+- **必须使用 `codegraph_impact` 评估改动影响面**：确认审查范围内外的符号依赖，避免遗漏受影响的文件
+- 审查维度：
+  - **编码规范**：全局变量是否必要、参数是否过多未封装、命名是否遵循模块前缀规范、错误处理是否用显式返回码、内存 ownership 是否明确
+  - **代码质量（安全）**：硬编码凭据、缓冲区溢出、注入风险、路径遍历、整数溢出、敏感数据泄露
+  - **代码质量（架构性能）**：跨模块 N+1 模式、不合理算法选择、不必要的重复内存分配
+  - **代码质量（死代码/重复）**：未被调用的符号、不可达分支、跨文件 DRY 违规
+- 对问题按严重程度分级：CRITICAL（安全漏洞/崩溃）> HIGH（Bug/严重异味）> MEDIUM（技术债）> LOW（建议）
+- 存在 CRITICAL 或 HIGH 问题 → `blocked`。仅 MEDIUM/LOW → `pass`（在建议项中列出）
 - 不允许用"基本规范""大体符合"等模糊表述放行
-- 如果本轮代码已经是编码规范审查修改后的代码，必须基于最终版本重新审查，不能沿用前次结论
+- 如果本轮代码已经是审查修改后的代码，必须基于最终版本重新审查，不能沿用前次结论
 
 c-pro 审查提示模板见 [reviewer-prompt.md](../ddev-c-pro/reviewer-prompt.md)。
 
-> **非 C 项目**：如果没有对应的编码规范审查 skill，合理跳过本阶段。在验收结论中注明"本语言暂无编码规范审查 skill，已跳过"。
+> **非 C 项目**：先调用 `ddev-code-review` 做代码质量审查，再按语言调用编码规范审查 skill。无对应编码规范审查 skill 则跳过，在验收结论中注明。
 
 ## 注释/文档审查 agent 要求（C 项目）
 
@@ -267,8 +277,8 @@ code-reviewer 提示模板见 [reviewer-prompt.md](../ddev-code-review/code-revi
 - 未覆盖风险已明确说明
 - task_plan.md 存在且所有 checkbox 已完成、所有错误已解决、check-complete 验证通过
 - 若经历过 `ddev-clean` 清理，则清理后的最终代码也已重新完成一致性验收
-- 代码质量审查（`ddev-code-review`）已通过（`APPROVE` 或 `COMMENT` 且不阻塞）
-- 若项目为 C 代码（`.c` / `.h`），则 `ddev-c-pro` 规范审查和 `ddev-comment-gen` 注释审查均已通过；若为其他语言，则对应的编码规范和注释审查已通过或已合理跳过
+- 代码规范与质量审查已通过（C 项目由 `ddev-c-pro` 统一完成，非 C 项目由 `ddev-code-review` + 语言规范审查完成）
+- 若项目为 C 代码（`.c` / `.h`），则 `ddev-comment-gen` 注释审查已通过；若为其他语言，则对应的注释审查已通过或已合理跳过
 
 ### `need-info`
 
@@ -299,8 +309,7 @@ code-reviewer 提示模板见 [reviewer-prompt.md](../ddev-code-review/code-revi
 - 关键设计约束未落地
 - 结论依赖关键证据，但证据不存在
 - `ddev-clean` 修改了代码，但清理后的实现还没有重新完成一致性验收
-- 代码质量审查 `REQUEST CHANGES`，且修改后尚未重新完成完整门禁流程
-- 编码规范审查 `blocked`，且修改后尚未重新完成完整门禁流程
+- 代码规范与质量审查 `blocked`，且修改后尚未重新完成完整门禁流程（C 项目为 `ddev-c-pro` 审查 blocked，非 C 项目为 `ddev-code-review` 或语言规范审查 blocked）
 - 注释/文档审查 `blocked`，且修改后尚未重新完成完整门禁流程
 
 判定原则：
@@ -320,9 +329,8 @@ code-reviewer 提示模板见 [reviewer-prompt.md](../ddev-code-review/code-revi
 5. 已确认一致的关键点：只列最重要的几项
 6. 未覆盖风险：明确还没验证到哪里
 7. 如果进入过 `ddev-clean`，要明确说明：清理是否改代码、清理范围是什么、清理后是否已重新验收
-8. 代码质量审查结论：是否已审查、审查结果、发现的 CRITICAL/HIGH/MEDIUM/LOW 问题数；若 blocked 则附修改项清单
-9. 编码规范审查结论：是否已审查、审查结果、若 blocked 则附修改项清单；若项目语言无对应审查 skill 则注明"已跳过"
-10. 注释/文档审查结论：是否已审查、审查结果、若 blocked 则附缺失项清单；若项目语言无对应审查 skill 则注明"已跳过"
+8. 代码规范与质量审查结论：是否已审查、审查结果、发现的 CRITICAL/HIGH/MEDIUM/LOW 问题数。C 项目由 `ddev-c-pro` 统一输出此结论；非 C 项目分别列出 `ddev-code-review` 和语言规范审查结论。若 blocked 则附修改项清单。若项目语言无对应审查 skill 则注明"已跳过"
+9. 注释/文档审查结论：是否已审查、审查结果、若 blocked 则附缺失项清单；若项目语言无对应审查 skill 则注明"已跳过"
 
 如果没有发现不一致，也不能只说“通过”，仍要说明对照了什么。
 
@@ -335,11 +343,10 @@ code-reviewer 提示模板见 [reviewer-prompt.md](../ddev-code-review/code-revi
 - 上游通常来自 `ddev-spec`
 - detail 输入通常来自 `ddev-detail`
 - 如需补验证证据，联动 `verification-before-completion`
-- 如需独立质量复核，联动 `ddev-code-review`
+- 如需独立质量复核，联动 `ddev-code-review`（非 C 项目）
 - 如需在一致性通过后做垃圾代码清理和可维护性提升，联动 `ddev-clean`
-- 如需在清理后做代码质量审查（安全、性能、可维护性），联动 `ddev-code-review`
-- 如需在代码质量审查通过后做编码规范审查，联动对应语言的编码规范 skill（C 项目联动 `ddev-c-pro`）
-- 如需在规范审查通过后做注释完整性和规范性审查，联动对应语言的注释审查 skill（C 项目联动 `ddev-comment-gen`）
+- 如需在清理后做代码规范与质量审查，C 项目联动 `ddev-c-pro`（已吸收代码质量审查），非 C 项目联动 `ddev-code-review` + 对应语言编码规范 skill
+- 如需在规范与质量审查通过后做注释完整性和规范性审查，联动对应语言的注释审查 skill（C 项目联动 `ddev-comment-gen`）
 - 默认在 `ddev-exec` 的末尾作为最终收口门禁
 - 验收结论（pass / need-info / blocked）调用 `ddev-decision-log` 写入 `findings/gate/`
 
@@ -351,4 +358,4 @@ code-reviewer 提示模板见 [reviewer-prompt.md](../ddev-code-review/code-revi
 
 如果进入了 `ddev-clean` 清理阶段，最终放行对象是**清理后的最终代码**，不是清理前那一版代码。
 
-对于 C 代码项目，`ddev-code-review` 代码质量审查、`ddev-c-pro` 规范审查和 `ddev-comment-gen` 注释审查是必经环节，三者均通过才能给最终 `pass`。对于其他语言项目，如果存在对应的审查 skill，也需通过后方可放行；如无对应 skill，应标注"已跳过"而非静默略过。
+对于 C 代码项目，`ddev-c-pro`（统一完成规范与代码质量审查）和 `ddev-comment-gen` 注释审查是必经环节，两者均通过才能给最终 `pass`。对于其他语言项目，`ddev-code-review` 代码质量审查 + 语言规范审查 + 注释审查按存在情况逐一通过后放行；如无对应 skill，应标注"已跳过"而非静默略过。

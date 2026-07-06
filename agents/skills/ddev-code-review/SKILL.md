@@ -16,6 +16,8 @@ ddev-gate 工作流的代码质量审查阶段。使用 codegraph 做结构影�
 - 合并 PR 前
 - 完成重要功能后
 
+> **C 项目注意**：`ddev-gate` 工作流中 C 项目不再单独调用本 skill。代码质量审查职责已由 `ddev-c-pro` 吸收（统一完成规范审查 + 代码质量审查）。非 C 项目仍走 `ddev-code-review` + 语言规范审查的分离流程。独立触发（用户直接要求 review）时 C 项目可正常使用。
+
 ## Companion Skills
 
 Always load `tool-routing` alongside this skill to ensure correct codegraph/grep dispatch during structural analysis.
