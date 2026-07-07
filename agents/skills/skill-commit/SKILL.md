@@ -1,102 +1,99 @@
 ---
 name: skill-commit
-description: 全局 skill 提交规范。告知 AI 全局 skills 目录是符号链接，实际 git 仓库在何处，以及如何正确提交推送。触发词：skill 提交、提交 skill、skill commit、全局 skill、推送 skill、commit skill。
+description: 全局 skill 提交规范。告知 AI 全局 skills 目录通常是符号链接，如何自动定位实际 git 仓库并正确提交推送。触发词：skill 提交、提交 skill、skill commit、全局 skill、推送 skill、commit skill。
 ---
 
 # skill-commit — 全局 Skill 提交规范
 
-## 部署架构
+## 核心原则
 
-全局 skills 目录通过**两层符号链接**指向实际的 git 仓库：
+全局 skills 目录（`~/.claude/skills/`）**通常是符号链接**，指向某个 git 仓库内的子目录。创建/修改 skill 文件可以直接在 `~/.claude/skills/<name>/` 下操作（符号链接透明），但 **git 操作必须去实际仓库根目录执行**。
 
-```
-~/.claude/skills/          → ~/.config/opencode/skills/    (第一层)
-                             → ~/code/agent-skills-hook/agents/skills/  (第二层, 实际路径)
-```
+本 skill 告诉 AI 如何自动发现这些路径，适配任意机器、任意 OS 的部署方式。
 
-| 路径 | 说明 |
-|------|------|
-| `~/.claude/skills/` | Claude Code 读取 skills 的入口，**符号链接，不是 git 仓库** |
-| `~/.config/opencode/skills/` | OpenCode 中间层，**也是符号链接** |
-| `~/code/agent-skills-hook/` | **实际的 git 仓库根目录**，skills 在 `agents/skills/` 子目录下 |
+## 第一步：自动探测仓库信息
 
-> ⚠️ 在 `~/.claude/skills/` 或 `~/.config/opencode/skills/` 下执行 git 命令会失败或操作错误的仓库，必须去实际路径操作。
-
-## 仓库信息
-
-| 项目 | 值 |
-|------|-----|
-| 实际路径 | `~/code/agent-skills-hook/` |
-| 远程仓库 | `git@github.com:docevilOck/agent-skills-hook.git` |
-| 分支 | `main` |
-| Skills 目录 | `agents/skills/` |
-
-## 提交流程
-
-### 1. 创建/修改 skill 文件
-
-直接在 `~/.claude/skills/<skill-name>/` 下操作即可（符号链接会透传到实际路径）：
+在提交任何 skill 改动前，AI 必须先探测以下信息：
 
 ```bash
-# 创建新 skill
+# 1. 解析 ~/.claude/skills/ 的实际路径（穿透所有符号链接）
+#    Linux/macOS: readlink -f 或 realpath
+#    Windows Git Bash: 同样支持 readlink -f
+SKILLS_REAL=$(readlink -f ~/.claude/skills 2>/dev/null || realpath ~/.claude/skills 2>/dev/null)
+
+# 如果 ~/.claude/skills 不是符号链接，它自身可能就是 git 仓库
+# 直接用这个路径
+
+# 2. 找到包含此目录的 git 仓库根目录
+REPO_ROOT=$(cd "$SKILLS_REAL" && git rev-parse --show-toplevel 2>/dev/null)
+
+# 3. 计算 skills 在仓库内的相对子目录
+SKILLS_SUBDIR=$(cd "$SKILLS_REAL" && git rev-parse --show-prefix 2>/dev/null)
+# 例如输出: agents/skills/  或  skills/  或为空（skills 就在仓库根目录）
+
+# 4. 确认远程和分支
+cd "$REPO_ROOT"
+git remote -v          # 获取 remote 名称和 URL
+git branch --show-current   # 当前分支名
+```
+
+**探测后必须向用户展示**：
+
+```
+Skills 实际路径:  /home/user/code/agent-skills-hook/agents/skills
+Git 仓库根目录:   /home/user/code/agent-skills-hook
+Skills 子目录:    agents/skills/
+Remote:           origin  git@github.com:user/repo.git
+分支:             main
+```
+
+## 第二步：创建/修改 skill 文件
+
+直接在 `~/.claude/skills/<skill-name>/` 下操作即可，符号链接会透传到实际仓库：
+
+```bash
 mkdir -p ~/.claude/skills/<skill-name>
-# 编辑 SKILL.md
-vim ~/.claude/skills/<skill-name>/SKILL.md
+# 编辑 ~/.claude/skills/<skill-name>/SKILL.md
 ```
 
-### 2. 到实际仓库提交
+## 第三步：提交
+
+**必须在第一步探测到的 `$REPO_ROOT` 下执行 git 操作：**
 
 ```bash
-cd ~/code/agent-skills-hook
+cd "$REPO_ROOT"
 
-# 确认改动
+# 确认改动（相对路径从 $SKILLS_SUBDIR 开始）
 git status
 
-# 暂存 skill 目录（路径相对于仓库根）
-git add agents/skills/<skill-name>/
+# 暂存
+git add "${SKILLS_SUBDIR}<skill-name>/"
 
-# 提交（使用 Conventional Commits 格式，这是通用仓库）
-git commit -m "feat(<skill-name>): <简短描述>"
+# 提交。优先检查仓库是否有自定义提交规范（CLAUDE.md / CONTRIBUTING.md），
+# 没有则用 Conventional Commits
+git commit -m "<message>"
 ```
 
-### 3. 推送
+## 第四步：推送
 
 ```bash
-git push origin main
+cd "$REPO_ROOT"
+git push origin <branch>
 ```
 
-## 完整示例
+## 故障排查
 
-```bash
-# 创建 skill 文件
-mkdir -p ~/.claude/skills/my-new-skill
-cat > ~/.claude/skills/my-new-skill/SKILL.md << 'EOF'
----
-name: my-new-skill
-description: 示例技能
----
-# my-new-skill
-...
-EOF
+| 症状 | 处理 |
+|------|------|
+| `readlink -f` 不识别 | 换 `realpath`，都不行则 `ls -la ~/.claude/skills` 手动看指向 |
+| `~/.claude/skills` 不是符号链接 | 它自身可能就是一个 git 仓库，直接用 `git rev-parse --show-toplevel` 在它里面执行 |
+| `git rev-parse --show-toplevel` 失败（不在 git 仓库中） | 沿目录树向上找 `.git` 目录，或检查 skills 是否通过其他方式部署（如直接拷贝） |
+| Skills 就在仓库根目录（`$SKILLS_SUBDIR` 为空） | `git add <skill-name>/` 即可，不需要前缀 |
+| 多个 remote | 用 `git remote -v` 确认 push 目标，通常是 `origin` |
 
-# 提交并推送
-cd ~/code/agent-skills-hook
-git add agents/skills/my-new-skill/
-git commit -m "feat(my-new-skill): 新增示例技能"
-git push origin main
-```
+## 跨平台注意事项
 
-## 常见错误
-
-| 错误操作 | 正确操作 |
-|---------|---------|
-| `cd ~/.claude/skills && git add ...` | `cd ~/code/agent-skills-hook && git add agents/skills/...` |
-| `git commit -m "[CHG]..."` (V85X 格式) | 普通 Conventional Commits 格式 |
-| 在 `.claude/skills/` 下 `git push` | 实际路径 `~/code/agent-skills-hook/` 下 push |
-| 路径写 `skills/<name>/` | 路径写 `agents/skills/<name>/`（仓库内相对路径） |
-
-## 注意事项
-
-- 此仓库为通用仓库，**不使用 V85X 的 `[TYPE][SCOPE][PRODUCT]` 格式**，用标准 Conventional Commits
-- 修改已有 skill 时，确认改动在 `git status` 中显示为 `agents/skills/<skill-name>/SKILL.md`
-- 仓库中还有 `config/` 等其他目录，只提交 `agents/skills/` 下的 skill 相关改动
+- **Linux**：`readlink -f` 和 `realpath` 都可用
+- **macOS**：`readlink` 没有 `-f`，用 `realpath`（需 coreutils）或 `python3 -c "import os; print(os.path.realpath('...'))"`
+- **Windows (Git Bash)**：`readlink -f` 通常可用；如不行用 `cygpath` 或手动 `ls -la` 解析
+- JSON 等配置文件中的 `~` 展开：用 `$HOME` 或 `${HOME}` 替代
