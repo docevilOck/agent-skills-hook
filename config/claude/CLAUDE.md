@@ -30,7 +30,7 @@
 
 1. 这东西真的需要做吗？（YAGNI）
 2. 仓库里已有 → 复用，别重写
-3. 标准库已有 → 用它
+3. 标准库/代码库已有 → 用它
 4. 原生平台特性覆盖 → 用它
 5. 已安装依赖能解决 → 用它
 6. 能一行搞定 → 写一行
@@ -69,7 +69,16 @@
 > `codegraph_context` 传自然语言，`codegraph_explore` / `codegraph_trace` / `codegraph_search` 传符号名/文件名。
 > 先 `codegraph_context` 粗筛，再 `codegraph_explore` 拿源码；别跳过 context 直接用 explore。
 > ❌ 反模式：`explore "how does login work"` → 自然语言对 explore 的符号名注入和 Flow 构建完全无效；`explore "看下这个文件"` → 直接用 Read。
-- `ctx_*`：上下文节流/沙箱
+- `ctx_*`：上下文节流/沙箱/知识检索 — 数据不进上下文窗口，只传回推导结果。使用细则：
+
+| 意图 | 正确做法 | 禁止 |
+|------|---------|------|
+| 从数据中推导答案（统计/过滤/聚合/解析/变换） | `ctx_execute`(lng, code) / `ctx_execute_file`(path, lng, code) → 脚本处理，只 console.log 结果 | Read 大文件再在对话里分析 |
+| 批量并行 I/O（3+ 独立命令） | `ctx_batch_execute(commands, queries)` — 一次替代 30+ 调用，自带索引 | 逐个 Bash、逐个 Read |
+| 网页内容获取 | `ctx_fetch_and_index(url, source)` → `ctx_search` 检索 | WebFetch（HTML 不进上下文）、curl/wget |
+| 回溯历史/决策/错误/用户偏好 | `ctx_search(queries, sort: "timeline")` | 问用户 "上次做了什么" |
+| 存储大段内容供后续检索 | `ctx_index(content \| path, source)` | 把长文档留在对话里占窗口 |
+> ❌ 反模式：Bash 替代 `ctx_execute` 处理大量输出 → Bash 仅限 git/mkdir/rm/mv/cd/ls/npm install/pip install；Read 做分析而非编辑 → 用 `ctx_execute_file`；curl/wget → 用 `ctx_fetch_and_index`。
 - `grep` / `Read`：字面量核对 — 禁止替代结构查询
 
 ### 技能强制评估
