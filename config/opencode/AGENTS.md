@@ -67,17 +67,18 @@
 
 - `codegraph_*`：结构化查询（符号/调用链/架构/影响）— 优先级最高。使用细则：
 
-| 场景 | 工具 | 要诀 |
-|------|------|------|
-| 理解机制/追踪流程 | `codegraph_explore` 问"X 怎么工作""X 如何到达 Y" | 问**关系**不问文件；一次返回源码+调用链，抵几十次 grep+read |
-| 追动态分发（回调/接口→实现/框架路由） | `codegraph_explore` / `codegraph_trace` | grep 追不动的杀手场景——一次定位源头 |
-| 点名读文件/符号 | `codegraph_explore` 直接点名 | 当 Read 用，返回带行号源码 |
-| 改前看波及半径 | `codegraph_impact <符号> --depth N` | 顺调用边展开受影响符号；搭配 `callers`/`callees` 看上下游 |
-| 筛受影响测试 | `codegraph_impact … affected` | 顺 import 找波及的测试文件，CI 只跑相关测试 |
-| 打包上下文 | API: `CodeGraph.buildContext("任务描述")` | 自动收集相关符号+代码+关系 → markdown（需 Node 22.5+） |
+| 意图 | 第一步 | 后续 |
+|------|-------|------|
+| 概览/了解功能 | `codegraph_context`（自然语言任务描述） | `codegraph_explore`（context 返回的符号名）→ `codegraph_node`（深入单符号） |
+| 追踪调用链 | `codegraph_trace`（起点符号, 终点符号） | `codegraph_explore`（路径上的符号名） |
+| 找符号在哪 | `codegraph_search`（符号名片段） | `codegraph_node`（看签名/文档） |
+| 改前看波及半径 | `codegraph_callers` + `codegraph_impact`（符号名, --depth N） | — |
+| 看目录结构 | `codegraph_files`（目录路径） | — |
 | 多仓库查询 | 传 `projectPath` | 各项目独立索引，无索引自动退回 grep/read，不报错 |
 
-> ❌ **反模式**：`explore "搜一下 login"` → 零散命中跟 grep 没区别，纯浪费。`explore "看下这个文件"` → 直接用 Read。
+> `codegraph_context` 传自然语言，`codegraph_explore` / `codegraph_trace` / `codegraph_search` 传符号名/文件名。
+> 先 `codegraph_context` 粗筛，再 `codegraph_explore` 拿源码；别跳过 context 直接用 explore。
+> ❌ 反模式：`explore "how does login work"` → 自然语言对 explore 的符号名注入和 Flow 构建完全无效；`explore "看下这个文件"` → 直接用 Read。
 - `ctx_*`：上下文节流/沙箱
 - `grep` / `Read`：字面量核对 — 禁止替代结构查询
 
