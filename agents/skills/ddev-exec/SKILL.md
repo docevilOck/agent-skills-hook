@@ -126,6 +126,7 @@ description: 在当前会话里按已写好的实现计划顺序执行任务时�
 |------|------|---------|
 | `task_plan.md` | 任务追踪：从 exec plan 提取 Task N 生成 checkbox 列表 + Errors 表 | 第一步完成后自动创建 |
 | `progress.md` | 执行日志：每任务完成后记录产出和验证结果 | 首次写入时创建 |
+| `implementation-notes.md` | 实现笔记：每任务完成后按 4 维度记录 AI 推理过程 | 首次任务完成后自动创建 |
 | `findings/` | 上游设计决策（由 ddev-spec/detail/doc-review 写入，本阶段只读） | 已存在 |
 
 ### 第一步后：创建 task_plan.md
@@ -165,7 +166,8 @@ description: 在当前会话里按已写好的实现计划顺序执行任务时�
 **每个任务完成后**：
 1. 标记 `task_plan.md` 中该任务的 checkbox 为 `[x]`
 2. 更新 `Current Task` 为下一个任务
-3. 写入 `progress.md`，格式：
+3. 追加 `implementation-notes.md`，按 4 维度记录本任务的推理过程
+4. 写入 `progress.md`，格式：
 
 ```markdown
 ### Task N — <任务名> ✅
@@ -178,9 +180,56 @@ description: 在当前会话里按已写好的实现计划顺序执行任务时�
 - 写入 `task_plan.md` 的 Errors Encountered 表
 - 遇到无法自行修复的错误，停止并上报用户
 
+### implementation-notes.md 写入规则
+
+每个任务完成后，必须在 `implementation-notes.md` 中追加本轮实现过程中出现的推理记录。格式：
+
+```markdown
+# Implementation Notes
+
+> 来源计划：docs/plans/YY-MM-DD_xxx/exec_plans/feature-name.md
+> 创建时间：2026-07-08
+
+## Design Decisions
+> spec/detail 文档未覆盖、AI 在实现过程中自行做出的设计选择
+
+### Task N — <任务名>
+- **决策**：<做了什么选择>
+- **触发原因**：<spec 中哪个点没说清楚，导致必须自己做判断>
+- **影响范围**：<哪些文件/接口受此决策影响>
+
+## Deviations
+> 故意偏离 spec/detail/plan 的实现，及偏离理由
+
+### Task N — <任务名>
+- **偏离点**：<文档要求 A，实际实现为 B>
+- **理由**：<为什么偏离>
+- **影响范围**：<哪些文件/接口受影响>
+
+## Tradeoffs
+> 考虑过但最终放弃的替代方案，及放弃原因
+
+### Task N — <任务名>
+- **替代方案**：<描述考虑过的方案>
+- **放弃原因**：<为什么不选>
+- **当前方案**：<实际采用的方案简述>
+
+## Open Questions
+> 拿不准、需要用户集中定夺的问题（攒着，不零散打断）
+
+### Task N — <任务名>
+- **问题**：<描述不确定点>
+- **当前处理**：<临时用了什么方式>
+- **建议**：<你认为应该怎么处理>
+```
+
+四个维度中，Design Decisions 和 Deviations 为**强制维度**——每个任务完成后必须至少检查这两类。Tradeoffs 和 Open Questions 为**按需维度**——有则必写，无则标注"无"。不得跳过整个文件。
+
+Open Questions 中的问题在 ddev-gate 验收阶段会作为未决项被检查，因此在进入默认收尾前必须全部回答完毕。
+
 ### 第四步前：Stop Gate 前置检查
 
-进入默认收尾前，验证 `task_plan.md` 中所有 Tasks 均已 `[x]`。未全部完成的不进入第四步。
+进入默认收尾前，验证 `task_plan.md` 中所有 Tasks 均已 `[x]`，且 `implementation-notes.md` 中 Open Questions 已全部回答完毕。未全部完成的不进入第四步。
 
 ### 断点恢复
 
@@ -189,13 +238,15 @@ description: 在当前会话里按已写好的实现计划顺序执行任务时�
 0. 运行 `python scripts/session-catchup.py` 获取 5-Question Reboot Test 摘要
 1. 读取 `task_plan.md` 定位未完成的任务
 2. 读取 `progress.md` 了解已完成工作的产出和验证结果
-3. 从第一个未完成的任务继续执行
+3. 读取 `implementation-notes.md` 了解已完成任务中的设计决策、偏离和未决问题，避免重复判断或遗漏
+4. 从第一个未完成的任务继续执行
 
 ## 集成
 
 **状态追踪文件：**
 - 读取 `task_plan.md` — 每任务开始前确认目标，每任务完成后更新 checkbox
 - 写入 `progress.md` — 每任务完成后记录产出和验证结果
+- 写入 `implementation-notes.md` — 每任务完成后按 4 维度记录推理过程
 - 读取 `findings/index.md` — 了解上游 spec/detail/doc-review 设计决策
 
 **Required workflow skills:**

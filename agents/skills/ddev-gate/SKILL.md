@@ -79,6 +79,7 @@ c-pro / 编码规范审查通过后，还需再拉一个独立 subagent 做注�
 
 能拿到的话，额外读取：
 
+- `implementation-notes.md`（由 ddev-exec 在执行过程中写入，含 Design Decisions / Deviations / Tradeoffs / Open Questions）
 - `task_plan.md`（由 ddev-exec 创建，含任务 checkbox 和 Errors 表）
 - 结构图 / 流程图 / 数据流图
 - `ddev-plan` 产出的执行计划
@@ -116,41 +117,46 @@ c-pro / 编码规范审查通过后，还需再拉一个独立 subagent 做注�
 
 ## 核心流程
 
-0. **Stop Gate 前置检查**：主 agent 读取 `task_plan.md`，确认以下条件同时满足才能继续验收流程，否则返回 `blocked`：
+0. **Stop Gate 前置检查**：主 agent 读取 `task_plan.md` 和 `implementation-notes.md`，确认以下条件同时满足才能继续验收流程，否则返回 `blocked`：
    - 所有任务 checkbox 均为 `[x]`（completed）
    - Errors Encountered 表中所有错误均已解决（Resolution 列非空或已标记 Resolved）
+   - `implementation-notes.md` 中存在且 Open Questions 已全部回答完毕（无未决项）
    - 若存在 `scripts/check-complete`，运行确认输出 "ALL PHASES COMPLETE"
-1. 主 agent 先定位 spec 文档、detail 文档、exec plan、代码范围和本轮验证证据。
+1. 主 agent 先定位 spec 文档、detail 文档、exec plan、`implementation-notes.md`、代码范围和本轮验证证据。
 2. 主 agent 读取这些输入，整理成明确的审查上下文。
-3. 主 agent 使用独立审查 agent 执行第一轮最终一致性验收。
-4. 审查 agent 必须按”spec -> detail -> exec plan -> code -> evidence”的顺序逐项对照。
-5. 审查 agent 先检查 exec plan 是否正确引用 spec / detail / flow / dataflow 文档，是否把这些约束传递成了可执行任务，而不是新增了文档中不存在的设计。
-6. 审查 agent 检查实现里是否出现文档或计划未批准的偏离。
-7. 审查 agent 检查文档强调的约束是否真的落到了代码里，而不是只写在文档里。
-8. 审查 agent 输出 `pass`、`need-info` 或 `blocked`。
-9. 如果结论是 `blocked`，主 agent 必须先修改代码或补齐文档，再重新进入这个 skill，重新拉审查 agent 验收。
-10. 如果结论是 `need-info`，主 agent 必须先补齐缺失输入、范围或验证证据，不得进入 cleanup；补齐后重新进入这个 skill。
-11. 只有当第一轮一致性结论为 `pass` 时，主 agent 才能进入清理阶段。
-12. 主 agent 拉一个新的独立 subagent，在当前代码范围或更窄 changed-files 范围内调用 `ddev-clean`。
-13. 清理 subagent 必须遵守 `ddev-clean` 的 regression-tests-first、显式 cleanup plan、分 smell 分 pass、最小 diff、最小作用域规则。
-14. 如果清理 subagent 没有做出任何代码修改，主 agent 可直接保留第一轮一致性结论，进入最终收尾。
-15. 如果清理 subagent 做出了代码修改，主 agent 必须补充这些修改对应的验证证据，并重新拉独立审查 agent，再做一次完整一致性验收。
-16. 只有当**最后一次一致性验收**输出 `pass` 时，主 agent 才能进入代码规范与质量审查阶段。
-17. **C 项目（`.c` / `.h`）**：主 agent 拉一个新的独立 subagent 加载 `ddev-c-pro` skill，对**当前代码范围**统一完成编码规范审查和代码质量审查（安全、架构性能、死代码/重复）。C 项目不再单独调用 `ddev-code-review`。
-18. c-pro 审查 subagent 按 `ddev-c-pro` 中的设计规范、命名规范、风格偏好、安全、架构性能、死代码/重复逐项审查，对问题按 CRITICAL/HIGH/MEDIUM/LOW 分级。
-19. c-pro 审查 subagent 输出 `pass` 或 `blocked`。存在 CRITICAL 或 HIGH → `blocked`。仅 MEDIUM/LOW → `pass`（在建议项中列出）。
-20. 如果 c-pro 审查 `blocked`，主 agent 必须按清单修改代码，然后重新进入这个 skill（从一致性验收重新开始完整流程）。
-21. 如果 c-pro 审查的修改涉及结构、接口或流程变更，必须在修改后回到一致性验收重审。
-22. **非 C 项目**：先拉独立 subagent 加载 `ddev-code-review` skill 做代码质量审查，结论 `REQUEST CHANGES`（CRITICAL/HIGH）视为 `blocked`。通过后再按语言加载编码规范审查 skill（如存在），不通过则回到一致性验收。
-23. 只有当代码规范与质量审查输出 `pass`（或合理跳过）时，主 agent 才能进入注释/文档审查阶段。
-24. 主 agent 根据项目语言路由注释审查：
+3. **主 agent 先读取 `implementation-notes.md`**，提取 Deviations 和 Open Questions：
+   - Deviations 条目 → 直接映射为本轮一致性验收的重点偏离检查项
+   - Design Decisions → 作为 spec 空白处的补充验收依据，审查 agent 需确认决策合理且未引入新的未批准设计
+   - Open Questions → 若有未回答的，直接判定 `blocked`；若已回答，将其回答结论纳入验收范围
+4. 主 agent 使用独立审查 agent 执行第一轮最终一致性验收。
+5. 审查 agent 必须按"spec -> detail -> exec plan -> implementation-notes -> code -> evidence"的顺序逐项对照。
+6. 审查 agent 先检查 exec plan 是否正确引用 spec / detail / flow / dataflow 文档，是否把这些约束传递成了可执行任务，而不是新增了文档中不存在的设计。
+7. 审查 agent 检查实现里是否出现文档或计划未批准的偏离。
+8. 审查 agent 检查文档强调的约束是否真的落到了代码里，而不是只写在文档里。
+9. 审查 agent 输出 `pass`、`need-info` 或 `blocked`。
+10. 如果结论是 `blocked`，主 agent 必须先修改代码或补齐文档，再重新进入这个 skill，重新拉审查 agent 验收。
+11. 如果结论是 `need-info`，主 agent 必须先补齐缺失输入、范围或验证证据，不得进入 cleanup；补齐后重新进入这个 skill。
+12. 只有当第一轮一致性结论为 `pass` 时，主 agent 才能进入清理阶段。
+13. 主 agent 拉一个新的独立 subagent，在当前代码范围或更窄 changed-files 范围内调用 `ddev-clean`。
+14. 清理 subagent 必须遵守 `ddev-clean` 的 regression-tests-first、显式 cleanup plan、分 smell 分 pass、最小 diff、最小作用域规则。
+15. 如果清理 subagent 没有做出任何代码修改，主 agent 可直接保留第一轮一致性结论，进入最终收尾。
+16. 如果清理 subagent 做出了代码修改，主 agent 必须补充这些修改对应的验证证据，并重新拉独立审查 agent，再做一次完整一致性验收。
+17. 只有当**最后一次一致性验收**输出 `pass` 时，主 agent 才能进入代码规范与质量审查阶段。
+18. **C 项目（`.c` / `.h`）**：主 agent 拉一个新的独立 subagent 加载 `ddev-c-pro` skill，对**当前代码范围**统一完成编码规范审查和代码质量审查（安全、架构性能、死代码/重复）。C 项目不再单独调用 `ddev-code-review`。
+19. c-pro 审查 subagent 按 `ddev-c-pro` 中的设计规范、命名规范、风格偏好、安全、架构性能、死代码/重复逐项审查，对问题按 CRITICAL/HIGH/MEDIUM/LOW 分级。
+20. c-pro 审查 subagent 输出 `pass` 或 `blocked`。存在 CRITICAL 或 HIGH → `blocked`。仅 MEDIUM/LOW → `pass`（在建议项中列出）。
+21. 如果 c-pro 审查 `blocked`，主 agent 必须按清单修改代码，然后重新进入这个 skill（从一致性验收重新开始完整流程）。
+22. 如果 c-pro 审查的修改涉及结构、接口或流程变更，必须在修改后回到一致性验收重审。
+23. **非 C 项目**：先拉独立 subagent 加载 `ddev-code-review` skill 做代码质量审查，结论 `REQUEST CHANGES`（CRITICAL/HIGH）视为 `blocked`。通过后再按语言加载编码规范审查 skill（如存在），不通过则回到一致性验收。
+24. 只有当代码规范与质量审查输出 `pass`（或合理跳过）时，主 agent 才能进入注释/文档审查阶段。
+25. 主 agent 根据项目语言路由注释审查：
     - **C 项目**（`.c` / `.h`）：拉新的独立 subagent 加载 `ddev-comment-gen` skill，对**通过规范审查的最终代码**做注释审查
     - **其他语言项目**：如果没有对应的注释审查 skill，跳过此阶段（在结论中标注”本语言暂无注释审查 skill，已跳过”）
-25. 注释审查 subagent 按对应 skill 中的审查维度逐文件、逐函数、逐结构体验证注释完整性。
-26. 注释审查 subagent 输出 `pass` 或 `blocked`，`blocked` 时必须附带缺失项清单和补全建议。
-27. 如果注释审查 `blocked`，主 agent 必须按清单补全注释，然后重新进入这个 skill（从一致性验收重新开始完整流程）。
-28. 如果注释审查的修改涉及函数签名或行为变更，必须在修改后回到一致性验收重审。
-29. 只有当代码规范与质量审查和注释审查均输出 `pass`（或合理跳过）时，主 agent 才能宣称”已经按计划完成”。
+26. 注释审查 subagent 按对应 skill 中的审查维度逐文件、逐函数、逐结构体验证注释完整性。
+27. 注释审查 subagent 输出 `pass` 或 `blocked`，`blocked` 时必须附带缺失项清单和补全建议。
+28. 如果注释审查 `blocked`，主 agent 必须按清单补全注释，然后重新进入这个 skill（从一致性验收重新开始完整流程）。
+29. 如果注释审查的修改涉及函数签名或行为变更，必须在修改后回到一致性验收重审。
+30. 只有当代码规范与质量审查和注释审查均输出 `pass`（或合理跳过）时，主 agent 才能宣称”已经按计划完成”。
 
 如果没有新的、可归属到本轮结论的验证证据，最多输出 `need-info`，不能输出 `pass`。
 
@@ -159,7 +165,8 @@ c-pro / 编码规范审查通过后，还需再拉一个独立 subagent 做注�
 ## 审查 agent 要求
 
 - 必须是独立视角，不能把主 agent 自己的口头总结当结论
-- 必须显式核对 spec、detail、exec plan、code、evidence 这五类输入
+- 必须显式核对 spec、detail、exec plan、implementation-notes、code、evidence 这六类输入
+- 必须显式核对 Deviations 条目，逐条验收偏离是否已被文档接受或有合理理由
 - 必须显式核对 exec plan 是否只是执行映射，还是偷偷承担了新的设计决策
 - 必须把 data flow、flow、结构体设计与代码逐项对上
 - **必须使用 `codegraph_impact` 评估改动影响面**：对关键符号做影响半径分析，确认实际影响范围与 spec/detail 声明的范围一致；若存在文档未声明的受影响模块，视为偏离
@@ -275,7 +282,7 @@ code-reviewer 提示模板见 [reviewer-prompt.md](../ddev-code-review/code-revi
 - 代码实现与 exec plan 一致，关键步骤没有漏做、错做或擅自改做
 - 本轮存在新的验证证据，且证据与结论匹配
 - 未覆盖风险已明确说明
-- task_plan.md 存在且所有 checkbox 已完成、所有错误已解决、check-complete 验证通过
+- task_plan.md 存在且所有 checkbox 已完成、所有错误已解决、check-complete 验证通过，且 `implementation-notes.md` 中 Open Questions 已全部回答完毕
 - 若经历过 `ddev-clean` 清理，则清理后的最终代码也已重新完成一致性验收
 - 代码规范与质量审查已通过（C 项目由 `ddev-c-pro` 统一完成，非 C 项目由 `ddev-code-review` + 语言规范审查完成）
 - 若项目为 C 代码（`.c` / `.h`），则 `ddev-comment-gen` 注释审查已通过；若为其他语言，则对应的注释审查已通过或已合理跳过
@@ -301,6 +308,7 @@ code-reviewer 提示模板见 [reviewer-prompt.md](../ddev-code-review/code-revi
 用于无法验收或明显不通过的情况，例如：
 
 - 找不到 spec 文档或 detail 文档
+- `implementation-notes.md` 不存在，或其中 Open Questions 仍有未回答项
 - 无法定位本轮改动对应的实现范围
 - exec plan 与 spec / detail / flow / dataflow 文档冲突，或 exec plan 自行引入了新的未批准设计
 - 实现明显背离设计，且没有文档更新
@@ -323,8 +331,9 @@ code-reviewer 提示模板见 [reviewer-prompt.md](../ddev-code-review/code-revi
 最终输出必须包含：
 
 1. 验收结论：`pass` / `need-info` / `blocked`
-2. 对照范围：看了哪些 spec / detail / code / 验证材料
+2. 对照范围：看了哪些 spec / detail / implementation-notes / code / 验证材料
 3. 差异归类：文档过时 / 实现偏离设计 / 设计本身不完整 / 证据不足
+   - 若 `implementation-notes.md` 中存在 Deviations 条目，必须在差异归类或发现的问题中对每一项偏离给出验收结论（已接受 / 需修正 / 需补文档）
 4. 发现的问题：按严重度列出与设计不一致之处
 5. 已确认一致的关键点：只列最重要的几项
 6. 未覆盖风险：明确还没验证到哪里
