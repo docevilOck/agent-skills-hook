@@ -58,7 +58,7 @@ description: 在当前会话里按已写好的实现计划顺序执行任务时�
 
 ### 第三步：阶段性复核
 
-- 连续完成 2-3 个任务，或者完成一个明显的里程碑后，用 `superpowers:requesting-code-review` 做一次阶段性复核
+- 连续完成 2-3 个任务，或者完成一个明显的里程碑后，用 `ddev-code-review` 做一次阶段性复核
 - 如果审查指出阻塞问题，先修复再继续后续任务
 - 如果只是非阻塞建议，记录后按优先级处理
 
@@ -66,9 +66,9 @@ description: 在当前会话里按已写好的实现计划顺序执行任务时�
 
 当所有任务完成并通过计划要求的验证后，进入默认收尾顺序：
 
-1. 用 `superpowers:verification-before-completion` 补齐最终结论所需的验证证据
-2. 如需独立质量复核，用 `superpowers:requesting-code-review`
-3. 进入 `superpowers:ddev-gate` 做第一轮一致性验收，并拉独立审查 agent 核对 architecture、detail、data flow、flow、exec plan 与代码是否完全一致
+1. 用 `verification-before-completion` 补齐最终结论所需的验证证据
+2. 如需独立质量复核，用 `ddev-code-review`
+3. 进入 `ddev-gate` 做第一轮一致性验收，并拉独立审查 agent 核对 architecture、detail、data flow、flow、exec plan 与代码是否完全一致
 4. 如果第一轮 `ddev-gate` 返回 `blocked`，主 agent 必须先修改，再重新进入 `ddev-gate`
 5. 如果第一轮 `ddev-gate` 返回 `need-info`，主 agent 必须先补齐缺失输入、范围或验证证据，再重新进入 `ddev-gate`
 6. 只有当 `ddev-gate` 给出一致性 `pass` 后，才进入 `ddev-clean` 清理阶段
@@ -250,9 +250,8 @@ Open Questions 中的问题在 ddev-gate 验收阶段会作为未决项被检查
 - 读取 `findings/index.md` — 了解上游 spec/detail/doc-review 设计决策
 
 **Required workflow skills:**
-- **superpowers:using-git-worktrees** - 在执行计划前准备隔离工作区
-- **superpowers:ddev-plan** - 产出本 skill 要执行的计划
-- **superpowers:requesting-code-review** - 阶段性复核与重要节点复核
-- **superpowers:verification-before-completion** - 对最终结论补齐验证证据
-- **superpowers:ddev-gate** - 默认最终验收
-- **superpowers:ddev-clean** - 一致性通过后的受限 cleanup / deslop 阶段
+- **ddev-plan** - 产出本 skill 要执行的计划
+- **ddev-code-review** - 阶段性复核与重要节点复核
+- **verification-before-completion** - 对最终结论补齐验证证据
+- **ddev-gate** - 默认最终验收
+- **ddev-clean** - 一致性通过后的受限 cleanup / deslop 阶段
