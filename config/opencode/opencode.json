@@ -14,6 +14,7 @@
       ],
       "timeout": 60000
     }
+
   },
   "compaction": {
     "auto": true,
