@@ -369,7 +369,6 @@ detail 文档完成后，必须逐项核对：
 - 再进入 `ddev-plan` 把已经确认的内容拆成可执行步骤。
 
 如果实现已完成、准备验收，则把这些 detail 文档作为 `ddev-gate` 的直接输入。若此前通过 `ddev-pc-test` 产出了测试 demo，`ddev-gate` 阶段必须跑通该 demo。
-- 在 detail 过程中发现结构冲突、边界发现、数据流约束时，调用 `ddev-decision-log` 将发现写入 `findings/detail/`。
 
 ## 参考
 

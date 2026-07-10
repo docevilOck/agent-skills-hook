@@ -52,7 +52,7 @@ spec 文档默认落到 `docs/plans/YY-MM-DD_name/spec/<feature-name>.md`。
 7. 若无需 PC 测试或跳过步骤 6，进入 `ddev-detail` 继续细化结构体和数据流；若步骤 6 已产出测试，仍可按需进入 detail 补充实现细节。
 8. 再进入 `ddev-plan`，把已确认设计拆成执行计划。
 9. 实现完成并拿到验证证据后，默认进入 `ddev-gate`，按图对照代码实现是否一致。若步骤 6 产出了测试 demo，`ddev-gate` 阶段必须跑通该 demo。
-10. 在 spec 设计过程中出现方向性修改、方案取舍时，调用 `ddev-decision-log` 将决策写入 `findings/spec/`；spec 最终定版时，写入设计依据摘要。
+10. 在 spec 设计过程中出现方向性修改、方案取舍时，将决策记录到 spec 文档本身或 `implementation-notes.md` 中；spec 最终定版时，写入设计依据摘要。
 
 ## 基本流程
 

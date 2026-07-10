@@ -357,7 +357,6 @@ code-reviewer 提示模板见 [reviewer-prompt.md](../ddev-code-review/code-revi
 - 如需在清理后做代码规范与质量审查，C 项目联动 `ddev-c-pro`（已吸收代码质量审查），非 C 项目联动 `ddev-code-review` + 对应语言编码规范 skill
 - 如需在规范与质量审查通过后做注释完整性和规范性审查，联动对应语言的注释审查 skill（C 项目联动 `ddev-comment-gen`）
 - 默认在 `ddev-exec` 的末尾作为最终收口门禁
-- 验收结论（pass / need-info / blocked）调用 `ddev-decision-log` 写入 `findings/gate/`
 
 ## 最低要求
 
