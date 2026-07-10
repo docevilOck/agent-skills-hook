@@ -24,15 +24,26 @@ $SKILL_ROOT = <本 skill 加载输出中 "Base directory for this skill:" 行的
 
 ## 何时使用
 
-- 仓库里已经有升级链路，但 `VID/PID`、固件产物、OTA 指令、ACK 帧格式不能靠猜，必须先从代码里查。
+- 仓库里已经有升级链路，但 `VID/PID`、固件产物路径需要从代码中确认；协议参数（命令字、ACK 格式、分包规则等）直接从 playbook 配置模板取值，禁止逐段 grep 代码库搜索协议实现细节。
 - 需要把某个项目的刷写信息整理成可复用配置，并沉淀到项目内。
 - 需要先做探测、固件检查、分包验证，再决定是否真实刷写。
 
+## 参数获取策略
+
+配置文件中的参数分为两类，获取方式不同：
+
+| 类别 | 参数 | 获取方式 |
+|------|------|----------|
+| **项目特有** | `vid`、`pid`、`firmware` 产物路径、构建目标名 | 从仓库代码中搜索（搜 `VID_`/`PID_` 宏、产物路径，搜到即停） |
+| **协议内置** | `command_prefix_hex`、`ack_prefix_hex`、`pack_length_command`、`ota_command`、`header_size`、`crc_type`、`chunk_size`、ACK 帧长度/偏移/状态位 | 直接从 playbook 配置模板取值，playbook 中的默认值即为仓库已验证的协议参数 |
+
+> **关键约束**：协议内置参数的默认值已在仓库配套设备上验证通过。若当前目标使用相同协议栈，直接复用即可，不要重新 grep 代码库验证。仅当设备表现与模板默认值不匹配（如 ACK 长度不同、命令前缀变化）时，才需要针对性搜索差异点。
+
 ## 工作流
 
-1. 先读 `references/repo-firmware-flash-playbook.md`，按里面的清单去仓库里找升级相关事实。
-2. 从仓库代码、构建脚本、旧下载工具中提取刷写参数，并写入项目内 `.agents/cache/<目标名>_download.cfg`。
-3. 优先用 `scripts/repo_flash.py` 执行统一流程：
+1. 先读 `references/repo-firmware-flash-playbook.md`，以其中的配置文件模板为起点。**协议层参数（`command_prefix_hex`、`ack_prefix_hex`、`pack_length_command`、`ota_command`、`header_size`、`crc_type`、ACK 帧长度/偏移等）直接从模板取值，禁止逐段 grep/read 代码库搜索协议结构体或命令格式。**
+2. 仅从仓库代码中提取项目特有参数：`vid`、`pid`、`firmware` 产物路径、构建目标名，写入 `.agents/cache/<目标名>_download.cfg`。一次搜索定位到 VID/PID 宏定义和产物路径即停，不再搜索协议实现细节。
+3. 用 `scripts/repo_flash.py` 执行统一流程：
    - `probe`：探测设备路径
    - `inspect-firmware`：检查固件文件
    - `make-packets`：按配置生成分包数据
@@ -48,7 +59,7 @@ $SKILL_ROOT = <本 skill 加载输出中 "Base directory for this skill:" 行的
 
 ## 执行要求
 
-- 不要在没查仓库前硬编码任何 `VID/PID`、命令字、ACK、固件名。
+- `VID`、`PID`、固件产物路径必须从仓库代码中确认，禁止凭空硬编码；协议命令字和 ACK 参数从 playbook 模板取值，不逐段搜索代码中的协议实现。
 - 配置文件必须写到项目内 `.agents/cache/`，文件名建议为 `<目标名>_download.cfg`。
 - 如果仓库里存在多条升级路径，先判断当前目标实际使用哪一条，再选择是否复用本脚本。
 - 如果协议明显不匹配，不要强行套用，应该保留这套工作流并按目标另写脚本。

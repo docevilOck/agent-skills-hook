@@ -53,23 +53,17 @@
 
 ## 推荐搜索关键词
 
-可以直接在仓库里搜这些关键词：
+以下关键词仅用于定位**项目特有参数**（`VID`/`PID`、固件产物路径）。协议层参数（命令字、ACK 格式等）从下方配置模板直接取值，不搜索代码库：
 
-- `VID_`
-- `PID_`
-- `usbprint`
-- `WinUsb`
-- `CreateFile`
-- `pack_length`
-- `file_info`
-- `ota`
-- `update`
-- `offset`
-- `crc`
-- `ack`
-- `firmware`
-- `encrypt`
-- `pack`
+- `VID_`、`PID_` — 设备识别
+- `firmware` — 产物路径
+- `TARGET`、`PROJECT` — 构建目标名
+
+以下为辅助搜索（仅在模板默认值与设备表现不匹配时使用）：
+
+- `usbprint`、`WinUsb`、`CreateFile` — 传输方式确认
+- `pack_length`、`ota`、`ack`、`crc` — 协议差异点定位（仅当设备行为偏离模板默认值时才搜）
+- `encrypt`、`pack` — 产物后处理判断
 
 ## 配置文件格式
 
