@@ -1,0 +1,27 @@
+{
+  "optimization_id": "opt_20260710_repo-firmware-flasher_protocol-param-quick-ref",
+  "skill": "repo-firmware-flasher",
+  "timestamp": "2026-07-10T00:00:00Z",
+  "mode": "text_edit",
+  "edits": [
+    {"type": "replace", "file": "SKILL.md", "reason": "纠正'OTA指令/ACK帧格式必须从代码查'的错误暗示", "source_cluster_id": "c_001"},
+    {"type": "replace", "file": "SKILL.md", "reason": "工作流从开放式搜索改为模板优先+项目参数限定搜索", "source_cluster_id": "c_001"},
+    {"type": "add", "file": "SKILL.md", "reason": "新增参数获取策略表，将两类参数从获取方式上彻底分离", "source_cluster_id": "c_001"},
+    {"type": "replace", "file": "SKILL.md", "reason": "同步收紧执行要求", "source_cluster_id": "c_001"},
+    {"type": "replace", "file": "playbook.md", "reason": "搜索关键词分层：核心关键词限定为项目特有参数，协议关键词降级为按需辅助搜索", "source_cluster_id": "c_001"}
+  ],
+  "gate_result": {
+    "total_clusters": 1,
+    "passed": 1,
+    "verdict": "ACCEPT",
+    "clusters": [
+      {"cluster_id": "c_001", "verdict": "NO", "reason": "三处硬阻断（策略表分类 + 工作流禁止令 + 关键词分层）直接封死了原有多轮 grep/read 协议实现细节的路径"}
+    ]
+  },
+  "pre_optimization_hash": "6940c3cb8d8397075929d2d46d33c5569721da8bea07797d41aee3a7f26d4ff6",
+  "post_optimization_hash": "b0bb98c8d1accb34fa0e24e0a060535b8e9c6049dc60cf034268cf271440b489",
+  "signal_ids": [
+    "20260708T144840_repo-firmware-flasher_b72698",
+    "20260708T144840_repo-firmware-flasher_e8b3cd"
+  ]
+}
