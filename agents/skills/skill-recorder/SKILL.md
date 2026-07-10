@@ -90,20 +90,20 @@ agent 自检测到 skill 描述不完整导致额外消耗。满足**任一**即
    - friction：静默（不需要告诉用户，他们不需要知道）
    - corrected：简短确认 "已记录 code-review 的 corrected 信号"
 
-## 禁止直接修改 SKILL.md
+## 禁止直接修改目标 skill 文件
 
-**硬性门禁：skill-recorder 检测到任何 skill 存在问题时，严禁直接修改该 skill 的 SKILL.md。** 即使问题明确、解决方案清晰，也不得直接编辑文件。
+**硬性门禁：skill-recorder 检测到任何 skill 存在问题时，严禁直接修改目标 skill 的任何文件（SKILL.md、配套文档、脚本等）。** 即使问题明确、解决方案清晰，也不得直接编辑或新增文件。
 
 必须遵循以下流程：
 
 1. **只记录信号**：将问题写成 `corrected` 或 `friction` 信号，写入目标 skill 的 `.skillopt/pending/` 目录。
-2. **不自行改代码**：不在同一轮对话中直接编辑目标 skill 的 SKILL.md 或其他配套文件。
+2. **不自行改代码**：不在同一轮对话中直接编辑或新增目标 skill 的任何文件（含 SKILL.md、配套文档、脚本等）。
 3. **提示走 skill-optimizer**：若用户要求立即修改，明确告知："此修改需要走 `skill-optimizer` 流程。信号已记录，可使用 `optimize <skill名>` 触发优化管线。"
 
 ## 约束
 
 - 仅由全局指令 checklist 调用，不直接对用户开放
-- **禁止修改目标 skill 的 SKILL.md**（参见上方"禁止直接修改 SKILL.md"章节）
+- **禁止修改目标 skill 的任何文件**（参见上方"禁止直接修改目标 skill 文件"章节）
 - 不触发优化
 - corrected：归属不明确时主动问用户
 - friction：全自动，不打扰用户
