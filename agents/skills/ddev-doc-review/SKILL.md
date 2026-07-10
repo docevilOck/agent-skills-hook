@@ -22,7 +22,7 @@ description: 文档审查技能。将文档审查任务派发给独立子代理�
 
 ## 核心流程
 
-0. **⚠️ 硬门禁**：主 agent **必须先 `Read` `findings/index.md`**，定位 spec/detail 阶段的相关决策文件和 `implementation-notes.md`（AI 在执行阶段的 Design Decisions / Deviations / Tradeoffs）。了解上游设计上下文、已知约束和 AI 自产决策后，方可开始审查。
+0. **⚠️ 硬门禁**：主 agent **必须先 `Read` `implementation-notes.md`**（如存在），了解 AI 在执行阶段的 Design Decisions / Deviations / Tradeoffs，作为审查上下文的一部分。
 1. 主 agent 定位待审查的文档路径和关联的代码改动范围
 2. 主 agent 读取文档和代码改动，整理审查上下文
 3. ⚠️ 主 agent **必须**派发 **General 子代理**执行审查（**禁止主 agent 自行审查**，见上方 HARD GATE）

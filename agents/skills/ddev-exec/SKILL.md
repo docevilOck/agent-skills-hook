@@ -233,7 +233,6 @@ description: 在当前会话里按已写好的实现计划顺序执行任务时�
 
 **每个任务开始时**：
 1. 读取 `task_plan.md` 确认目标和当前任务
-2. 读取 `findings/index.md` 了解上游设计决策上下文（如有）
 
 **每个任务完成后**：
 1. 标记 `task_plan.md` 中该任务的 checkbox 为 `[x]`
@@ -319,7 +318,6 @@ Open Questions 中的问题在 ddev-gate 验收阶段会作为未决项被检查
 - 读取 `task_plan.md` — 每任务开始前确认目标，每任务完成后更新 checkbox
 - 写入 `progress.md` — 每任务完成后记录产出和验证结果
 - 写入 `implementation-notes.md` — 每任务完成后按 4 维度记录推理过程
-- 读取 `findings/index.md` — 了解上游 spec/detail/doc-review 设计决策
 
 **Required workflow skills:**
 - **ddev-plan** - 产出本 skill 要执行的计划
