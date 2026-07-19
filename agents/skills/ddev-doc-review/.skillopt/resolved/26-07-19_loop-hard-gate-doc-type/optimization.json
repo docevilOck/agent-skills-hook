@@ -1,0 +1,42 @@
+{
+  "optimization_id": "opt_ddev-doc-review_20260719_loop-hard-gate-doc-type",
+  "skill": "ddev-doc-review",
+  "timestamp": "2026-07-19T20:00:00+08:00",
+  "mode": "text_edit",
+  "edits": [
+    {
+      "type": "replace",
+      "target": "8. 主 agent **必须再次派发子代理做完整独立重审**... + 9. **循环至零阻塞**...",
+      "reason": "Step 8 改为条件分支：先判定审查结论再决定是否派发重审；Step 9 明确通过后立即停止的硬门禁",
+      "source_cluster_id": "c_docrw_loop"
+    },
+    {
+      "type": "replace",
+      "target": "审查维度表格「基于代码的合理性」检查内容",
+      "reason": "增加文档类型分类说明",
+      "source_cluster_id": "c_docrw_loop"
+    },
+    {
+      "type": "add",
+      "target": "审查 prompt 模板维度1「基于代码改动的合理性」",
+      "reason": "增加文档类型分类：spec/design/plan 文档不应以代码未实现报阻塞",
+      "source_cluster_id": "c_docrw_loop"
+    },
+    {
+      "type": "replace",
+      "target": "审查 prompt 模板「判定标准」",
+      "reason": "增加文档类型判定校准，明确计划文档的判定边界",
+      "source_cluster_id": "c_docrw_loop"
+    }
+  ],
+  "gate_result": {
+    "type": "skipped",
+    "reason": "ONLY-CORRECTED 特例：全部信号为 friction（无 corrected），跳过 gate"
+  },
+  "pre_optimization_hash": "7beb34245e67c89746e1fffeef5bdd0ba3a65fa653ef842f7517904f0ea8c845",
+  "post_optimization_hash": "2f142117aa5d6c6960ba5926813e0d70f77fcd9cfc3b3d01131a3f5c158a57d3",
+  "signal_ids": [
+    "20260719T200000_ddev-doc-review_a1b2c3"
+  ],
+  "pre_skill_backup": "pre_skill_backup.md"
+}
