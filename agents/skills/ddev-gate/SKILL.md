@@ -358,6 +358,15 @@ code-reviewer 提示模板见 [reviewer-prompt.md](../ddev-code-review/code-revi
 - 如需在规范与质量审查通过后做注释完整性和规范性审查，联动对应语言的注释审查 skill（C 项目联动 `ddev-comment-gen`）
 - 默认在 `ddev-exec` 的末尾作为最终收口门禁
 
+### ⚠️ 阶段交接硬门禁
+
+**本 skill 完成后，禁止 agent 自动进入任何后续阶段（ddev-archive / git commit / 发布 / 部署 等）。**
+
+- gate 最终 `pass` 后，向用户报告完整的验收结论（一致性、代码质量、注释审查）。
+- 提示用户可选后续操作（如"是否提交代码？""是否进入 ddev-archive 归档？"），但**必须等待用户明确确认**。
+- 用户未明确说"提交""归档""发布""推送"等指令前，停留在 gate 结论输出阶段，不自行推进。
+- gate 内部的 gate → clean → c-pro/code-review → comment-gen 循环为自动化流程，不受此限制。
+
 ## 最低要求
 
 没有 spec 文档、没有 detail 文档、没有代码对照，就不要假装做了最终验收。

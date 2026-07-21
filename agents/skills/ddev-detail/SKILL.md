@@ -369,6 +369,14 @@ detail 文档完成后，必须逐项核对：
 
 如果实现已完成、准备验收，则把这些 detail 文档作为 `ddev-gate` 的直接输入。若此前通过 `ddev-pc-test` 产出了测试 demo，`ddev-gate` 阶段必须跑通该 demo。
 
+### ⚠️ 阶段交接硬门禁
+
+**本 skill 完成后，禁止 agent 自动进入下游阶段（ddev-pc-test / ddev-plan / ddev-gate）。**
+
+- 完成 detail 文档后，向用户报告产出路径和关键结论。
+- 提示用户可选的下一步（如"进入 ddev-plan 拆解执行计划"、"进入 ddev-pc-test 评估可测试性"），但**必须等待用户明确确认后再加载对应 skill**。
+- 用户未明确说"进入下一步""继续""开始 plan/pc-test/gate"等指令前，停留在当前阶段，不自行推进。
+
 ## 参考
 
 - [结构体拆分规则](references/structure-splitting-rules.md)

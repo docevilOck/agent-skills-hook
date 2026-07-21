@@ -53,6 +53,14 @@ spec 文档默认落到 `docs/plans/YY-MM-DD_name/spec/<feature-name>.md`。
 9. 实现完成并拿到验证证据后，默认进入 `ddev-gate`，按图对照代码实现是否一致。若步骤 6 产出了测试 demo，`ddev-gate` 阶段必须跑通该 demo。
 10. 在 spec 设计过程中出现方向性修改、方案取舍时，将决策记录到 spec 文档本身或 `implementation-notes.md` 中；spec 最终定版时，写入设计依据摘要。
 
+### ⚠️ 阶段交接硬门禁
+
+**本 skill 完成后，禁止 agent 自动进入下游阶段（ddev-detail / ddev-plan / ddev-exec / ddev-gate）。**
+
+- 完成 spec 文档后，向用户报告产出路径和关键结论。
+- 提示用户可选的下一步（如"进入 ddev-detail 细化结构体"、"进入 ddev-pc-test 评估可测试性"），但**必须等待用户明确确认后再加载对应 skill**。
+- 用户未明确说"进入下一步""继续""开始 detail/plan/exec/gate"等指令前，停留在当前阶段，不自行推进。
+
 ## 基本流程
 
 1. 先判断这次改动属于哪一类：
