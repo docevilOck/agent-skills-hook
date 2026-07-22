@@ -5,7 +5,7 @@ description: 实现 + 调试全部完成后，扫描活跃计划、聚合同主�
 
 # ddev-archive — 变更归档与最终设计定型
 
-把同一主题下经过多轮迭代（初始计划、调试迭代、最终版本）的所有活跃计划归档到一个日期目录，并生成一份 `final-spec.md` 记录最终代码事实设计。
+把同一主题下经过多轮迭代（初始计划、调试迭代、最终版本）的所有活跃计划归档到 `YY-MM-DD_<主题名>/` 目录，并生成一份 `final-spec.md` 记录最终代码事实设计。
 
 **开始时声明：** "正在使用 ddev-archive skill 归档变更。"
 
@@ -25,7 +25,7 @@ description: 实现 + 调试全部完成后，扫描活跃计划、聚合同主�
 ## 归档目录结构
 
 ```
-docs/plans/archive/YYYY-MM-DD/
+docs/plans/archive/YY-MM-DD_<topic-name>/
 ├── 01_initial/              ← 初始计划（最早的 spec/detail/exec_plans）
 │   ├── spec/
 │   ├── detail/
@@ -42,7 +42,7 @@ docs/plans/archive/YYYY-MM-DD/
 └── archive-notes.md         ← 归档说明（可选，记录归档决策和未决项）
 ```
 
-- `YYYY-MM-DD` 为归档日期（当天）
+- `YY-MM-DD` 为归档日期（当天），`<topic-name>` 为主题英文名（kebab-case）
 - 数字前缀 `01_` / `02_` 保持时间顺序
 - 如果只有一个 plan 无迭代，则只有 `01_initial/` + `final-spec.md`
 
@@ -90,7 +90,7 @@ docs/plans/archive/YYYY-MM-DD/
 #### 文档位置
 
 ```
-docs/plans/archive/YYYY-MM-DD/final-spec.md
+docs/plans/archive/YY-MM-DD_<topic-name>/final-spec.md
 ```
 
 #### 文档结构
@@ -168,10 +168,10 @@ docs/plans/archive/YYYY-MM-DD/final-spec.md
 
 ### 第五步：创建归档目录并移动文件
 
-1. 创建 `docs/plans/archive/YYYY-MM-DD/`
-2. 将每个迭代目录复制/移动到对应的 `0N_xxx/` 子目录
+1. 创建 `docs/plans/archive/YY-MM-DD_<topic-name>/`
+2. 将每个迭代目录**移动**到对应的 `0N_xxx/` 子目录（移入归档，不在 `docs/plans/` 下留副本）
 3. 将 `final-spec.md` 写入归档根目录
-4. 删除原 `docs/plans/` 下的活跃计划目录（移动后清理）
+4. 确认原 `docs/plans/` 下的活跃计划目录已清空
 
 ### 第六步：生成 archive-notes.md（可选）
 
