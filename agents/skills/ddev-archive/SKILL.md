@@ -170,7 +170,9 @@ docs/plans/archive/YY-MM-DD_<topic-name>/final-spec.md
 
 1. 创建 `docs/plans/archive/YY-MM-DD_<topic-name>/`
 2. 将每个迭代目录**移动**到对应的 `0N_xxx/` 子目录（移入归档，不在 `docs/plans/` 下留副本）
-3. 将 `final-spec.md` 写入归档根目录
+   - **必须使用 `git mv`**，不要用 `mv` 或 `cp + rm`，否则 git 会丢失文件历史
+   - 例：`git mv docs/plans/26-07-21_xxx docs/plans/archive/26-07-22_xxx/01_initial/`
+3. 将 `final-spec.md` 和 `archive-notes.md` 写入归档根目录，`git add` 暂存
 4. 确认原 `docs/plans/` 下的活跃计划目录已清空
 
 ### 第六步：生成 archive-notes.md（可选）
