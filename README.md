@@ -64,15 +64,15 @@ cd windows
 
 | 技能 | 说明 |
 |------|------|
-| `ddev-arch` | 项目级架构规范初始化，建立模块边界与变更门禁 |
-| `ddev-spec` | 编写 spec 文档（图优先），定义改动边界与流程 |
-| `ddev-detail` | 梳理结构体定义、数据流和流程（图优先） |
+| `ddev-arch` | 项目级架构规范与嵌入式硬件基线初始化，建立模块边界、机型/外设/GPIO 基线与变更门禁；**仅允许用户手动调用** |
+| `ddev-spec` | 编写 spec 文档（图优先），定义改动边界与流程；**仅允许用户手动调用** |
+| `ddev-detail` | 梳理结构体定义、数据流和流程（图优先）；**仅允许用户手动调用** |
 | `ddev-diagram` | 手写 ASCII 架构图/流程图/数据流图到 .md |
 | `ddev-pc-test` | 判断是否可在 PC 写测试 demo 验证，生成测试用例 |
-| `ddev-plan` | 将 spec/detail 拆解为可执行实现步骤 |
-| `ddev-exec` | 按计划顺序执行任务，含进度跟踪 |
+| `ddev-plan` | 将 spec/detail 拆解为可执行实现步骤；**仅允许用户手动调用** |
+| `ddev-exec` | 按计划顺序执行任务，含进度跟踪；**仅允许用户手动调用** |
 | `ddev-final` | 最终设计归档，记录实现与原计划的差异 |
-| `ddev-gate` | 实现一致性最终验收（一致性→清理→代码审查→规范→注释 五阶段） |
+| `ddev-gate` | 实现一致性最终验收（一致性→清理→代码审查→规范→注释 五阶段）；**禁止用户手动调用，仅允许由 `ddev-exec` 联动加载** |
 | `ddev-code-review` | 代码质量审查，安全/性能/可维护性，按严重程度分级 |
 | `ddev-clean` | 代码 slop 清理，死代码删除/去重/命名修正 |
 | `ddev-c-pro` | C 语言设计规范、Doxygen 注释、命名与风格约束 |
@@ -83,10 +83,14 @@ cd windows
 
 ### ddev 使用指南
 
-ddev 是一套"先想清楚再动手"的规格驱动开发流程。典型用法：
+ddev 是一套"先想清楚再动手"的规格驱动开发流程。
+
+**触发约束：** `ddev-arch` / `ddev-spec` / `ddev-detail` / `ddev-plan` / `ddev-exec` 都禁止 AI 自动匹配，只有用户明确点名对应 skill 时才允许加载；`ddev-gate` 同样禁止自动匹配，且禁止用户手动调用，只允许由 `ddev-exec` 在默认收尾阶段联动加载。
+
+典型用法：
 
 ```
-ddev-arch        ← 项目初始化时跑一次，建立架构约束
+ddev-arch        ← 项目初始化时跑一次，建立架构/硬件基线约束
     ↓
 ddev-spec        ← 每次改动前：画边界 + 入口 + 流程
     ↓
@@ -109,7 +113,7 @@ ddev-gate        ← 五道关卡验收：一致性 → 清理 → 代码审查 
 - `ddev-doc-review` — 文档写完后派独立子代理审查
 - `ddev-code-review` — 代码改动后做质量/安全检查
 
-实际使用时不需要每次都跑全流程。小改动可以直接 `ddev-spec → ddev-plan → ddev-exec → ddev-gate`。纯 bug 修复甚至可以跳过 spec，直接从 `ddev-plan` 开始。
+实际使用时不需要每次都跑全流程。小改动可以直接由用户明确点名进入 `ddev-spec → ddev-plan → ddev-exec`，随后由 `ddev-exec` 自动联动进入 `ddev-gate`。纯 bug 修复甚至可以跳过 spec，由用户直接点名从 `ddev-plan` 开始。
 
 ### 代码审查、验证与调试
 
