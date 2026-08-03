@@ -1,4 +1,6 @@
-# 实现一致性最终验收审查任务
+# 实现一致性最终验收审查任务（streaming 路线）
+
+> 本模板用于 ddev-gate **流式（streaming）路线**的一致性验收阶段。compact 路线使用 [compact-reviewer-prompt.md](compact-reviewer-prompt.md) 三合一整合审查模板。
 
 你的任务是做**实现与设计一致性最终验收**，范围不包含泛化 code review。
 

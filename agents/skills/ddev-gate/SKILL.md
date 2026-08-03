@@ -11,6 +11,11 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 
 它不是普通代码审查，也不是只跑测试的验证门禁。它的核心任务根据项目语言分支：
 
+按改动面大小分流（判定标准见「改动面路由」）：
+
+- **大改动** → 走下方流式门禁：C 项目四段流程、非 C 项目五段流程
+- **小改动** → 走 compact 整合审查：拉 1 个独立 subagent 一次性完成 一致性 + 编码规范与质量 + 注释 三合一审查，跳过 `ddev-clean`，输出一份结论
+
 **C 项目（`.c` / `.h`）— 四段流程：**
 
 1. **先拉独立审查 agent**，把**代码实现**与以下设计输入做逐项对照
@@ -115,6 +120,23 @@ c-pro / 编码规范审查通过后，还需再拉一个独立 subagent 做注�
 
 如果范围仍然不清楚，先输出 `need-info`，不要自己扩散成全仓库审查。
 
+## 改动面路由
+
+进入核心流程前，先判定本次改动面大小，决定走 streaming（流式）还是 compact（整合）路线。
+
+**判定「大改动」— 命中任一即走 streaming：**
+
+1. 触发架构变更门禁：公共接口 / 协议 / 持久化格式 / 跨核交互 / 跨模块依赖 / 外部可见行为变更
+2. 核心设计变更：结构体定义、数据流、状态机、关键流程（spec/detail 涉及这些）
+3. diff 行数 > 300
+4. `codegraph_impact` 影响半径超出本模块
+
+否则 → **compact 路线**。
+
+判定依据取 spec/detail 声明的范围与 git diff / `codegraph_impact` 实际影响面中的**较严者**。
+
+`ponytail: diff 行数阈值是启发式，可按团队习惯调整；与第 1–2 条设计性质判定冲突时，以设计性质为准。`
+
 ## 核心流程
 
 0. **Stop Gate 前置检查**：主 agent 读取 `task_plan.md` 和 `implementation-notes.md`，确认以下条件同时满足才能继续验收流程，否则返回 `blocked`：
@@ -122,6 +144,9 @@ c-pro / 编码规范审查通过后，还需再拉一个独立 subagent 做注�
    - Errors Encountered 表中所有错误均已解决（Resolution 列非空或已标记 Resolved）
    - `implementation-notes.md` 中存在且 Open Questions 已全部回答完毕（无未决项）
    - 若存在 `scripts/check-complete`，运行确认输出 "ALL PHASES COMPLETE"
+0.5. **改动面路由**：按「改动面路由」判定本次改动面。
+     - 命中任意「大改动」条件 → 走下方 **Streaming 路线**（步骤 1–30）。
+     - 未命中 → 走 **Compact 路线（小改动）**（见「Compact 路线（小改动）」小节），完成后回到本流程的最终验收判断。
 1. 主 agent 先定位 spec 文档、detail 文档、exec plan、`implementation-notes.md`、代码范围和本轮验证证据。
 2. 主 agent 读取这些输入，整理成明确的审查上下文。
 3. **主 agent 先读取 `implementation-notes.md`**，提取 Deviations 和 Open Questions：
@@ -162,6 +187,25 @@ c-pro / 编码规范审查通过后，还需再拉一个独立 subagent 做注�
 
 如果清理 subagent 产出的改动超出既定范围、引入新的抽象层、或让实现偏离 spec/detail/exec plan，也必须回到 `blocked`，不能因为”一致性阶段之前通过过”而继续放行。
 
+## Compact 路线（小改动）
+
+改动面路由判定为小改动时走本路线。核心原则：**一次整合审查取代四段流**，跳过 `ddev-clean`，保留独立视角。
+
+C0. **前置检查**：同 Streaming 步骤 0（task_plan 全部完成、错误已解决、`implementation-notes.md` 存在且 Open Questions 已答完、check-complete 通过）。不满足 → `blocked`。
+C1. 主 agent 定位 spec、detail、exec plan（如有）、`implementation-notes.md`、代码范围和本轮验证证据，读取并整理成审查上下文。
+C2. 主 agent 读取 `implementation-notes.md`，提取 Deviations（映射为一致性重点检查项）、Design Decisions（作为 spec 空白处补充依据）、Open Questions（未答 → `blocked`）。
+C3. 拉 **1 个独立 subagent** 做整合审查，提示模板见 [compact-reviewer-prompt.md](compact-reviewer-prompt.md)。该 agent 一次性完成：
+    - **一致性对照**：按 spec → detail → exec plan → notes → code → evidence 顺序逐项对照，显式核对 Deviations，检查 exec plan 是否只做执行映射；**必须用 `codegraph_impact` 核对影响面**是否超出 spec/detail 声明范围
+    - **编码规范与质量**：C 项目按 `ddev-c-pro` 维度（规范 + 安全 + 架构性能 + 死代码/重复），非 C 项目按语言对应 skill；问题按 CRITICAL/HIGH/MEDIUM/LOW 分级
+    - **注释完整性**：C 项目按 `ddev-comment-gen` 维度逐文件核对；其他语言按对应注释审查 skill，无则跳过
+    - 输出一份结论 `pass` / `need-info` / `blocked`，附差异归类、问题清单、缺失注释清单
+C4. **跳过 `ddev-clean`**。整合审查发现的低危可清理项（MEDIUM/LOW）直接列入问题清单不阻塞；主 agent 决定是否顺手清理，若清理改了代码，补验证证据后回到 C3 重审。
+C5. `blocked` → 主 agent 按清单修改，重新进入本 skill，从 C1 重跑 Compact 路线（不升级为 Streaming）。
+C6. `need-info` → 补齐缺失输入 / 范围 / 验证证据后从 C3 重跑。
+C7. `pass` → 满足「结论规则」中 compact 条件后，主 agent 才能宣称"已经按计划完成"。
+
+Compact 路线同样要求 spec、detail、代码范围、验证证据齐全，缺任何一项都不能给 `pass`。
+
 ## 审查 agent 要求
 
 - 必须是独立视角，不能把主 agent 自己的口头总结当结论
@@ -174,7 +218,7 @@ c-pro / 编码规范审查通过后，还需再拉一个独立 subagent 做注�
 - 不允许用”基本一致””差不多符合””核心没问题”这类模糊表述放行
 - 如果本轮代码已经过 `ddev-clean` 清理，必须按**清理后的最终代码**重做对照，不能沿用清理前结论
 
-审查提示模板见 [reviewer-prompt.md](reviewer-prompt.md)。
+审查提示模板见 [streaming-reviewer-prompt.md](streaming-reviewer-prompt.md)。
 
 ## 代码规范与质量审查 agent 要求（C 项目）
 
@@ -232,6 +276,21 @@ cleaner 提示模板见 [reviewer-prompt.md](../ddev-clean/reviewer-prompt.md)�
 
 code-reviewer 提示模板见 [reviewer-prompt.md](../ddev-code-review/code-reviewer.md)。
 
+## Compact 整合审查 agent 要求
+
+（compact 路线专用；Streaming 路线使用上方各阶段独立 agent）
+
+- 必须是独立视角，不能复用主 agent 的口头总结
+- **一次性完成三个维度的审查**，输出一份结论：
+  1. **一致性**：显式核对 spec、detail、exec plan、implementation-notes、code、evidence 六类输入；逐条核对 Deviations；检查 exec plan 是否只做执行映射；**必须使用 `codegraph_impact` 评估影响面**，影响面超出 spec/detail 声明范围视为偏离
+  2. **编码规范与质量**：C 项目按 `ddev-c-pro` 维度（规范、安全、架构性能、死代码/重复），非 C 项目按语言对应 skill；问题按 CRITICAL/HIGH/MEDIUM/LOW 分级，存在 CRITICAL/HIGH → `blocked`
+  3. **注释完整性**：C 项目按 `ddev-comment-gen` 维度逐文件核对，缺失 → `blocked` 并附缺失清单；其他语言无对应 skill 则跳过
+- 结论只允许 `pass` / `need-info` / `blocked`
+- 不允许用"基本一致""大体符合"等模糊表述放行
+- 如果代码经过主 agent 修复后重审，必须基于最终版本重新审查，不能沿用前次结论
+
+compact 整合审查提示模板见 [compact-reviewer-prompt.md](compact-reviewer-prompt.md)。
+
 ## 重点检查项
 
 默认重点检查：
@@ -270,6 +329,8 @@ code-reviewer 提示模板见 [reviewer-prompt.md](../ddev-code-review/code-revi
 - `need-info`
 - `blocked`
 
+compact 路线同样只允许这三种结论，且三合一整合审查一次性覆盖一致性、编码规范与质量、注释三个维度，无需分段输出。
+
 ### `pass`
 
 只有在以下条件同时满足时才能给：
@@ -286,6 +347,7 @@ code-reviewer 提示模板见 [reviewer-prompt.md](../ddev-code-review/code-revi
 - 若经历过 `ddev-clean` 清理，则清理后的最终代码也已重新完成一致性验收
 - 代码规范与质量审查已通过（C 项目由 `ddev-c-pro` 统一完成，非 C 项目由 `ddev-code-review` + 语言规范审查完成）
 - 若项目为 C 代码（`.c` / `.h`），则 `ddev-comment-gen` 注释审查已通过；若为其他语言，则对应的注释审查已通过或已合理跳过
+- **compact 路线**：上述涉及 `ddev-clean`、`ddev-c-pro` / `ddev-code-review`、注释审查的条目，由三合一整合审查一次性覆盖；`ddev-clean` 明确跳过
 
 ### `need-info`
 
@@ -341,6 +403,8 @@ code-reviewer 提示模板见 [reviewer-prompt.md](../ddev-code-review/code-revi
 8. 代码规范与质量审查结论：是否已审查、审查结果、发现的 CRITICAL/HIGH/MEDIUM/LOW 问题数。C 项目由 `ddev-c-pro` 统一输出此结论；非 C 项目分别列出 `ddev-code-review` 和语言规范审查结论。若 blocked 则附修改项清单。若项目语言无对应审查 skill 则注明"已跳过"
 9. 注释/文档审查结论：是否已审查、审查结果、若 blocked 则附缺失项清单；若项目语言无对应审查 skill 则注明"已跳过"
 
+**compact 路线**：上述第 7–9 项合并为一份「整合审查结论」，一次性输出一致性、规范与质量、注释三个维度的结果。
+
 如果没有发现不一致，也不能只说“通过”，仍要说明对照了什么。
 
 如果需求结论依赖真实目标板、外设、时序、功耗、波形或现场观察，而本轮没有对应人工或现场证据，不能给 `pass`。
@@ -356,6 +420,7 @@ code-reviewer 提示模板见 [reviewer-prompt.md](../ddev-code-review/code-revi
 - 如需在一致性通过后做垃圾代码清理和可维护性提升，联动 `ddev-clean`
 - 如需在清理后做代码规范与质量审查，C 项目联动 `ddev-c-pro`（已吸收代码质量审查），非 C 项目联动 `ddev-code-review` + 对应语言编码规范 skill
 - 如需在规范与质量审查通过后做注释完整性和规范性审查，联动对应语言的注释审查 skill（C 项目联动 `ddev-comment-gen`）
+- **compact 路线**：小改动不联动 `ddev-clean`，三合一整合审查一次性覆盖一致性 + 规范质量 + 注释；大改动才走上述完整链路
 - 默认在 `ddev-exec` 的末尾作为最终收口门禁
 
 ### ⚠️ 阶段交接硬门禁
@@ -376,3 +441,5 @@ code-reviewer 提示模板见 [reviewer-prompt.md](../ddev-code-review/code-revi
 如果进入了 `ddev-clean` 清理阶段，最终放行对象是**清理后的最终代码**，不是清理前那一版代码。
 
 对于 C 代码项目，`ddev-c-pro`（统一完成规范与代码质量审查）和 `ddev-comment-gen` 注释审查是必经环节，两者均通过才能给最终 `pass`。对于其他语言项目，`ddev-code-review` 代码质量审查 + 语言规范审查 + 注释审查按存在情况逐一通过后放行；如无对应 skill，应标注"已跳过"而非静默略过。
+
+**compact 路线**：同样必须有 spec、detail、代码范围、验证证据；三合一整合审查通过（C 项目覆盖 c-pro 与 comment-gen 维度）才能给最终 `pass`，不因改动小而降低底线。
