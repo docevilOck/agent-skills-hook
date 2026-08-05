@@ -131,7 +131,7 @@ RECOMMENDATION: APPROVE | REQUEST CHANGES | COMMENT
 - [ ] No deeply nested code (> 4 levels)
 - [ ] No duplicate logic (DRY principle)
 - [ ] Clear, descriptive naming
-- [ ] **No magic numbers** — 所有非 0/1/-1 的字面量必须定义为命名常量（`#define`/`enum`/`static const`），并在注释中说明取值依据。超时毫秒数、缓冲区大小、重试次数、状态值、寄存器地址等一律不得裸写数字
+- [ ] **No magic numbers** — 所有非 0/1/-1 的字面量必须定义为命名常量（`#define`/`enum`/`static const`），并在注释中说明取值依据。超时毫秒数、缓冲区大小、重试次数、状态值、寄存器地址等一律不得裸写数字；缓冲区/容量等大数字（≥1024）必须写成 `128 * 1024` / `16 * 1024 * 1024` 这种可读乘法表达式 + 命名常量，禁止直接裸写 `16384`/`4194304` 等大数
 
 ### Performance
 - [ ] No N+1 query patterns
