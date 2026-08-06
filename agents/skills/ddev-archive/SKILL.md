@@ -1,18 +1,33 @@
 ---
 name: ddev-archive
-description: 实现 + 调试全部完成后，扫描活跃计划、聚合同主题的多轮迭代计划、归档并生成最终代码事实设计文档
+description: 实现 + 调试全部完成后，扫描活跃计划、归档各轮 spec 文档并生成最终代码事实设计文档 final-spec
 ---
 
 # ddev-archive — 变更归档与最终设计定型
 
-把同一主题下经过多轮迭代（初始计划、调试迭代、最终版本）的所有活跃计划归档到 `YY-MM-DD_<主题名>/` 目录，并生成一份 `final-spec.md` 记录最终代码事实设计。
+把同一主题下经过多轮迭代的所有活跃计划中的 **spec 文档** 归档到 `YY-MM-DD_<主题名>/` 目录，并生成一份 `final-spec.md` 记录最终代码事实设计。
 
 **开始时声明：** "正在使用 ddev-archive skill 归档变更。"
+
+## 归档范围：只归档 spec 与 final-spec
+
+**只归档两种文档：**
+
+1. **spec** — 各轮迭代的原始 spec 文档（设计意图记录）
+2. **final-spec.md** — 综合所有 spec 生成的最终代码事实设计
+
+**不归档**（保留在原计划目录，不移动、不删除）：
+
+- `detail/`（结构体/数据流设计）
+- `exec_plans/`、`task_plan.md`（实现/任务计划）
+- `implementation-notes.md`（实现决策记录）
+- `progress.md`（执行日志）
+- 其他非 spec 文档
 
 ## 何时使用
 
 - 实现 + 所有调试迭代已完成，代码已提交
-- 同一功能经历了多轮 plan（初始 spec → 调试后调整 → 再次调试 → 最终版本）
+- 同一功能经历了多轮 plan（初始 spec → 调试后调整 → 最终版本）
 - 最终设计与原始 spec 存在差异（调试中修改了方案）
 - 准备关闭 feature 分支、清理工作区或进入发布前
 - 需要给后续维护者留下"实际长什么样"的最终设计文档
@@ -26,25 +41,16 @@ description: 实现 + 调试全部完成后，扫描活跃计划、聚合同主�
 
 ```
 docs/plans/archive/YY-MM-DD_<topic-name>/
-├── 01_initial/              ← 初始计划（最早的 spec/detail/exec_plans）
-│   ├── spec/
-│   ├── detail/
-│   └── exec_plans/
-├── 02_iter1/                ← 调试后迭代 1（如有）
-│   ├── spec/
-│   ├── detail/
-│   └── exec_plans/
-├── 03_iter2/                ← 调试后迭代 2（如有）
-│   └── ...
-├── 04_final/                ← 最终版本（如有独立 plan）
-│   └── ...
-├── final-spec.md            ← 综合所有迭代的最终代码事实设计
-└── archive-notes.md         ← 归档说明（可选，记录归档决策和未决项）
+├── spec/                        ← 各轮迭代的 spec 文档（原文件名保留）
+│   ├── <topic>.md               ← 初始 spec
+│   └── <topic>-iter1.md         ← 迭代 spec（同名冲突时加序号前缀）
+├── final-spec.md                ← 综合所有 spec 的最终代码事实设计
+└── archive-notes.md             ← 可选，归档说明
 ```
 
 - `YY-MM-DD` 为归档日期（当天），`<topic-name>` 为主题英文名（kebab-case）
-- 数字前缀 `01_` / `02_` 保持时间顺序
-- 如果只有一个 plan 无迭代，则只有 `01_initial/` + `final-spec.md`
+- 多个迭代 spec 同名时，按时间顺序加 `01_` / `02_` / `0N_` 前缀
+- **只归档 spec 文档**；非 spec 文档（detail/exec_plans/task_plan/implementation-notes/progress）保留在原计划目录
 
 ## 流程
 
@@ -60,32 +66,23 @@ docs/plans/archive/YY-MM-DD_<topic-name>/
 
 ### 第二步：排序与分类
 
-按日期和时间顺序排列所有相关计划目录：
+按日期和时间顺序排列所有相关计划目录，标记迭代顺序（`01_initial` → `02_iter1` → ... → `0N_final`）。排序只用于给 spec 文档命名与定位，不创建多级子目录。
 
-1. **最早的计划** → 标记为 `01_initial`（初始计划）
-2. **中间的调整计划** → 按时间顺序标记为 `02_iter1`、`03_iter2`...
-3. **最后的计划** → 标记为 `0N_final`（最终版本）
-
-如果只有一个计划目录，直接标记为 `01_initial`。
-
-分类规则：
 - 从目录名中的日期提取时间顺序
 - 如果目录名无日期，按文件修改时间排序
-- 不确定时列出排序结果让用户确认
+- 如果只有一个计划目录，直接标记为 `01_initial`
 
-### 第三步：读取所有迭代的设计文档
+### 第三步：读取各迭代的 spec 文档
 
-对每个迭代目录，读取以下关键文件：
+对每个迭代，**只读取 `spec/` 目录下的 spec 文档**，提取：
+- Delta Summary 表、模块边界图、联动修改清单
+- 涉及的关键数据结构 / 流程（供 final-spec 综合）
 
-1. **spec 文档**：Delta Summary 表、模块边界图、联动修改清单
-2. **detail 文档**：结构体定义、数据流、流程图
-3. **exec_plans**：实现计划中的任务列表和验证结果
-4. **implementation-notes.md**：Design Decisions、Deviations、Tradeoffs
-5. **progress.md**：执行日志和验证结果
+不读取、不依赖非 spec 文档（detail/exec_plans/task_plan/implementation-notes/progress）。
 
 ### 第四步：生成 final-spec.md
 
-基于所有迭代文档的对比分析，生成最终代码事实设计文档。
+基于所有迭代 spec 文档的对比分析，生成最终代码事实设计文档。
 
 #### 文档位置
 
@@ -98,10 +95,10 @@ docs/plans/archive/YY-MM-DD_<topic-name>/final-spec.md
 ```markdown
 # [功能名] — 最终代码事实设计
 
-> **归档日期**: YYYY-MM-DD | **迭代次数**: N | **最终版本**: 0N_final
+> **归档日期**: YYYY-MM-DD | **迭代次数**: N
 >
-> 本文档综合 [N] 轮迭代的设计文档，记录经过实机调试后的最终代码事实。
-> 如与某轮迭代的设计存在差异，以本文档为准。
+> 本文档综合 [N] 轮迭代的 spec 文档，记录经过实机调试后的最终代码事实。
+> 如与某轮迭代的 spec 存在差异，以本文档为准。
 
 ## 1. 变更面总览 (Delta Summary)
 
@@ -131,8 +128,8 @@ docs/plans/archive/YY-MM-DD_<topic-name>/final-spec.md
 (经过调试确认的最终结构体、枚举、状态机定义)
 
 每个结构体/枚举必须标注：
-- 来源：来自 `01_initial/detail/structures/xxx.md`，在 `02_iter1` 中修改了字段 Y
-- 如果与任何一轮设计文档不同，标注差异
+- 来源：来自 `spec/<topic>-iterN.md` 的 xxx 部分
+- 如果与任何一轮 spec 不同，标注差异
 
 ## 5. 最终核心流程
 
@@ -144,11 +141,11 @@ docs/plans/archive/YY-MM-DD_<topic-name>/final-spec.md
 
 | 项目 | 内容 |
 |------|------|
-| 发现于 | 0N_iterX |
+| 发现于 | iterX |
 | 症状 | ... |
 | 根因 | ... |
 | 修复 | ... |
-| 影响的设计文档 | 0N_iterX 的 spec/detail 中 xxx 部分 |
+| 影响的设计文档 | 对应 spec 中 xxx 部分 |
 
 ## 7. 未覆盖风险与已知限制
 
@@ -166,14 +163,15 @@ docs/plans/archive/YY-MM-DD_<topic-name>/final-spec.md
 
 **在任何 ASCII 图动笔之前，必须执行 `Skill("ddev-diagram")` 加载绘制规范。**
 
-### 第五步：创建归档目录并移动文件
+### 第五步：创建归档目录并移动 spec
 
-1. 创建 `docs/plans/archive/YY-MM-DD_<topic-name>/`
-2. 将每个迭代目录**移动**到对应的 `0N_xxx/` 子目录（移入归档，不在 `docs/plans/` 下留副本）
+1. 创建 `docs/plans/archive/YY-MM-DD_<topic-name>/spec/`
+2. 将每个迭代目录下的 **spec 文档** 移动到归档 `spec/` 下
    - **必须使用 `git mv`**，不要用 `mv` 或 `cp + rm`，否则 git 会丢失文件历史
-   - 例：`git mv docs/plans/26-07-21_xxx docs/plans/archive/26-07-22_xxx/01_initial/`
-3. 将 `final-spec.md` 和 `archive-notes.md` 写入归档根目录，`git add` 暂存
-4. 确认原 `docs/plans/` 下的活跃计划目录已清空
+   - 例：`git mv docs/plans/26-08-05_xxx/spec/xxx.md docs/plans/archive/26-08-06_xxx/spec/xxx.md`
+   - 同名冲突时按迭代顺序加 `01_` / `02_` 前缀
+3. 将 `final-spec.md`（和可选的 `archive-notes.md`）写入归档根目录，`git add` 暂存
+4. **非 spec 文档不移动、不删除**，保留在原计划目录
 
 ### 第六步：生成 archive-notes.md（可选）
 
@@ -185,11 +183,11 @@ docs/plans/archive/YY-MM-DD_<topic-name>/final-spec.md
 > 归档日期：YYYY-MM-DD
 
 ## 归档范围
-- 0N_iterX：简述
-- ...
+- spec：各轮迭代 spec 文档
+- final-spec.md：最终代码事实设计
 
 ## 未归档内容
-- [如果有相关但未纳入归档的文件，说明原因]
+- [非 spec 文档保留在原计划目录，说明原因，如"实现细节不具长期参考价值"]
 
 ## 未决项
 - [Open Questions 中仍未解决的问题]
@@ -209,27 +207,27 @@ docs/plans/archive/YY-MM-DD_<topic-name>/final-spec.md
 ## 写法原则
 
 - **只写最终状态**：不写"调试过程中试过 A 不行换 B 最后选了 C"
-- **差异必须标注**：如果最终实现与某轮设计文档不同，必须显式标注
+- **差异必须标注**：如果最终实现与某轮 spec 不同，必须显式标注
 - **图优先**：能用图说清的不用长文
 - **引不抄**：原 spec 里正确且不变的部分，一句话引原文档，不重复写
 - **代码事实为准**：final-spec 描述的是**代码实际行为**，不是"应该是这样"
 
 ## 与其他 skill 的关系
 
-- 上游：`ddev-exec`（实现）+ 实机调试（可能产生多轮迭代 plan）
+- 上游：`ddev-spec`（产生 spec）+ `ddev-exec`（实现）+ 实机调试（可能产生多轮迭代 spec）
 - 并行：`ddev-diagram`（画图规范）
 - 下游：`neat-freak`（归档清理时引用 final-spec.md）
-- 替代关系：原各迭代的 spec 文档**保留在归档目录中**作为设计意图记录，`final-spec.md` 为最终权威版本
+- 替代关系：原各迭代的 spec 文档**保留在归档 `spec/` 中**作为设计意图记录，`final-spec.md` 为最终权威版本
 
 ## 自检
 
 归档完成后逐项核对：
 
-1. **迭代完整性**：是否找到了所有相关计划目录？遗漏的目录是否已确认不属于本次变更？
+1. **spec 完整性**：是否找到了所有相关计划目录的 spec 文档？遗漏的目录是否已确认不属于本次变更？
 2. **Delta Summary**：final-spec.md 的 Delta Summary 是否覆盖了所有迭代的最终变更面？
 3. **差异覆盖**：是否每轮迭代的"原计划 vs 最终实现"差异都已记录？
-4. **最终架构图**：是否反映实际代码的模块边界和调用关系（而非某轮设计文档的复制）？
+4. **最终架构图**：是否反映实际代码的模块边界和调用关系（而非某轮 spec 的复制）？
 5. **数据结构一致性**：final-spec.md 中的结构体/枚举是否与 `.h` 中的实际定义一致？
 6. **ASCII 图规范**：所有 ASCII 图是否通过 ddev-diagram 门禁？
-7. **目录清理**：原 `docs/plans/` 下的活跃计划目录是否已移除？
+7. **只归档 spec**：归档目录中是否只有 spec + final-spec（+ archive-notes）？非 spec 文档是否未混入？
 8. **Debug bug 完整**：每个调试发现的 bug 是否有症状/根因/修复三要素？
