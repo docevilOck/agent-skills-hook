@@ -16,7 +16,7 @@ description: 实现 + 调试全部完成后，扫描活跃计划、归档各轮 
 1. **spec** — 各轮迭代的原始 spec 文档（设计意图记录）
 2. **final-spec.md** — 综合所有 spec 生成的最终代码事实设计
 
-**不归档**（保留在原计划目录，不移动、不删除）：
+**不归档，归档完成后直接删除**（原计划目录不保留任何残留）：
 
 - `detail/`（结构体/数据流设计）
 - `exec_plans/`、`task_plan.md`（实现/任务计划）
@@ -50,7 +50,7 @@ docs/plans/archive/YY-MM-DD_<topic-name>/
 
 - `YY-MM-DD` 为归档日期（当天），`<topic-name>` 为主题英文名（kebab-case）
 - 多个迭代 spec 同名时，按时间顺序加 `01_` / `02_` / `0N_` 前缀
-- **只归档 spec 文档**；非 spec 文档（detail/exec_plans/task_plan/implementation-notes/progress）保留在原计划目录
+- **只归档 spec 文档**；原计划目录中非 spec 文档（detail/exec_plans/task_plan/implementation-notes/progress）在归档完成后删除，空目录随计划目录一并清理
 
 ## 流程
 
@@ -171,7 +171,8 @@ docs/plans/archive/YY-MM-DD_<topic-name>/final-spec.md
    - 例：`git mv docs/plans/26-08-05_xxx/spec/xxx.md docs/plans/archive/26-08-06_xxx/spec/xxx.md`
    - 同名冲突时按迭代顺序加 `01_` / `02_` 前缀
 3. 将 `final-spec.md`（和可选的 `archive-notes.md`）写入归档根目录，`git add` 暂存
-4. **非 spec 文档不移动、不删除**，保留在原计划目录
+4. **删除非 spec 文档**：spec 全部 `git mv` 移走后，原计划目录剩余的 detail/、exec_plans/、task_plan.md、implementation-notes.md、progress.md 等不再保留。删除前确认其核心内容已被 final-spec 覆盖（尤其 implementation-notes 中的决策记录），已跟踪文件用 `git rm`，未跟踪文件直接 `rm`
+5. **清理原计划目录**：剩余文件全部删除后，原计划目录已空，连同其空子目录一并删除
 
 ### 第六步：生成 archive-notes.md（可选）
 
@@ -186,8 +187,8 @@ docs/plans/archive/YY-MM-DD_<topic-name>/final-spec.md
 - spec：各轮迭代 spec 文档
 - final-spec.md：最终代码事实设计
 
-## 未归档内容
-- [非 spec 文档保留在原计划目录，说明原因，如"实现细节不具长期参考价值"]
+## 已删除内容
+- [原计划目录中删除的非 spec 文档及删除原因，如"实现细节已被 final-spec 综合，无长期参考价值"]
 
 ## 未决项
 - [Open Questions 中仍未解决的问题]
@@ -229,5 +230,5 @@ docs/plans/archive/YY-MM-DD_<topic-name>/final-spec.md
 4. **最终架构图**：是否反映实际代码的模块边界和调用关系（而非某轮 spec 的复制）？
 5. **数据结构一致性**：final-spec.md 中的结构体/枚举是否与 `.h` 中的实际定义一致？
 6. **ASCII 图规范**：所有 ASCII 图是否通过 ddev-diagram 门禁？
-7. **只归档 spec**：归档目录中是否只有 spec + final-spec（+ archive-notes）？非 spec 文档是否未混入？
+7. **只归档 spec**：归档目录中是否只有 spec + final-spec（+ archive-notes）？非 spec 文档是否已删除、原计划目录是否已清理干净？
 8. **Debug bug 完整**：每个调试发现的 bug 是否有症状/根因/修复三要素？
