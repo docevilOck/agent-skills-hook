@@ -24,6 +24,13 @@ description: 实现 + 调试全部完成后，扫描活跃计划、归档各轮 
 - `progress.md`（执行日志）
 - 其他非 spec 文档
 
+## ⚠️ 执行文档存放位置（硬性规范）
+
+**`progress.md` / `implementation-notes.md` / `task_plan.md` / `exec_plans/` 等执行文档必须写在对应计划目录下**（`docs/plans/YY-MM-DD_<topic>/`），禁止写仓库根目录、`docs/` 或其他与计划无关的位置。
+
+- 若发现执行文档落在计划目录之外（如仓库根目录 `progress.md`），视为放错位置，归档时一并纠正（`git mv` 到对应计划目录，无对应计划则删除，不保留孤儿文档）。
+- 归档时这些执行文档随计划目录一并删除，不迁移进 `archive/`。
+
 ## 何时使用
 
 - 实现 + 所有调试迭代已完成，代码已提交
@@ -171,8 +178,16 @@ docs/plans/archive/YY-MM-DD_<topic-name>/final-spec.md
    - 例：`git mv docs/plans/26-08-05_xxx/spec/xxx.md docs/plans/archive/26-08-06_xxx/spec/xxx.md`
    - 同名冲突时按迭代顺序加 `01_` / `02_` 前缀
 3. 将 `final-spec.md`（和可选的 `archive-notes.md`）写入归档根目录，`git add` 暂存
+
+### ⚠️ 门禁：归档完成后必须删除原计划目录
+
+**原计划目录清理是归档流程的强制终点，不可省略、不可保留"等确认"残留。**
+
 4. **删除非 spec 文档**：spec 全部 `git mv` 移走后，原计划目录剩余的 detail/、exec_plans/、task_plan.md、implementation-notes.md、progress.md 等不再保留。删除前确认其核心内容已被 final-spec 覆盖（尤其 implementation-notes 中的决策记录），已跟踪文件用 `git rm`，未跟踪文件直接 `rm`
 5. **清理原计划目录**：剩余文件全部删除后，原计划目录已空，连同其空子目录一并删除
+6. **验证清理结果**：`git status` 确认原计划目录路径下已无任何残留（删除全部变为 staged `D`，spec 变为 staged `R`），归档目录只剩 spec + final-spec（+ archive-notes）。若原计划目录仍存在非空内容，视为门禁未通过，回到第 4-5 步修正
+
+> 归档结束后工作区不得残留：原计划目录本身、其中任何文档、或散落在仓库根目录的执行文档。
 
 ### 第六步：生成 archive-notes.md（可选）
 
@@ -230,5 +245,6 @@ docs/plans/archive/YY-MM-DD_<topic-name>/final-spec.md
 4. **最终架构图**：是否反映实际代码的模块边界和调用关系（而非某轮 spec 的复制）？
 5. **数据结构一致性**：final-spec.md 中的结构体/枚举是否与 `.h` 中的实际定义一致？
 6. **ASCII 图规范**：所有 ASCII 图是否通过 ddev-diagram 门禁？
-7. **只归档 spec**：归档目录中是否只有 spec + final-spec（+ archive-notes）？非 spec 文档是否已删除、原计划目录是否已清理干净？
+7. **只归档 spec**：归档目录中是否只有 spec + final-spec（+ archive-notes）？非 spec 文档是否已删除、原计划目录是否已清理干净（含空子目录）？
 8. **Debug bug 完整**：每个调试发现的 bug 是否有症状/根因/修复三要素？
+9. **执行文档位置**：`progress.md` 等执行文档是否只存在于对应计划目录？仓库根目录或其他位置是否有孤儿执行文档（如有，已纠正或删除）？

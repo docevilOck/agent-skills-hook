@@ -132,23 +132,32 @@ description: 在当前会话里按已写好的实现计划顺序执行任务时�
 - 在 `ddev-gate` 一致性 `pass` 之前提前进入 cleanup
 - cleanup 改了代码却不重新回到 `ddev-gate`
 - 未经用户明确同意就在 `main` / `master` 上开始实现
+- 把 `task_plan.md` / `progress.md` / `implementation-notes.md` 写到计划目录之外的仓库根目录或其他位置（见「执行文档存放位置」硬性规范）
 
 ## planning-with-files 状态追踪
 
 执行过程中必须维护三份持久化文件，确保上下文穿越和断点恢复。
 
+### ⚠️ 执行文档存放位置（硬性规范）
+
+**`task_plan.md` / `progress.md` / `implementation-notes.md` / `findings/` 必须写在对应计划目录下**（`docs/plans/YY-MM-DD_<topic>/`，与 spec、exec_plans 同级），**禁止写仓库根目录、`docs/` 或其他与计划无关的位置**。
+
+- 计划目录不存在时，先 `mkdir -p docs/plans/YY-MM-DD_<topic>/` 再创建文件。
+- 若误写到仓库根目录或其他位置，立即 `git mv` 纠正到对应计划目录，不得保留孤儿执行文档。
+- 与下游 `ddev-archive` 约定一致：归档时这些执行文档随计划目录一并删除，不迁移进 `archive/`（见 ddev-archive「执行文档存放位置」规范）。
+
 ### 文件职责
 
-| 文件 | 用途 | 何时创建 |
-|------|------|---------|
-| `task_plan.md` | 任务追踪：从 exec plan 提取 Task N 生成 checkbox 列表 + Errors 表 | 第一步完成后自动创建 |
-| `progress.md` | 执行日志：每任务完成后记录产出和验证结果 | 首次写入时创建 |
-| `implementation-notes.md` | 实现笔记：每任务完成后按 4 维度记录 AI 推理过程 | 首次任务完成后自动创建 |
-| `findings/` | 上游设计决策（由 ddev-spec/detail/doc-review 写入，本阶段只读） | 已存在 |
+| 文件 | 位置（均在对应计划目录 `docs/plans/YY-MM-DD_<topic>/` 下） | 用途 | 何时创建 |
+|------|------|------|---------|
+| `task_plan.md` | 计划目录根 | 任务追踪：从 exec plan 提取 Task N 生成 checkbox 列表 + Errors 表 | 第一步完成后自动创建 |
+| `progress.md` | 计划目录根 | 执行日志：每任务完成后记录产出和验证结果 | 首次写入时创建 |
+| `implementation-notes.md` | 计划目录根 | 实现笔记：每任务完成后按 4 维度记录 AI 推理过程 | 首次任务完成后自动创建 |
+| `findings/` | 计划目录下 `findings/` | 上游设计决策（由 ddev-spec/detail/doc-review 写入，本阶段只读） | 已存在 |
 
 ### 第一步后：创建 task_plan.md
 
-审查计划通过后，从 exec plan 文档中提取所有 Task N，生成 `task_plan.md`。格式：
+审查计划通过后，从 exec plan 文档中提取所有 Task N，生成 `task_plan.md`（写到对应计划目录 `docs/plans/YY-MM-DD_<topic>/task_plan.md`）。格式：
 
 ```markdown
 # 任务执行追踪
@@ -252,7 +261,7 @@ Open Questions 中的问题在 ddev-gate 验收阶段会作为未决项被检查
 会话中断后重新开始时：
 
 0. 运行 `python scripts/session-catchup.py` 获取 5-Question Reboot Test 摘要
-1. 读取 `task_plan.md` 定位当前任务和未完成的任务
+1. 读取对应计划目录下的 `task_plan.md`（`docs/plans/YY-MM-DD_<topic>/task_plan.md`）定位当前任务和未完成的任务
 2. 读取 `progress.md` 了解已完成任务的产出和验证结果
 3. 读取 `implementation-notes.md` 了解已完成任务中的设计决策、偏离和未决问题
 4. 从第一个未完成任务继续——已完成的任务不重复执行
