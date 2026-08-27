@@ -1,6 +1,6 @@
 # agent-skills-hook 仓库总则
 
-本仓库用于维护 Claude Code、Codex 和 OpenCode 的协作提示词、配置和相关文档。
+本仓库用于维护 Claude Code、Codex、OpenCode 和 DeepSeek Harness (DSH) 的协作提示词、配置和相关文档。
 
 ## 使用原则
 

@@ -305,4 +305,19 @@ if [ "$TARGET" = "claude" ] || [ "$TARGET" = "all" ]; then
   echo "Claude Code deployed. Backup: $BACKUP_CL"
 fi
 
+# DSH (DeepSeek Harness) 部署
+if [ "$TARGET" = "dsh" ] || [ "$TARGET" = "all" ]; then
+  BACKUP_D="$HOME/.dsh-backups/agent-skills-hook-$STAMP"
+  mkdir -p "$BACKUP_D/dsh"
+
+  # 备份现有配置
+  [ -f "$HOME/.dsh/AGENTS.md" ] && cp -a "$HOME/.dsh/AGENTS.md" "$BACKUP_D/dsh/AGENTS.md"
+
+  # 部署配置（复用 Claude Code 的 CLAUDE.md 作为 DSH 全局指令）
+  mkdir -p "$HOME/.dsh"
+  safe_link "$HOME/.dsh/AGENTS.md" "$CONFIG_ROOT/claude/CLAUDE.md"
+
+  echo "DSH deployed. Backup: $BACKUP_D"
+fi
+
 echo "Deployment complete."

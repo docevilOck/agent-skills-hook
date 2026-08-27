@@ -357,4 +357,19 @@ if ($Target -eq "claude" -or $Target -eq "all") {
     Write-Host "Claude Code deployed. Backup: $BackupCL"
 }
 
+# DSH (DeepSeek Harness) 部署
+if ($Target -eq "dsh" -or $Target -eq "all") {
+    $BackupD = Join-Path $env:USERPROFILE ".dsh-backups\agent-skills-hook-$Stamp"
+    New-Item -ItemType Directory -Path "$BackupD\dsh" -Force | Out-Null
+
+    # 备份现有配置
+    $DshDir = Join-Path $env:USERPROFILE ".dsh"
+    if (Test-Path "$DshDir\AGENTS.md") { Copy-Item "$DshDir\AGENTS.md" "$BackupD\dsh\AGENTS.md" -Force }
+
+    # 部署配置（复用 Claude Code 的 CLAUDE.md 作为 DSH 全局指令）
+    Safe-LinkFile "$DshDir\AGENTS.md" "$ConfigRoot\claude\CLAUDE.md"
+
+    Write-Host "DSH deployed. Backup: $BackupD"
+}
+
 Write-Host "Deployment complete."

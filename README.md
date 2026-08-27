@@ -1,10 +1,10 @@
 # agent-skills-hook
 
-Claude Code / Codex CLI / OpenCode 三套 AI 编码运行时的共享配置与技能分发仓库。
+Claude Code / Codex CLI / OpenCode / DeepSeek Harness (DSH) 四套 AI 编码运行时的共享配置与技能分发仓库。
 
 ## 做什么
 
-- **单一配置源**：`config/` 维护三套运行时的入口指令、子代理定义、MCP 注册和插件配置，部署时通过符号链接 / Junction 同步到各自用户目录。
+- **单一配置源**：`config/` 维护四套运行时的入口指令、子代理定义、MCP 注册和插件配置，部署时通过符号链接 / Junction 同步到各自用户目录。
 - **共享技能库**：`agents/skills/` 提供跨运行时共用的技能，通过系统指令中的「技能强制评估」按请求自动匹配加载。
 - **一键部署**：`linux/deploy.sh` 和 `windows/deploy.ps1` 自动完成链接创建、配置合并、MCP 注册、插件安装，部署前自动备份。
 
@@ -15,7 +15,7 @@ agent-skills-hook/
 ├── config/                         # 单一配置源
 │   ├── AGENTS.md                   # 仓库总则
 │   ├── claude/
-│   │   ├── CLAUDE.md               # Claude Code 全局指令
+│   │   ├── CLAUDE.md               # Claude Code 全局指令（DSH 复用为全局 AGENTS.md）
 │   │   └── agents/                 # Claude Code 子代理定义
 │   ├── codex/
 │   │   ├── AGENTS.md               # Codex CLI 全局指令
@@ -54,7 +54,9 @@ cd windows
 
 部署后重启对应运行时即可生效。修改 `config/` 或 `agents/skills/` 后重新跑部署脚本更新。
 
-部署前自动备份到 `~/.claude-backups/`、`~/.codex-backups/`、`~/.opencode-backups/`。
+部署前自动备份到 `~/.claude-backups/`、`~/.codex-backups/`、`~/.opencode-backups/`、`~/.dsh-backups/`。
+
+> DSH 复用 `config/claude/CLAUDE.md` 作为其全局指令（`~/.dsh/AGENTS.md`），与 Claude Code 保持同一份规则。
 
 ## 技能分类
 
@@ -199,7 +201,7 @@ ddev-gate        ← 五道关卡验收：一致性 → 清理 → 代码审查 
 
 修改 `config/` 或 `agents/skills/` 后重新运行部署脚本即可生效。
 
-回滚：从 `~/.claude-backups/` / `~/.codex-backups/` / `~/.opencode-backups/` 拷回目标目录覆盖。
+回滚：从 `~/.claude-backups/` / `~/.codex-backups/` / `~/.opencode-backups/` / `~/.dsh-backups/` 拷回目标目录覆盖。
 
 ## 前置依赖
 
