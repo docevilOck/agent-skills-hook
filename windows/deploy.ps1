@@ -360,14 +360,57 @@ if ($Target -eq "claude" -or $Target -eq "all") {
 # DSH (DeepSeek Harness) 部署
 if ($Target -eq "dsh" -or $Target -eq "all") {
     $BackupD = Join-Path $env:USERPROFILE ".dsh-backups\agent-skills-hook-$Stamp"
-    New-Item -ItemType Directory -Path "$BackupD\dsh" -Force | Out-Null
+    New-Item -ItemType Directory -Path "$BackupD\dsh", "$BackupD\repo" -Force | Out-Null
 
     # 备份现有配置
     $DshDir = Join-Path $env:USERPROFILE ".dsh"
     if (Test-Path "$DshDir\AGENTS.md") { Copy-Item "$DshDir\AGENTS.md" "$BackupD\dsh\AGENTS.md" -Force }
+    if (Test-Path "$DshDir\skills") { Copy-DirectoryTree "$DshDir\skills" "$BackupD\dsh\skills" }
+    Copy-DirectoryTree $RepoSkills "$BackupD\repo\skills"
 
-    # 部署配置（复用 Claude Code 的 CLAUDE.md 作为 DSH 全局指令）
+    # 部署配置（复用 Claude Code 的 CLAUDE.md 作为 DSH 全局指令）+ skills 链接
     Safe-LinkFile "$DshDir\AGENTS.md" "$ConfigRoot\claude\CLAUDE.md"
+    Safe-Link "$DshDir\skills" $RepoSkills
+
+    # 部署 MCP servers：注入 dsh-tui profile 的 cordis.patch.yml（幂等）
+    $DshProfileDir = Join-Path $env:USERPROFILE ".dsh\profiles\dsh-tui"
+    $PatchFile = Join-Path $DshProfileDir "cordis.patch.yml"
+    if (Test-Path $PatchFile) {
+        if (Select-String -Path $PatchFile -Pattern "mcp-codegraph" -Quiet) {
+            Write-Host "DSH MCP servers already configured."
+        } else {
+            $McpTmp = Join-Path $env:TEMP ("agent-skills-hook-mcp-" + [guid]::NewGuid().ToString() + ".py")
+            @'
+import json, sys
+
+mcp_json, patch_path = sys.argv[1], sys.argv[2]
+with open(mcp_json, "r", encoding="utf-8") as f:
+    servers = json.load(f)
+
+lines = ["", "# 仓库 MCP servers（agent-skills-hook config/shared/mcp_servers.json）", "- insert:"]
+for name, srv in servers.items():
+    lines.append(f"    - id: mcp-{name}")
+    lines.append("      name: '@deepseek-ai/dsh-mcp-client'")
+    lines.append("      config:")
+    lines.append(f"        serverName: {name}")
+    lines.append("        transport: stdio")
+    lines.append(f"        command: {srv['command']}")
+    if srv.get("args"):
+        args = ", ".join(f"'{a}'" for a in srv["args"])
+        lines.append(f"        args: [{args}]")
+block = "\n".join(lines) + "\n"
+
+with open(patch_path, "a", encoding="utf-8") as f:
+    f.write(block)
+print("DSH MCP servers configured in cordis.patch.yml")
+'@ | Set-Content -Path $McpTmp -Encoding utf8
+
+            python $McpTmp (Join-Path $SharedConfigRoot "mcp_servers.json") $PatchFile
+            Remove-Item $McpTmp -Force
+        }
+    } else {
+        Write-Warning "$PatchFile not found. Skipping DSH MCP deployment."
+    }
 
     Write-Host "DSH deployed. Backup: $BackupD"
 }

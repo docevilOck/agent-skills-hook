@@ -57,6 +57,16 @@ cd windows
 部署前自动备份到 `~/.claude-backups/`、`~/.codex-backups/`、`~/.opencode-backups/`、`~/.dsh-backups/`。
 
 > DSH 复用 `config/claude/CLAUDE.md` 作为其全局指令（`~/.dsh/AGENTS.md`），与 Claude Code 保持同一份规则。
+> DSH 同时部署 `skills/`（软链接 `~/.dsh/skills`）与 MCP servers（注入 `~/.dsh/profiles/dsh-tui/cordis.patch.yml`，默认 codegraph + context-mode）。
+
+### DSH 便捷启动
+
+仓库维护 `dst` 源脚本（Linux `scripts/dst`、Windows `windows/dst.cmd`）。部署脚本不负责安装到 PATH，需手动放到全局 PATH 目录（Linux 如软链接到 `~/.local/bin/dst`，Windows 复制到 `%USERPROFILE%\.local\bin\dst.cmd`）：
+
+```bash
+dst                    # 等价于 dsh --profile dsh-tui
+dst --resume <session> # 参数透传给 dsh-tui
+```
 
 ## 技能分类
 

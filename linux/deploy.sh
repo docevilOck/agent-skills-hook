@@ -308,14 +308,52 @@ fi
 # DSH (DeepSeek Harness) 部署
 if [ "$TARGET" = "dsh" ] || [ "$TARGET" = "all" ]; then
   BACKUP_D="$HOME/.dsh-backups/agent-skills-hook-$STAMP"
-  mkdir -p "$BACKUP_D/dsh"
+  mkdir -p "$BACKUP_D/dsh" "$BACKUP_D/repo"
 
   # 备份现有配置
   [ -f "$HOME/.dsh/AGENTS.md" ] && cp -a "$HOME/.dsh/AGENTS.md" "$BACKUP_D/dsh/AGENTS.md"
+  [ -e "$HOME/.dsh/skills" ] && cp -a "$HOME/.dsh/skills" "$BACKUP_D/dsh/"
+  cp -a "$REPO_SKILLS" "$BACKUP_D/repo/"
 
-  # 部署配置（复用 Claude Code 的 CLAUDE.md 作为 DSH 全局指令）
+  # 部署配置（复用 Claude Code 的 CLAUDE.md 作为 DSH 全局指令）+ skills 软链接
   mkdir -p "$HOME/.dsh"
   safe_link "$HOME/.dsh/AGENTS.md" "$CONFIG_ROOT/claude/CLAUDE.md"
+  safe_link "$HOME/.dsh/skills" "$REPO_SKILLS"
+
+  # 部署 MCP servers：注入 dsh-tui profile 的 cordis.patch.yml（幂等）
+  DSH_PROFILE_DIR="$HOME/.dsh/profiles/dsh-tui"
+  if [ -f "$DSH_PROFILE_DIR/cordis.patch.yml" ]; then
+    if grep -q "mcp-codegraph" "$DSH_PROFILE_DIR/cordis.patch.yml" 2>/dev/null; then
+      echo "DSH MCP servers already configured."
+    else
+      python3 - "$SHARED_CONFIG_ROOT/mcp_servers.json" "$DSH_PROFILE_DIR/cordis.patch.yml" <<'PY'
+import json, sys
+
+mcp_json, patch_path = sys.argv[1], sys.argv[2]
+with open(mcp_json, "r", encoding="utf-8") as f:
+    servers = json.load(f)
+
+lines = ["", "# 仓库 MCP servers（agent-skills-hook config/shared/mcp_servers.json）", "- insert:"]
+for name, srv in servers.items():
+    lines.append(f"    - id: mcp-{name}")
+    lines.append("      name: '@deepseek-ai/dsh-mcp-client'")
+    lines.append("      config:")
+    lines.append(f"        serverName: {name}")
+    lines.append("        transport: stdio")
+    lines.append(f"        command: {srv['command']}")
+    if srv.get("args"):
+        args = ", ".join(f"'{a}'" for a in srv["args"])
+        lines.append(f"        args: [{args}]")
+block = "\n".join(lines) + "\n"
+
+with open(patch_path, "a", encoding="utf-8") as f:
+    f.write(block)
+print("DSH MCP servers configured in cordis.patch.yml")
+PY
+    fi
+  else
+    echo "WARNING: $DSH_PROFILE_DIR/cordis.patch.yml not found. Skipping DSH MCP deployment."
+  fi
 
   echo "DSH deployed. Backup: $BACKUP_D"
 fi

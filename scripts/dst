@@ -1,0 +1,4 @@
+#!/bin/bash
+# 便捷启动 dsh-tui 配置
+# 安装：部署脚本会将本文件软链接到全局 PATH（Linux: ~/.local/bin/dst）
+exec dsh --profile dsh-tui "$@"
