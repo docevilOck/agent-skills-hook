@@ -13,8 +13,16 @@
         "--mcp"
       ],
       "timeout": 60000
+    },
+    "serena": {
+      "type": "local",
+      "enabled": true,
+      "command": [
+        "serena",
+        "start-mcp-server"
+      ],
+      "timeout": 60000
     }
-
   },
   "compaction": {
     "auto": true,

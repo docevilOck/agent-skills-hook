@@ -1,10 +1,22 @@
 {
   "codegraph": {
     "command": "codegraph",
-    "args": ["serve", "--mcp"]
+    "args": [
+      "serve",
+      "--mcp"
+    ]
   },
   "context-mode": {
     "command": "npx",
-    "args": ["-y", "context-mode"]
+    "args": [
+      "-y",
+      "context-mode"
+    ]
+  },
+  "serena": {
+    "command": "serena",
+    "args": [
+      "start-mcp-server"
+    ]
   }
 }

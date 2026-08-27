@@ -55,31 +55,26 @@
 
 ### 检索工具路由
 
-- `codegraph_*`：结构化查询（符号/调用链/架构/影响）— 优先级最高。使用细则：
+**总览**：
 
-| 意图 | 第一步 | 后续 |
-|------|-------|------|
-| 概览/了解功能 | `codegraph_context`（自然语言任务描述） | `codegraph_explore`（context 返回的符号名）→ `codegraph_node`（深入单符号） |
-| 追踪调用链 | `codegraph_trace`（起点符号, 终点符号） | `codegraph_explore`（路径上的符号名） |
-| 找符号在哪 | `codegraph_search`（符号名片段） | `codegraph_node`（看签名/文档） |
-| 改前看波及半径 | `codegraph_callers` + `codegraph_impact`（符号名, --depth N） | — |
-| 看目录结构 | `codegraph_files`（目录路径） | — |
-| 多仓库查询 | 传 `projectPath` | 各项目独立索引，无索引自动退回 grep/read，不报错 |
+| 意图 | 首选 |
+|------|------|
+| 符号定位/引用/实现/诊断/符号级编辑 | `serena`（`mcp__serena__*`） |
+| 调用链/影响半径/文件结构/多仓库 | `codegraph_*` |
+| 大数据推导/批量 I/O/知识检索/网页 | `ctx_*` |
+| 字符串存在性/取值核对 | `grep` / `read` |
 
-> `codegraph_context` 传自然语言，`codegraph_explore` / `codegraph_trace` / `codegraph_search` 传符号名/文件名。
-> 先 `codegraph_context` 粗筛，再 `codegraph_explore` 拿源码；别跳过 context 直接用 explore。
-> ❌ 反模式：`explore "how does login work"` → 自然语言对 explore 的符号名注入和 Flow 构建完全无效；`explore "看下这个文件"` → 直接用 Read。
-- `ctx_*`：上下文节流/沙箱/知识检索 — 数据不进上下文窗口，只传回推导结果。使用细则：
-
-| 意图 | 正确做法 | 禁止 |
-|------|---------|------|
-| 从数据中推导答案（统计/过滤/聚合/解析/变换） | `ctx_execute`(lng, code) / `ctx_execute_file`(path, lng, code) → 脚本处理，只 console.log 结果 | Read 大文件再在对话里分析 |
-| 批量并行 I/O（3+ 独立命令） | `ctx_batch_execute(commands, queries)` — 一次替代 30+ 调用，自带索引 | 逐个 Bash、逐个 Read |
-| 网页内容获取 | `ctx_fetch_and_index(url, source)` → `ctx_search` 检索 | WebFetch（HTML 不进上下文）、curl/wget |
-| 回溯历史/决策/错误/用户偏好 | `ctx_search(queries, sort: "timeline")` | 问用户 "上次做了什么" |
-| 存储大段内容供后续检索 | `ctx_index(content \| path, source)` | 把长文档留在对话里占窗口 |
-> ❌ 反模式：Bash 替代 `ctx_execute` 处理大量输出 → Bash 仅限 git/mkdir/rm/mv/cd/ls/npm install/pip install；Read 做分析而非编辑 → 用 `ctx_execute_file`；curl/wget → 用 `ctx_fetch_and_index`。
-- `grep` / `Read`：字面量核对 — 禁止替代结构查询
+- `serena`（LSP 语义，依赖 clangd + 项目根 compile_commands.json）：
+  - 定位：`find_symbol` / `find_declaration` / `find_implementations` / `find_referencing_symbols`（改前查精确引用）
+  - 总览/诊断：`get_symbols_overview`（理解新文件先用它）/ `get_diagnostics_for_file` / `get_diagnostics_for_symbol`（免编译）
+  - 符号级编辑：`rename_symbol` / `safe_delete_symbol` / `replace_symbol_body` / `insert_before/after_symbol` / `replace_in_files`（批量替换带 dry-run）
+  - 首次使用先读 `initial_instructions` 官方手册
+- `codegraph_*`（仓库级关系图，仅 serena 覆盖不到时用）：
+  - 调用链 `codegraph_trace`（起点, 终点）；影响半径 `codegraph_callers` + `codegraph_impact`（符号, --depth N）——改前必看
+  - 目录结构 `codegraph_files`；多仓库传 `projectPath`（无索引自动退回 grep/read）
+- `ctx_*`（数据不进上下文窗口）：`ctx_execute`/`ctx_execute_file` 推导分析、`ctx_batch_execute` 批量 I/O、`ctx_fetch_and_index` + `ctx_search` 网页/知识检索、`ctx_index` 存文档。
+  ⛔ 禁用：`ctx_purge` / `ctx_upgrade` / `ctx_insight`，确需清理先问用户。
+- `grep` / `read`：字面量核对 — 禁替代结构查询
 
 ### 技能强制评估
 
