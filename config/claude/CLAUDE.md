@@ -59,19 +59,9 @@
 
 | 意图 | 首选 |
 |------|------|
-| 符号定位/引用/实现/诊断/符号级编辑 | `serena`（`mcp__serena__*`） |
-| 调用链/影响半径/文件结构/多仓库 | `codegraph_*` |
 | 大数据推导/批量 I/O/知识检索/网页 | `ctx_*` |
 | 字符串存在性/取值核对 | `grep` / `read` |
 
-- `serena`（LSP 语义，依赖 clangd + 项目根 compile_commands.json）：
-  - 定位：`find_symbol` / `find_declaration` / `find_implementations` / `find_referencing_symbols`（改前查精确引用）
-  - 总览/诊断：`get_symbols_overview`（理解新文件先用它）/ `get_diagnostics_for_file` / `get_diagnostics_for_symbol`（免编译）
-  - 符号级编辑：`rename_symbol` / `safe_delete_symbol` / `replace_symbol_body` / `insert_before/after_symbol` / `replace_in_files`（批量替换带 dry-run）
-  - 首次使用先读 `initial_instructions` 官方手册
-- `codegraph_*`（仓库级关系图，仅 serena 覆盖不到时用）：
-  - 调用链 `codegraph_trace`（起点, 终点）；影响半径 `codegraph_callers` + `codegraph_impact`（符号, --depth N）——改前必看
-  - 目录结构 `codegraph_files`；多仓库传 `projectPath`（无索引自动退回 grep/read）
 - `ctx_*`（数据不进上下文窗口）：`ctx_execute`/`ctx_execute_file` 推导分析、`ctx_batch_execute` 批量 I/O、`ctx_fetch_and_index` + `ctx_search` 网页/知识检索、`ctx_index` 存文档。
   ⛔ 禁用：`ctx_purge` / `ctx_upgrade` / `ctx_insight`，确需清理先问用户。
 - `grep` / `read`：字面量核对 — 禁替代结构查询
@@ -127,3 +117,16 @@
 - 通用文件名格式：`<时间戳>_<主题>.md`，时间戳格式 `YY-MM-DD`。
 - 计划类文档（plans）按日期-主题建子目录，内部分类存放：`docs/plans/YY-MM-DD_name/<category>/<file>.md`。
 - 若目录不存在，先自动创建再写入。
+
+---
+
+## RTK（命令输出 token 优化）
+
+**Golden Rule：执行命令前加 `rtk` 前缀**。rtk 无对应过滤器时原样透传，恒安全。命令链中每个命令都要加：
+```bash
+# ❌ git add . && git commit -m "msg"
+# ✅ rtk git add . && rtk git commit -m "msg"
+```
+
+常用：`rtk ls`、`rtk read <file>`、`rtk grep <p>`、`rtk find <p>`、`rtk git status|log|diff`、`rtk err <cmd>`、`rtk test <cmd>`、`rtk json <file>`、`rtk deps`。
+完整命令表与 token 节省率见同目录 **`RTK.md`**，执行命令前先读。验证：`rtk --version`、`rtk gain`。

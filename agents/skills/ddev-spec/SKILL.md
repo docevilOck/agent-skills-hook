@@ -94,17 +94,9 @@ spec 文档默认落到 `docs/plans/YY-MM-DD_name/spec/<feature-name>.md`。
 
 ### 搜索方法（优先级递减）
 
-**优先使用 CodeGraph 结构化查询：**
-
-1. `codegraph_files` 了解涉及的目录和文件结构
-2. `codegraph_context` 理解模块的架构角色和关键符号
-3. `codegraph_explore` 批量查看相关源码
-
-**CodeGraph 未初始化时回退方案：**
-
-4. `Glob` 查看目录结构
-5. `grep` 搜索关键符号和 include 关系
-6. `Read` 打开关键头文件确认接口
+1. `Glob` 查看涉及的目录和文件结构
+2. `grep` 搜索关键符号和 include 关系
+3. `Read` 打开关键头文件确认接口
 
 ### 产出（嵌入 spec 图/文）
 
@@ -118,8 +110,8 @@ spec 文档默认落到 `docs/plans/YY-MM-DD_name/spec/<feature-name>.md`。
 
 - 如果代码的实际模块边界与 spec 预期不符，**必须在 spec 文档中显式标注**，并说明是沿用现状还是计划调整
 - 不得凭空画出不存在的模块或接口，除非明确标注为”新增”
-- 如果因为 CodeGraph 未初始化且项目过大无法完整分析，至少分析本次改动直接涉及的目录和文件
-- **设计修改插入点前，必须 `Read` 目标函数的完整代码**（不是 grep 片段、不是 codegraph 摘要），确认完整 if-else 分支结构和已有错误/异常处理块后，再定插入位置
+- 如果项目过大无法完整分析，至少分析本次改动直接涉及的目录和文件
+- **设计修改插入点前，必须 `Read` 目标函数的完整代码**（不是 grep 片段），确认完整 if-else 分支结构和已有错误/异常处理块后，再定插入位置
 
 ## 现有框架对齐分析（强制）
 
@@ -211,11 +203,9 @@ spec 文档默认落到 `docs/plans/YY-MM-DD_name/spec/<feature-name>.md`。
 
 ### 搜索方法（优先级递减）
 
-**优先使用 CodeGraph 结构化查询：**
-
-1. `codegraph_search` 搜索已知符号模式
-2. `codegraph_callers` 逆向追踪：找到引用同名模块/同目录文件的所有调用者
-3. `grep` 搜索模式关键字和正则（CodeGraph 未初始化时的回退）
+1. `grep` 搜索已知符号名及其模式（函数/变量/宏/表/结构体）
+2. `grep` 逆向追踪：搜索引用同名模块/同目录文件的所有调用点
+3. `Read` 打开目标文件确认调用点和函数体
 
 ### 产出（嵌入 spec 文档）
 

@@ -16,28 +16,6 @@
 - 不适合在入口文件里展开的内容：具体检查清单、长流程、示例命令、深层协作规则
 - 需要深度规则时，按主题拆分到 `docs/` 下属子目录，不在入口展开
 
-## CodeGraph 约束
-
-- 优先使用结构化的 `codegraph_*` 工具完成代码理解、调用链追踪和影响面分析，不要先退回纯文本搜索
-- 若运行时没有 `codegraph_*` 工具，才回退到 `codegraph` CLI；进入新仓库时先检查索引状态，必要时执行 `codegraph init -i <repo>`
-- 不得假设任意仓库天然已有 `.codegraph/`；没有索引时应先初始化，再继续查询
-
-### 使用细则
-
-| 意图 | 第一步 | 后续 |
-|------|-------|------|
-| 概览/了解功能 | `codegraph_context`（自然语言任务描述） | `codegraph_explore`（context 返回的符号名）→ `codegraph_node`（深入单符号） |
-| 追踪调用链 | `codegraph_trace`（起点符号, 终点符号） | `codegraph_explore`（路径上的符号名） |
-| 找符号在哪 | `codegraph_search`（符号名片段） | `codegraph_node`（看签名/文档） |
-| 改前看波及半径 | `codegraph_callers` + `codegraph_impact`（符号名, --depth N） | — |
-| 看目录结构 | `codegraph_files`（目录路径） | — |
-| 多仓库查询 | 传 `projectPath` | 各项目独立索引，无索引自动退回 grep/read，不报错 |
-
-> `codegraph_context` 传自然语言，`codegraph_explore` / `codegraph_trace` / `codegraph_search` 传符号名/文件名。
-> 先 `codegraph_context` 粗筛，再 `codegraph_explore` 拿源码；别跳过 context 直接用 explore。
-> ❌ 反模式：`explore "how does login work"` → 自然语言对 explore 的符号名注入和 Flow 构建完全无效；`explore "看下这个文件"` → 直接用 Read。
-
-
 ## 架构决策
 
 - **平台独立维护** (2025-06-20)：`config/opencode/AGENTS.md`、`config/claude/CLAUDE.md`、`config/codex/AGENTS.md` 各自独立维护、自包含，不提取共享文件。理由：三个运行时入口文件虽存在内容重叠，但各自部署到不同用户目录，提取共享文件会增加跨文件引用和部署复杂度，不如保持各平台文件自给自足、独立可读。

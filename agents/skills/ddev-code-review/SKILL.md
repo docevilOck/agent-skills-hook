@@ -1,13 +1,13 @@
 ---
 name: ddev-code-review
-description: 在 ddev-gate 工作流中执行代码质量审查。使用 codegraph 做结构影响分析，覆盖安全、性能、可维护性，按严重程度分级输出。
+description: 在 ddev-gate 工作流中执行代码质量审查。覆盖安全、性能、可维护性，按严重程度分级输出。
 ---
 
 # ddev-code-review — 代码质量审查
 
 ## 作用
 
-ddev-gate 工作流的代码质量审查阶段。使用 codegraph 做结构影响分析，覆盖安全、代码质量、性能、最佳实践和可维护性，按严重程度分级输出报告。
+ddev-gate 工作流的代码质量审查阶段。覆盖安全、代码质量、性能、最佳实践和可维护性，按严重程度分级输出报告。
 
 ## When to Use
 
@@ -20,7 +20,7 @@ ddev-gate 工作流的代码质量审查阶段。使用 codegraph 做结构影�
 
 ## Companion Skills
 
-Always load `tool-routing` alongside this skill to ensure correct codegraph/grep dispatch during structural analysis.
+Always load `tool-routing` alongside this skill to ensure correct grep/dispatch during structural analysis.
 
 ## What It Does
 
@@ -31,25 +31,25 @@ Delegates to the `code-reviewer` agent for deep analysis. The agent follows a 4-
 - Run `git log` to understand recent commit context
 - Determine scope: entire diff, specific files, or targeted review
 
-### Phase 2: Structural Impact Analysis (MANDATORY — use codegraph)
+### Phase 2: Structural Impact Analysis (MANDATORY)
 Before reading any source file, understand the architecture:
 
 | Step | Tool | Purpose |
 |------|------|---------|
-| 2a | `codegraph_codegraph_context` | For each changed symbol, get architectural context: entry points, related symbols, key code |
-| 2b | `codegraph_codegraph_impact` | Assess change radius — what downstream code could be affected |
-| 2c | `codegraph_codegraph_callers` | Trace who calls changed symbols — identify all integration points |
-| 2d | `codegraph_codegraph_search` | Find related symbols by name — catch hidden coupling |
-| 2e | `codegraph_codegraph_trace` | For data flow changes, trace from entry point to sink |
+| 2a | `grep` | Locate each changed symbol's definition and declarations |
+| 2b | `grep` | Find all call sites / references to the changed symbols — assess change radius |
+| 2c | `Read` | Read the enclosing function/struct to understand the code path |
+| 2d | `grep` | Search related symbols by naming patterns — catch hidden coupling |
+| 2e | `Read` | For data flow changes, trace from entry point to sink |
 
-**Rule**: Never start code-level review without first completing Phase 2. The structural analysis drives scope and reveals hidden risks that grep alone misses.
+**Rule**: Never start code-level review without first completing Phase 2. The structural analysis drives scope and reveals hidden risks that a shallow grep misses.
 
 ### Phase 3: Deep Review Categories
 - **Security** — Hardcoded secrets, injection risks, XSS, CSRF, auth bypass, path traversal, sensitive data exposure
 - **Code Quality** — Function size, complexity, nesting depth, DRY violations, dead code, naming
 - **Performance** — N+1 queries, missing caching, O(n²) algorithms, unnecessary allocations, memory leaks
 - **Best Practices** — Error handling, logging, API contracts, test coverage, documentation
-- **Maintainability** — Coupling (cross-check with codegraph callers graph), cohesion, testability, hardcoded config
+- **Maintainability** — Coupling (cross-check with grep call-site search), cohesion, testability, hardcoded config
 
 ### Phase 4: Report
 Structured output with severity ratings, file:line evidence, concrete fixes, and approval recommendation.
@@ -74,10 +74,9 @@ Scope: [files changed from git diff, or specific files/dirs]
 
 PHASE 1 — Identify: Run git diff, list changed files and symbols.
 PHASE 2 — Structural Analysis (MANDATORY): For each changed symbol, use:
-  - codegraph_codegraph_context to understand architecture
-  - codegraph_codegraph_impact to assess change radius
-  - codegraph_codegraph_callers to find integration points
-  - codegraph_codegraph_trace for data flow paths
+  - grep to locate its definition and declarations
+  - grep to find all call sites and references — assess change radius
+  - Read to inspect the enclosing function/struct and data flow paths
 PHASE 3 — Deep Review: Check security, quality, performance, best practices, maintainability.
 PHASE 4 — Report: Structured output (see Output Format below).
 ```

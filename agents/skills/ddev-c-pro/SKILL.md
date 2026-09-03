@@ -282,7 +282,7 @@ module_status_t module_encode(const input_t *in, uint8_t *out, size_t out_cap, s
 
 ## 审查模式
 
-当本 skill 被 ddev-gate 作为 C 代码审查子代理加载时（已吸收原 `ddev-code-review` 的代码质量审查职责），必须使用 `reviewer-prompt.md` 作为任务模板执行审查。该模板定义了审查输入、维度优先级、CodeGraph 辅助查询方法和输出格式。
+当本 skill 被 ddev-gate 作为 C 代码审查子代理加载时（已吸收原 `ddev-code-review` 的代码质量审查职责），必须使用 `reviewer-prompt.md` 作为任务模板执行审查。该模板定义了审查输入、维度优先级和输出格式。
 
 审查覆盖范围：C 编码规范 + 代码质量（安全、架构性能、死代码/重复）。C 项目的 ddev-gate 流程中不再单独调用 `ddev-code-review`，由本 skill 统一完成。
 

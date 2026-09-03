@@ -146,7 +146,7 @@ ddev-comment-gen 审查结论：[pass | blocked]
 
 ## 审查模式
 
-当本 skill 被 ddev-gate 作为注释审查子代理加载时，必须使用 `reviewer-prompt.md` 作为任务模板执行审查。该模板定义了审查输入、审查维度优先级、CodeGraph 辅助查询方法和输出格式。
+当本 skill 被 ddev-gate 作为注释审查子代理加载时，必须使用 `reviewer-prompt.md` 作为任务模板执行审查。该模板定义了审查输入、审查维度优先级和输出格式。
 
 ## 进度记录
 

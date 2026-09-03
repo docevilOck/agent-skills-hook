@@ -12,7 +12,6 @@ permission:
   webfetch: deny
   task: deny
   skill: allow
-  codegraph_codegraph_*: allow
 ---
 
 你是 AI Slop 清理代理。在 ddev-gate 一致性验收通过后，由主 agent 调度你对最终代码做受限范围内的清理。

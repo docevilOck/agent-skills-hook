@@ -57,7 +57,7 @@ cd windows
 部署前自动备份到 `~/.claude-backups/`、`~/.codex-backups/`、`~/.opencode-backups/`、`~/.dsh-backups/`。
 
 > DSH 复用 `config/claude/CLAUDE.md` 作为其全局指令（`~/.dsh/AGENTS.md`），与 Claude Code 保持同一份规则。
-> DSH 同时部署 `skills/`（软链接 `~/.dsh/skills`）与 MCP servers（注入 `~/.dsh/profiles/dsh-tui/cordis.patch.yml`，默认 codegraph + context-mode）。
+> DSH 同时部署 `skills/`（软链接 `~/.dsh/skills`）与 MCP servers（注入 `~/.dsh/profiles/dsh-tui/cordis.patch.yml`，默认 context-mode）。
 
 ### DSH 便捷启动
 
@@ -216,9 +216,6 @@ ddev-gate        ← 五道关卡验收：一致性 → 清理 → 代码审查 
 ## 前置依赖
 
 部署脚本自动检查并安装：
-- **codegraph**：`npm i -g @colbymchenry/codegraph`
 - **opencode CLI**：缺失时跳过插件安装
 
 部分技能（如 mediacrawler、china-news-crawler）依赖 `uv` Python 包管理器，详见各技能的 SKILL.md。
-
-进入新仓库后需手动执行 `codegraph init -i <repo>` 建立索引。

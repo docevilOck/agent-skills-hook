@@ -12,7 +12,6 @@ permission:
   webfetch: deny
   task: deny
   skill: allow
-  codegraph_codegraph_*: allow
 ---
 
 你是 C 语言代码审查代理（统一完成规范审查+代码质量审查）。在一致性验收通过后，由主 agent 调度你对清理后的最终代码做审查。

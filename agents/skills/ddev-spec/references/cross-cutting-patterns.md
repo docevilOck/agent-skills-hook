@@ -2,7 +2,7 @@
 
 当对代码做"新增 X"类改动（新增模块/指令/驱动/配置项/平台适配）时，按本目录逐模式搜索，确认是否有需要联动修改的位置。
 
-**使用方式**：对每种模式，先用 codegraph_search 搜符号名，未命中则用 grep 搜正则，仍未命中则标注"未发现"并继续下一种。
+**使用方式**：对每种模式，用 grep 搜符号名，未命中则用 grep 搜正则，仍未命中则标注"未发现"并继续下一种。
 
 ---
 
@@ -10,7 +10,7 @@
 
 **描述**：集中注册指令名→处理函数的映射表，新增指令类型时必须在此表中添加条目。
 
-**搜索关键词（codegraph）**：`cmd_table`, `command_table`, `instruction_table`, `msg_handler`, `extra_cmd`, `cmd_handler`, `op_table`, `opcode`
+**搜索关键词**：`cmd_table`, `command_table`, `instruction_table`, `msg_handler`, `extra_cmd`, `cmd_handler`, `op_table`, `opcode`
 
 **grep 正则**：`(cmd|command|instruction|msg|op|extra)_(table|handler|map)\s*\[\s*\]`
 
@@ -24,7 +24,7 @@
 
 **描述**：模块对外暴露的回调注册接口或内部回调函数表，新增功能点时常需要注册对应的回调处理。
 
-**搜索关键词（codegraph）**：`callback_register`, `event_handler`, `hook_list`, `_callback`, `notify_`, `observer_`, `listener_`
+**搜索关键词**：`callback_register`, `event_handler`, `hook_list`, `_callback`, `notify_`, `observer_`, `listener_`
 
 **grep 正则**：`(callback|hook|event|notify|observer|listener|signal)\s*(_register|_add|_connect|_handler|_list|_fn)`
 
@@ -38,7 +38,7 @@
 
 **描述**：将枚举值映射到字符串名或处理函数的表，新增枚举值时必须同步更新。
 
-**搜索关键词（codegraph）**：`_name_map`, `_to_string`, `_from_string`, `_type_map`, `_handler_map`, `enum_name`, `type_str`
+**搜索关键词**：`_name_map`, `_to_string`, `_from_string`, `_type_map`, `_handler_map`, `enum_name`, `type_str`
 
 **grep 正则**：`(map|table|dict|array)\s*\[.*enum|switch\s*\(.*type.*\)\s*\{`
 
@@ -52,7 +52,7 @@
 
 **描述**：系统启动时通过遍历静态数组来初始化各模块/驱动，新增模块时必须在此数组中注册。
 
-**搜索关键词（codegraph）**：`driver_list`, `module_init`, `_register`, `_init_table`, `_modules`, `device_table`, `plugin_list`
+**搜索关键词**：`driver_list`, `module_init`, `_register`, `_init_table`, `_modules`, `device_table`, `plugin_list`
 
 **grep 正则**：`(driver|module|device|plugin)\s*(_list|_table|_init|_register|_mgmt)`
 
@@ -66,7 +66,7 @@
 
 **描述**：默认配置、参数表、K-V 配置项的集中定义，新增可配置功能时需要添加默认值。
 
-**搜索关键词（codegraph）**：`default_config`, `config_init`, `_params`, `_settings`, `_options`, `config_table`, `cfg_default`
+**搜索关键词**：`default_config`, `config_init`, `_params`, `_settings`, `_options`, `config_table`, `cfg_default`
 
 **grep 正则**：`(default|init|cfg)_(config|param|setting|option)`
 
@@ -80,7 +80,7 @@
 
 **描述**：通过 `#ifdef` / `#if defined()` 控制功能裁剪，新增可选功能时需要在多个文件的编译开关处添加分支。
 
-**搜索关键词（codegraph）**：不适用（预处理器宏不是符号）。改为直接用 grep。
+**搜索关键词**：不适用（预处理器宏不是符号）。改为直接用 grep。
 
 **grep 正则**：`#\s*if(def|\s+defined)\s*\(.*(FEATURE|ENABLE|HAS|WITH|CONFIG)_`
 
@@ -94,7 +94,7 @@
 
 **描述**：Makefile、CMakeLists.txt、Kconfig 等构建系统中注册源文件、编译选项、配置项的位置，新增 `.c` 文件时必须同步更新。
 
-**搜索关键词（codegraph）**：不适用（构建文件中的变量不是代码符号）。改为用 Glob + grep。
+**搜索关键词**：不适用（构建文件中的变量不是代码符号）。改为用 Glob + grep。
 
 **grep 正则**：`SRC_FILES|obj-y|target_sources|add_executable|add_library|SOURCES`
 

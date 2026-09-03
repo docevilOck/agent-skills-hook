@@ -285,7 +285,7 @@ def main():
                         help="目标编译器 (默认 armcc)")
     parser.add_argument("--exts", default=".c,.h,.s,.S,.mk,.txt,.bat,.cmd",
                         help="扫描的文件扩展名")
-    parser.add_argument("--exclude", default=".git,.codegraph,out,tools,docs,firmware",
+    parser.add_argument("--exclude", default=".git,out,tools,docs,firmware",
                         help="排除目录")
     parser.add_argument("--deep", action="store_true",
                         help="深度验证：往返编码检查 + 语义乱码检测")

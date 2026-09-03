@@ -87,17 +87,10 @@ detail 文档默认采用“图优先，文辅佐”表达，只写本次改动�
 
 ### 代码现状收集方法（优先级递减）
 
-**优先使用 CodeGraph 结构化查询：**
-
 1. 从 spec 文档提取涉及的模块名
-2. `codegraph_search` 搜索对应结构体名/枚举名/typedef 名
-3. `codegraph_node` 获取完整定义（含字段类型、注释）
-4. `codegraph_explore` 批量获取相关符号源码
-
-**CodeGraph 未初始化时回退方案：**
-
-5. `grep` 在头文件（`*.h`）中搜索 `typedef struct` / `enum` / `typedef` 声明
-6. `Read` 打开搜索到的头文件，确认精确定义
+2. `grep` 在头文件（`*.h`）中搜索 `typedef struct` / `enum` / `typedef` 声明，按结构体名/枚举名/typedef 名定位
+3. `Read` 打开搜索到的头文件，确认精确定义（含字段类型、注释）
+4. `grep` 搜索引用点，`Read` 批量查看相关符号源码
 
 ### 收集产物
 

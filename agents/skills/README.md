@@ -109,7 +109,7 @@
 
 | 技能 | 说明 | 触发方式 |
 |------|------|----------|
-| `tool-routing` | 统一检索工具路由规则，调度 `codegraph_*`、`ctx_*`、`grep`/`Read` 三层职责。 | 自动 — 全局加载（由 AGENTS.md 强制执行） |
+| `tool-routing` | 统一检索工具路由规则，调度 `ctx_*`、`grep`/`Read` 两层职责。 | 自动 — 全局加载（由 AGENTS.md 强制执行） |
 | `skill` | 管理本地 skills：列出、添加、删除、搜索、编辑、设置向导。 | 自动 — 需要管理 skills 时 |
 | `skill-recorder` | 在 skill 使用过程中记录 corrected 和 friction 信号，写入目标 skill 的 `.skillopt/pending/` 目录。 | 自动 — 由 AGENTS.md 全局指令调用 |
 | `find-skills` | 帮助用户发现和安装 agent skills。适用场景："how do I do X""find a skill for X""is there a skill that can..." | 自动 — 询问如何实现某功能时 |

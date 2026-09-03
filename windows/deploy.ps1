@@ -180,28 +180,6 @@ with dest.open("w", encoding="utf-8") as f:
     Remove-Item $tmp -Force
 }
 
-function Ensure-CodeGraphInstalled {
-    $cg = Get-Command codegraph -ErrorAction SilentlyContinue
-    if ($null -ne $cg) {
-        Write-Host "CodeGraph already installed: $($cg.Source)"
-        return
-    }
-
-    $npm = Get-Command npm -ErrorAction SilentlyContinue
-    if ($null -eq $npm) {
-        throw "codegraph not found in PATH, and npm is unavailable. Install Node.js/npm first."
-    }
-
-    Write-Host "CodeGraph not found. Installing @colbymchenry/codegraph via npm..."
-    npm i -g @colbymchenry/codegraph
-}
-
-function Show-CodeGraphReminder {
-    Write-Host "OpenCode MCP template now uses 'codegraph serve --mcp'."
-    Write-Host "CodeGraph usage rules are documented in AGENTS.md."
-    Write-Host "Per-repo indexing still needs 'codegraph init -i <repo>'."
-}
-
 function Deploy-McpServers {
     param(
         [string]$Runtime,
@@ -243,9 +221,6 @@ function Deploy-McpServers {
         }
     }
 }
-
-Ensure-CodeGraphInstalled
-Show-CodeGraphReminder
 
 # Codex 部署
 if ($Target -eq "codex" -or $Target -eq "all") {
@@ -376,7 +351,7 @@ if ($Target -eq "dsh" -or $Target -eq "all") {
     $DshProfileDir = Join-Path $env:USERPROFILE ".dsh\profiles\dsh-tui"
     $PatchFile = Join-Path $DshProfileDir "cordis.patch.yml"
     if (Test-Path $PatchFile) {
-        if (Select-String -Path $PatchFile -Pattern "mcp-codegraph" -Quiet) {
+        if (Select-String -Path $PatchFile -Pattern "mcp-context-mode" -Quiet) {
             Write-Host "DSH MCP servers already configured."
         } else {
             $McpTmp = Join-Path $env:TEMP ("agent-skills-hook-mcp-" + [guid]::NewGuid().ToString() + ".py")

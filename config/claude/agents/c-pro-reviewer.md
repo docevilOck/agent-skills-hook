@@ -1,7 +1,7 @@
 ---
 name: c-pro-reviewer
 description: C 语言代码审查代理（规范+质量）。加载 ddev-c-pro skill，统一完成编码规范审查和代码质量审查（安全、架构性能、死代码/重复），按严重程度分级。仅允许 pass/blocked。由 ddev-gate skill 调度，C 项目不再单独调用 code-reviewer。
-tools: Read, Grep, Glob, Bash, Skill, mcp__codegraph__codegraph_*
+tools: Read, Grep, Glob, Bash, Skill
 model: inherit
 ---
 

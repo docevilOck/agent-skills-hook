@@ -1,7 +1,7 @@
 ---
 name: slop-cleaner
 description: AI slop 清理代理。在受限范围内对代码做垃圾代码清理和可维护性提升。必须加载 ddev-clean skill。由 ddev-gate skill 调度。
-tools: Read, Grep, Glob, Bash, Edit, Write, Skill, mcp__codegraph__codegraph_*
+tools: Read, Grep, Glob, Bash, Edit, Write, Skill
 model: inherit
 ---
 

@@ -101,27 +101,6 @@ with dest.open("w", encoding="utf-8") as f:
 PY
 }
 
-ensure_codegraph_installed() {
-  if command -v codegraph >/dev/null 2>&1; then
-    echo "CodeGraph already installed: $(command -v codegraph)"
-    return 0
-  fi
-
-  if ! command -v npm >/dev/null 2>&1; then
-    echo "ERROR: codegraph not found in PATH, and npm is unavailable. Install Node.js/npm first." >&2
-    return 1
-  fi
-
-  echo "CodeGraph not found. Installing @colbymchenry/codegraph via npm..."
-  npm i -g @colbymchenry/codegraph
-}
-
-show_codegraph_reminder() {
-  echo "OpenCode MCP template now uses 'codegraph serve --mcp'."
-  echo "CodeGraph usage rules are documented in AGENTS.md."
-  echo "Per-repo indexing still needs 'codegraph init -i <repo>'."
-}
-
 install_opencode_plugins() {
   local opencode_dir="$1"
 
@@ -215,9 +194,6 @@ for name, srv in servers.items():
         print(f"  WARNING: Failed to add MCP server '{name}': {result.stderr.strip()}")
 PY
 }
-
-ensure_codegraph_installed
-show_codegraph_reminder
 
 # Codex 部署
 if [ "$TARGET" = "codex" ] || [ "$TARGET" = "all" ]; then
@@ -323,7 +299,7 @@ if [ "$TARGET" = "dsh" ] || [ "$TARGET" = "all" ]; then
   # 部署 MCP servers：注入 dsh-tui profile 的 cordis.patch.yml（幂等）
   DSH_PROFILE_DIR="$HOME/.dsh/profiles/dsh-tui"
   if [ -f "$DSH_PROFILE_DIR/cordis.patch.yml" ]; then
-    if grep -q "mcp-codegraph" "$DSH_PROFILE_DIR/cordis.patch.yml" 2>/dev/null; then
+    if grep -q "mcp-context-mode" "$DSH_PROFILE_DIR/cordis.patch.yml" 2>/dev/null; then
       echo "DSH MCP servers already configured."
     else
       python3 - "$SHARED_CONFIG_ROOT/mcp_servers.json" "$DSH_PROFILE_DIR/cordis.patch.yml" <<'PY'

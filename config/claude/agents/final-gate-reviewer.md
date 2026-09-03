@@ -1,7 +1,7 @@
 ---
 name: ddev-gate-reviewer
 description: 实现一致性最终验收审查代理。对照 spec/detail/exec plan/code/evidence 做逐项一致性验收。仅允许输出 pass/need-info/blocked。由 ddev-gate skill 调度。
-tools: Read, Grep, Glob, Bash, mcp__codegraph__codegraph_*
+tools: Read, Grep, Glob, Bash
 model: inherit
 ---
 
@@ -47,7 +47,7 @@ model: inherit
 如果 spec / detail / 代码范围三者之一无法唯一定位，停止验收，输出 `blocked`，不退化。
 
 ### 第二步：spec 一致性
-对代码做结构分析（codegraph_context / callers / impact），然后核对：
+然后核对：
 - 模块职责是否与 spec 文档一致
 - 模块边界是否与架构图一致
 - 接入点是否与 spec 设计一致
