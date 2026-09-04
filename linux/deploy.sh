@@ -296,21 +296,27 @@ if [ "$TARGET" = "dsh" ] || [ "$TARGET" = "all" ]; then
   safe_link "$HOME/.dsh/AGENTS.md" "$CONFIG_ROOT/claude/CLAUDE.md"
   safe_link "$HOME/.dsh/skills" "$REPO_SKILLS"
 
-  # 部署 MCP servers：注入 dsh-tui profile 的 cordis.patch.yml（幂等）
+  # 部署 MCP servers：注入 dsh-tui profile 的 cordis.patch.yml（按 server 幂等）
   DSH_PROFILE_DIR="$HOME/.dsh/profiles/dsh-tui"
   if [ -f "$DSH_PROFILE_DIR/cordis.patch.yml" ]; then
-    if grep -q "mcp-context-mode" "$DSH_PROFILE_DIR/cordis.patch.yml" 2>/dev/null; then
-      echo "DSH MCP servers already configured."
-    else
-      python3 - "$SHARED_CONFIG_ROOT/mcp_servers.json" "$DSH_PROFILE_DIR/cordis.patch.yml" <<'PY'
+    python3 - "$SHARED_CONFIG_ROOT/mcp_servers.json" "$DSH_PROFILE_DIR/cordis.patch.yml" <<'PY'
 import json, sys
 
 mcp_json, patch_path = sys.argv[1], sys.argv[2]
 with open(mcp_json, "r", encoding="utf-8") as f:
     servers = json.load(f)
+with open(patch_path, "r", encoding="utf-8") as f:
+    existing = f.read()
 
-lines = ["", "# 仓库 MCP servers（agent-skills-hook config/shared/mcp_servers.json）", "- insert:"]
+HEADER = "# 仓库 MCP servers（agent-skills-hook config/shared/mcp_servers.json）"
+
+blocks = []
+added = []
 for name, srv in servers.items():
+    if f"id: mcp-{name}" in existing:
+        print(f"DSH MCP server '{name}' already configured.")
+        continue
+    lines = ["- insert:"]
     lines.append(f"    - id: mcp-{name}")
     lines.append("      name: '@deepseek-ai/dsh-mcp-client'")
     lines.append("      config:")
@@ -320,13 +326,20 @@ for name, srv in servers.items():
     if srv.get("args"):
         args = ", ".join(f"'{a}'" for a in srv["args"])
         lines.append(f"        args: [{args}]")
-block = "\n".join(lines) + "\n"
+    if srv.get("cwd"):
+        lines.append(f"        cwd: {srv['cwd']}")
+    blocks.append("\n".join(lines))
+    added.append(name)
 
-with open(patch_path, "a", encoding="utf-8") as f:
-    f.write(block)
-print("DSH MCP servers configured in cordis.patch.yml")
+if blocks:
+    if HEADER not in existing:
+        blocks[0] = HEADER + "\n" + blocks[0]
+    with open(patch_path, "a", encoding="utf-8") as f:
+        f.write("\n" + "\n".join(blocks) + "\n")
+    print(f"DSH MCP servers configured: {', '.join(added)}")
+else:
+    print("DSH MCP servers already configured.")
 PY
-    fi
   else
     echo "WARNING: $DSH_PROFILE_DIR/cordis.patch.yml not found. Skipping DSH MCP deployment."
   fi

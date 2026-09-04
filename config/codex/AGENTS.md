@@ -63,10 +63,16 @@
 |------|------|
 | 大数据推导/批量 I/O/知识检索/网页 | `ctx_*` |
 | 字符串存在性/取值核对 | `grep` / `read` |
+| 代码结构/调用关系/代码审查上下文(需预建 `.code-review-graph`) | `mcp__crg__*` |
 
 - `ctx_*`（数据不进上下文窗口）：`ctx_execute`/`ctx_execute_file` 推导分析、`ctx_batch_execute` 批量 I/O、`ctx_fetch_and_index` + `ctx_search` 网页/知识检索、`ctx_index` 存文档。
   ⛔ 禁用：`ctx_purge` / `ctx_upgrade` / `ctx_insight`，确需清理先问用户。
 - `grep` / `read`：字面量核对 — 禁替代结构查询
+- `mcp__crg__*`（code-review-graph MCP，仅 3 个工具）：
+  - `mcp__crg__get_minimal_context_tool` — 任务入口，~100 tokens，先调它再决定下一步；
+  - `mcp__crg__query_graph_tool` — 结构化关系（`callers_of`/`callees_of`/`references_to`…），回答 grep 答不了的"谁调它/它调谁/谁引用它"；
+  - `mcp__crg__get_review_context_tool` — 影响半径 + 相关源码片段 + 审查指引，用于代码审查。
+  仓库根无 `.code-review-graph/` 索引时这些工具报 `status: not_ready`，先跑 `code-review-graph build` 建图再用。
 
 ### 技能强制评估
 

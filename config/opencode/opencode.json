@@ -12,5 +12,17 @@
     "@tarquinen/opencode-dcp@latest",
     "opencode-pty",
     "context-mode"
-  ]
+  ],
+  "mcp": {
+    "crg": {
+      "type": "stdio",
+      "command": "code-review-graph",
+      "args": [
+        "serve",
+        "--tools",
+        "get_minimal_context_tool,get_review_context_tool,query_graph_tool"
+      ],
+      "enabled": true
+    }
+  }
 }

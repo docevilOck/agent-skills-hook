@@ -26,7 +26,7 @@ agent-skills-hook/
 │   │   ├── dcp.jsonc               # DCP 上下文管理配置
 │   │   ├── agents/                 # OpenCode 子代理定义
 │   │   └── prompts/               # 共享提示词模板
-│   └── shared/mcp_servers.json     # 共享 MCP 服务器定义
+│   └── shared/mcp_servers.json     # 共享 MCP 服务器定义（context-mode、crg/code-review-graph）
 ├── agents/skills/                  # 共享技能库（61 个技能）
 ├── linux/deploy.sh                 # Linux 部署（软链接）
 ├── windows/deploy.ps1              # Windows 部署（Junction）
@@ -133,6 +133,8 @@ ddev-gate        ← 五道关卡验收：一致性 → 清理 → 代码审查 
 | `visual-verdict` | 截图与参考图的视觉 QA 结构化对比 |
 | `protocol-semantic-guard` | 协议/指令集语义守卫，改 wire protocol 时用 |
 | `image-understanding` | 图片对比/视觉回归/UI diff 检测 |
+
+> **代码审查前先看影响面**：先跑 `code-review-graph build` 建图（在仓库根生成 `.code-review-graph/`），再用 code-review-graph 的 3 个 MCP 工具——`mcp__crg__get_minimal_context_tool`（入口，~100 tokens）→ `mcp__crg__query_graph_tool`（调用/引用关系）→ `mcp__crg__get_review_context_tool`（影响半径 + 需审查文件 + 源码片段）——先看清改动影响面和需要审查的文件，然后才开始逐文件 review。
 
 ### 嵌入式与硬件调试
 
