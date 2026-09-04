@@ -95,8 +95,9 @@ spec 文档默认落到 `docs/plans/YY-MM-DD_name/spec/<feature-name>.md`。
 ### 搜索方法（优先级递减）
 
 1. `Glob` 查看涉及的目录和文件结构
-2. `grep` 搜索关键符号和 include 关系
-3. `Read` 打开关键头文件确认接口
+2. code-review-graph（`mcp__crg__query_graph_tool` 查 `callers_of`/`callees_of`/`references_to`/`imports_of`）摸清符号依赖与调用关系；无图先 `code-review-graph build`
+3. `grep` 兜底：搜索关键符号和 include 关系
+4. `Read` 打开关键头文件确认接口
 
 ### 产出（嵌入 spec 图/文）
 
@@ -203,9 +204,10 @@ spec 文档默认落到 `docs/plans/YY-MM-DD_name/spec/<feature-name>.md`。
 
 ### 搜索方法（优先级递减）
 
-1. `grep` 搜索已知符号名及其模式（函数/变量/宏/表/结构体）
-2. `grep` 逆向追踪：搜索引用同名模块/同目录文件的所有调用点
-3. `Read` 打开目标文件确认调用点和函数体
+1. code-review-graph（`mcp__crg__query_graph_tool` 查 `callers_of`/`callees_of`/`references_to`/`imports_of`）搜已知符号及其调用/引用关系；无图先 `code-review-graph build`
+2. `grep` 兜底：搜索已知符号名及其模式（函数/变量/宏/表/结构体）
+3. `grep` 逆向追踪：搜索引用同名模块/同目录文件的所有调用点
+4. `Read` 打开目标文件确认调用点和函数体
 
 ### 产出（嵌入 spec 文档）
 

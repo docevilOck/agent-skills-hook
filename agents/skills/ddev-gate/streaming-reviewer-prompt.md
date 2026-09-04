@@ -30,13 +30,14 @@
 
 ## 影响面评估
 
-在开始逐项审查前，先用 `grep` 评估改动的实际影响范围：
+在开始逐项审查前，先**用 code-review-graph 看影响面与需审查文件**，`grep` 兜底：
 
-- `grep` 对本次改动涉及的关键符号搜所有引用点，评估影响半径，确认：
+- `mcp__crg__get_minimal_context_tool` → `mcp__crg__query_graph_tool`（`callers_of`/`callees_of`/`references_to`）→ `mcp__crg__get_review_context_tool`（影响半径 + 需审查文件 + 源码片段）
+- 对本次改动涉及的关键符号查所有引用点，评估影响半径，确认：
   - 改动影响了哪些调用方（call sites）
   - 改动的波及范围是否与 spec/detail 文档声明的范围一致
   - 是否存在文档未声明的受影响模块（若存在 → `blocked`）
-- `grep` 检查关键 API 的调用链，确认新增/修改的接口是否被预期之外的模块调用
+- `grep` 只做兜底：检查图中未覆盖的关键 API 调用链，确认新增/修改的接口是否被预期之外的模块调用
 - 如果影响面超出 spec/detail 声明的范围，必须在审查报告中标注为偏离
 
 ## 结论规则
@@ -90,8 +91,8 @@
 
 影响面评估：
 - 关键符号：[列出本次改动涉及的关键函数/结构体]
-- grep 影响面分析：[影响半径、调用方数量、是否超出 spec/detail 声明范围]
-- 遗漏文件（如有）：[grep 发现但不在审查范围内的受影响文件]
+- code-review-graph 影响面分析：[影响半径、调用方数量、是否超出 spec/detail 声明范围]
+- 遗漏文件（如有）：[code-review-graph 查出、`grep` 兜底发现但不在审查范围内的受影响文件]
 
 下一步：
 - 如果结论是 `blocked`，明确写“主 agent 必须先修改这些项，再重新进入 ddev-gate”

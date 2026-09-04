@@ -88,9 +88,10 @@ detail 文档默认采用“图优先，文辅佐”表达，只写本次改动�
 ### 代码现状收集方法（优先级递减）
 
 1. 从 spec 文档提取涉及的模块名
-2. `grep` 在头文件（`*.h`）中搜索 `typedef struct` / `enum` / `typedef` 声明，按结构体名/枚举名/typedef 名定位
-3. `Read` 打开搜索到的头文件，确认精确定义（含字段类型、注释）
-4. `grep` 搜索引用点，`Read` 批量查看相关符号源码
+2. code-review-graph（`mcp__crg__query_graph_tool` 搜 `callers_of`/`callees_of`/`references_to`，`mcp__crg__get_review_context_tool` 拿定义 + 引用片段）定位结构体名/枚举名/typedef 名及其调用关系；无图先 `code-review-graph build`
+3. `grep` 兜底：在头文件（`*.h`）中搜索 `typedef struct` / `enum` / `typedef` 声明，按结构体名/枚举名/typedef 名定位
+4. `Read` 打开搜索到的头文件，确认精确定义（含字段类型、注释）
+5. `grep` 搜索引用点，`Read` 批量查看相关符号源码
 
 ### 收集产物
 

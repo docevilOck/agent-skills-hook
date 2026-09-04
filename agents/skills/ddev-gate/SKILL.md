@@ -129,7 +129,7 @@ c-pro / 编码规范审查通过后，还需再拉一个独立 subagent 做注�
 **判定「大改动」— 命中任一即走 streaming：**
 
 1. diff 行数 > 300
-2. `grep` 搜到的影响范围超出本模块（存在受影响的跨模块调用方/文件）
+2. code-review-graph 查到的影响范围超出本模块（存在受影响的跨模块调用方/文件）
 3. 结构性重构：跨多文件重建结构体、数据流、状态机或公共接口，而非单文件内局部增量
 
 **以下不单独构成「大改动」，仍走 compact：**
@@ -137,7 +137,7 @@ c-pro / 编码规范审查通过后，还需再拉一个独立 subagent 做注�
 - 涉及数据流 / 关键流程的局部修改——只要实现是单文件内局部增量（如新增 static 函数 + 换查表来源），API 对外签名不变
 - C + Python + 文档的复合改动——按合计 diff 行数与实际影响半径判定，不因跨语言自动升级
 
-判定依据取 spec/detail 声明的范围与 git diff / `grep` 实际搜到的调用点影响范围中的**较严者**。
+判定依据取 spec/detail 声明的范围与 git diff / code-review-graph 查到的调用点影响范围中的**较严者**。
 
 `ponytail: diff 行数阈值是启发式，可按团队习惯调整；与第 3 条结构性重构判定冲突时，以重构性质为准。`
 
@@ -199,7 +199,7 @@ C0. **前置检查**：同 Streaming 步骤 0（task_plan 全部完成、错误�
 C1. 主 agent 定位 spec、detail、exec plan（如有）、`implementation-notes.md`、代码范围和本轮验证证据，读取并整理成审查上下文。
 C2. 主 agent 读取 `implementation-notes.md`，提取 Deviations（映射为一致性重点检查项）、Design Decisions（作为 spec 空白处补充依据）、Open Questions（未答 → `blocked`）。
 C3. 拉 **1 个独立 subagent** 做整合审查，提示模板见 [compact-reviewer-prompt.md](compact-reviewer-prompt.md)。该 agent 一次性完成：
-    - **一致性对照**：按 spec → detail → exec plan → notes → code → evidence 顺序逐项对照，显式核对 Deviations，检查 exec plan 是否只做执行映射；**必须用 `grep` 搜索调用点核对影响面**是否超出 spec/detail 声明范围
+    - **一致性对照**：按 spec → detail → exec plan → notes → code → evidence 顺序逐项对照，显式核对 Deviations，检查 exec plan 是否只做执行映射；**先用 code-review-graph 看影响面与需审查文件、`grep` 兜底**，核对影响面是否超出 spec/detail 声明范围
     - **编码规范与质量**：C 项目按 `ddev-c-pro` 维度（规范 + 安全 + 架构性能 + 死代码/重复），非 C 项目按语言对应 skill；问题按 CRITICAL/HIGH/MEDIUM/LOW 分级
     - **注释完整性**：C 项目按 `ddev-comment-gen` 维度逐文件核对；其他语言按对应注释审查 skill，无则跳过
     - 输出一份结论 `pass` / `need-info` / `blocked`，附差异归类、问题清单、缺失注释清单
@@ -212,12 +212,14 @@ Compact 路线同样要求 spec、detail、代码范围、验证证据齐全，�
 
 ## 审查 agent 要求
 
+> **通用规则**：所有审查 agent（一致性 / 编码规范 / 注释 / 清理 / `ddev-code-review` / compact 整合）评估改动影响面时，一律**先用 `code-review-graph` 看影响面与需审查文件**，再 `grep` / `read` 兜底。图缺失（无 `.code-review-graph/`）时先 `code-review-graph build`。
+
 - 必须是独立视角，不能把主 agent 自己的口头总结当结论
 - 必须显式核对 spec、detail、exec plan、implementation-notes、code、evidence 这六类输入
 - 必须显式核对 Deviations 条目，逐条验收偏离是否已被文档接受或有合理理由
 - 必须显式核对 exec plan 是否只是执行映射，还是偷偷承担了新的设计决策
 - 必须把 data flow、flow、结构体设计与代码逐项对上
-- **必须用 `grep` 搜索调用点/引用点评估改动影响面**：对关键符号搜所有引用，确认实际影响范围与 spec/detail 声明的范围一致；若存在文档未声明的受影响模块，视为偏离
+- **先用 code-review-graph 看影响面与需审查文件、`grep` 兜底**：对关键符号查所有引用，确认实际影响范围与 spec/detail 声明的范围一致；若存在文档未声明的受影响模块，视为偏离
 - 发现任何未批准差异时，必须返回 `blocked`
 - 不允许用”基本一致””差不多符合””核心没问题”这类模糊表述放行
 - 如果本轮代码已经过 `ddev-clean` 清理，必须按**清理后的最终代码**重做对照，不能沿用清理前结论
@@ -229,7 +231,7 @@ Compact 路线同样要求 spec、detail、代码范围、验证证据齐全，�
 - 必须是独立视角，不能复用一致性验收 agent 的结论
 - 必须加载 `ddev-c-pro` skill，统一完成编码规范审查和代码质量审查（已吸收 `ddev-code-review` 的 C 相关职责）
 - C 项目不再单独调用 `ddev-code-review`
-- **必须用 `grep` 搜索调用点评估改动影响面**：了解审查范围内外的符号依赖，避免遗漏受影响的文件
+- **先用 code-review-graph 看影响面与需审查文件、`grep` 兜底**：了解审查范围内外的符号依赖，避免遗漏受影响的文件
 - 审查维度：
   - **编码规范**：全局变量是否必要、参数是否过多未封装、命名是否遵循模块前缀规范、错误处理是否用显式返回码、内存 ownership 是否明确
   - **代码质量（安全）**：硬编码凭据、缓冲区溢出、注入风险、路径遍历、整数溢出、敏感数据泄露
@@ -248,7 +250,7 @@ c-pro 审查提示模板见 [reviewer-prompt.md](../ddev-c-pro/reviewer-prompt.m
 
 - 必须是独立视角，不能复用编码规范审查 agent 的结论
 - 必须加载 `ddev-comment-gen` skill，按其中定义的审查维度逐文件、逐函数、逐结构体验证注释完整性
-- **必须用 `grep` 搜索引用点评估改动影响面**：确认所有目标文件的公开 API、结构体、枚举均已纳入审查
+- **先用 code-review-graph 看影响面与需审查文件、`grep` 兜底**：确认所有目标文件的公开 API、结构体、枚举均已纳入审查
 - 重点检查：文件头 @file 注释、公开函数 Doxygen 完整性、结构体/枚举成员行内注释、关键逻辑说明注释、注释与代码行为一致性、注释语言（必须中文）
 - 只审查注释规范层面，不重复做编码规范或架构一致性判断
 - 发现缺失或不足必须返回 `blocked`，并附带逐项缺失清单和补全建议文本
@@ -262,7 +264,7 @@ comment-gen 审查提示模板见 [reviewer-prompt.md](../ddev-comment-gen/revie
 
 - 必须是独立视角，在自己的受限范围内工作
 - 必须加载 `ddev-clean` skill，遵守 regression-tests-first、显式 cleanup plan、最小 diff、最小作用域规则
-- **必须用 `grep` 搜索调用点评估清理影响面**：在删除/重命名符号前，确认没有外部调用方；清理操作不得波及范围外代码
+- **先用 code-review-graph 看影响面与需审查文件、`grep` 兜底**：在删除/重命名符号前，确认没有外部调用方；清理操作不得波及范围外代码
 - 清理范围默认继承一致性验收的范围，如果能拿到更窄 changed-files 列表则进一步收敛
 - 如果清理产生代码修改，主 agent 必须补验证证据并重新进入一致性验收
 - 如果清理没有代码修改，直接保留一致性验收结论
@@ -273,12 +275,12 @@ cleaner 提示模板见 [reviewer-prompt.md](../ddev-clean/reviewer-prompt.md)�
 
 - 必须是独立视角，不能复用一致性验收或清理 agent 的结论
 - 必须加载 `ddev-code-review` skill，按 4 阶段流程执行：识别变更 → 结构影响分析 → 深度审查 → 结构化报告
-- **必须用 `grep` 搜索调用点评估改动影响面**：确认变更波及半径，交叉验证调用链
+- **先用 code-review-graph 看影响面与需审查文件、`grep` 兜底**：确认变更波及半径，交叉验证调用链
 - 审查维度：安全（硬编码凭据、注入风险）、代码质量（函数长度、复杂度、DRY）、性能（N+1、算法复杂度）、最佳实践（错误处理、日志、测试）、可维护性（耦合度、硬编码配置）
 - 输出结论：`APPROVE` / `REQUEST CHANGES` / `COMMENT`，`REQUEST CHANGES`（CRITICAL/HIGH 问题）视为 `blocked`
 - 不允许跨入编码规范审查领域（命名、风格、注释交由后续 ddev-c-pro / ddev-comment-gen 负责）
 
-code-reviewer 提示模板见 [reviewer-prompt.md](../ddev-code-review/code-reviewer.md)。
+code-reviewer 提示模板见 [SKILL.md](../ddev-code-review/SKILL.md) 的「Agent Delegation」小节。
 
 ## Compact 整合审查 agent 要求
 
@@ -286,7 +288,7 @@ code-reviewer 提示模板见 [reviewer-prompt.md](../ddev-code-review/code-revi
 
 - 必须是独立视角，不能复用主 agent 的口头总结
 - **一次性完成三个维度的审查**，输出一份结论：
-  1. **一致性**：显式核对 spec、detail、exec plan、implementation-notes、code、evidence 六类输入；逐条核对 Deviations；检查 exec plan 是否只做执行映射；**必须用 `grep` 搜索调用点评估影响面**，影响面超出 spec/detail 声明范围视为偏离
+  1. **一致性**：显式核对 spec、detail、exec plan、implementation-notes、code、evidence 六类输入；逐条核对 Deviations；检查 exec plan 是否只做执行映射；**先用 code-review-graph 看影响面与需审查文件、`grep` 兜底**，影响面超出 spec/detail 声明范围视为偏离
   2. **编码规范与质量**：C 项目按 `ddev-c-pro` 维度（规范、安全、架构性能、死代码/重复），非 C 项目按语言对应 skill；问题按 CRITICAL/HIGH/MEDIUM/LOW 分级，存在 CRITICAL/HIGH → `blocked`
   3. **注释完整性**：C 项目按 `ddev-comment-gen` 维度逐文件核对，缺失 → `blocked` 并附缺失清单；其他语言无对应 skill 则跳过
 - 结论只允许 `pass` / `need-info` / `blocked`
