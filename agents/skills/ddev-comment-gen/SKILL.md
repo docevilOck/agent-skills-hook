@@ -1,18 +1,18 @@
 ---
 name: ddev-comment-gen
-description: C 项目注释生成与审查节点。在 ddev-c-pro 编码规范审查通过后，对 .c/.h 文件逐项检查注释完整性并补齐缺失注释。由 ddev-gate 调度，作为 c-pro 之后的独立审查步骤。
+description: C 项目注释生成与审查节点。由 ddev-gate 的代码评审 subagent 与 c-pro、ddev-clean 同一轮加载，对 .c/.h 文件逐项检查注释完整性并补齐缺失注释。
 ---
 
 # DDev Comment Gen — C 项目注释审查与生成
 
-在 ddev-c-pro 编码规范审查通过后，由 ddev-gate 拉起独立 subagent 加载本 skill，对代码注释做系统性审查和补全。
+在 ddev-gate 的**代码评审 subagent** 中，与 `ddev-c-pro`（规范 + 质量）、`ddev-clean`（清理项识别，只出清单）同一轮加载，对代码注释做系统性审查和补全，结论与其它维度合并输出。
 
 ## 定位
 
-- **触发时机**：ddev-c-pro 审查 `pass` 后，ddev-gate 拉起
-- **输入**：通过 ddev-c-pro 审查的最终代码（`.c` / `.h`）
-- **输出**：`pass`（注释齐全）或 `blocked`（附缺失项清单 + 补全建议）
-- **审查范围**：与 ddev-c-pro 审查范围一致的文件集合
+- **触发时机**：ddev-gate 代码评审 subagent 加载（与一致性审查并行；不再要求 c-pro 先通过，也不再有独立注释审查阶段）
+- **输入**：代码评审范围内的最终代码（`.c` / `.h`）
+- **输出**：`pass`（注释齐全）或 `blocked`（附缺失项清单 + 补全建议），并入代码评审合并结论
+- **审查范围**：与代码评审范围一致的文件集合
 
 ## 审查维度
 
@@ -146,7 +146,7 @@ ddev-comment-gen 审查结论：[pass | blocked]
 
 ## 审查模式
 
-当本 skill 被 ddev-gate 作为注释审查子代理加载时，必须使用 `reviewer-prompt.md` 作为任务模板执行审查。该模板定义了审查输入、审查维度优先级和输出格式。
+当本 skill 被 ddev-gate 的代码评审 subagent 加载时，必须使用 `reviewer-prompt.md` 作为任务模板执行审查。该模板定义了审查输入、审查维度优先级和输出格式；审查结论并入代码评审合并结论。
 
 ## 进度记录
 

@@ -28,14 +28,15 @@ Use this skill when:
 - When the caller provides a changed-files list (for example, Ralph session-owned edits), keep the cleanup strictly bounded to those files.
 - In the **Ralph workflow**, the mandatory deslop pass should run this skill on Ralph's changed files only, in standard mode unless the caller explicitly requests otherwise.
 
-## Final Gate Integration
+## 与 ddev-gate 的关系
 
-- When this skill is invoked from `ddev-gate`, treat it as a **post-consistency-pass cleanup stage**, not as a freeform refactor pass.
-- Default scope is the final gate's accepted code range; if the caller provides a narrower changed-files list, keep the cleanup restricted to that narrower list.
-- If behavior must be locked with new regression coverage, you may include the **smallest necessary test files** as attached scope for that purpose only; do not use this as a loophole to expand implementation scope.
-- The goal is to remove slop and improve maintainability **without** changing approved architecture, detail, data flow, or exec-plan commitments.
-- If your cleanup edits code, the caller must send the result back through `ddev-gate` for a fresh independent consistency review.
-- Do not expand scope from “cleanup” into redesign. If the maintainability issue truly requires architecture or flow changes, stop and report that instead of forcing a broad refactor through this skill.
+- `ddev-clean` 不再是 ddev-gate 的独立流水线阶段；**清理项识别**已并入 gate 的代码评审 subagent（只出清单，只读）。
+- **清理执行**由主 agent 在收到代码评审结论后按需进行：加载本 skill 直接执行，或派发受限清理 subagent。范围是代码评审给定的 changed-files 或更窄的文件列表。
+- 只有在完成编码规范 / 质量 / 注释审查结论之后才执行清理，避免边审边改。
+- 目标是在**不改变**文档已批准的架构、detail、数据流、接口和行为的前提下，删除 slop 并提升可维护性。
+- 如果为锁定行为必须补测试，只允许纳入锁定既有行为所必需的最小测试文件，不得借此扩大实现范围。
+- 清理产生任何代码修改后，必须补充验证证据；主 agent 必须基于最终代码重新并行派发一致性审查与代码评审做只读复审。
+- 如果维护性问题真正需要架构或流程变更才能解决，停止并上报，不要借 cleanup 做重构。
 
 ## Procedure
 
@@ -124,7 +125,7 @@ Remaining Risks:
 
 ## Gate 审查模式
 
-当本 skill 被 ddev-gate 作为 slop 清理子代理加载时，必须使用 `reviewer-prompt.md` 作为任务模板执行清理。该模板定义了清理输入、scope 约束、regression-tests-first 规则和输出格式。
+当本 skill 被 ddev-gate 流程在代码评审返回后加载时，必须使用 `reviewer-prompt.md` 作为任务模板执行受限清理。该模板定义了清理输入、scope 约束、regression-tests-first 规则和输出格式。清理完成后，主 agent 会基于最终代码重新并行派发一致性审查与代码评审做只读复审。
 
 ## 进度记录
 

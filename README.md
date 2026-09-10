@@ -84,13 +84,13 @@ dst --resume <session> # 参数透传给 dsh-tui
 | `ddev-plan` | 将 spec/detail 拆解为可执行实现步骤 |
 | `ddev-exec` | 按计划顺序执行任务，含进度跟踪 |
 | `ddev-final` | 最终设计归档，记录实现与原计划的差异 |
-| `ddev-gate` | 实现一致性最终验收（一致性→清理→代码审查→规范→注释 五阶段） |
-| `ddev-code-review` | 代码质量审查，安全/性能/可维护性，按严重程度分级 |
-| `ddev-clean` | 代码 slop 清理，死代码删除/去重/命名修正 |
-| `ddev-c-pro` | C 语言设计规范、Doxygen 注释、命名与风格约束 |
+| `ddev-gate` | 最终验收：并行派发 一致性审查 + 代码评审（规范/质量/注释/清理）两个 subagent；偏离修正或记入实现笔记，最终只读复审收口 |
+| `ddev-code-review` | 代码质量审查（安全/性能/可维护性）；在 gate 中作为非 C 项目合并代码评审的质量维度 |
+| `ddev-clean` | 代码 slop 清理，死代码删除/去重/命名修正；在 gate 中负责清理项识别，执行由主 agent 按需进行 |
+| `ddev-c-pro` | C 语言设计规范、Doxygen 注释、命名与风格约束；在 gate 中承担 C 项目合并代码评审的规范+质量维度 |
 | `ddev-doc-review` | 文档审查（独立子代理，五维度检查） |
 | `ddev-decision-log` | 决策记录，贯穿全流程 |
-| `ddev-comment-gen` | C 项目注释生成与审查，Doxygen 标准中文注释 |
+| `ddev-comment-gen` | C 项目注释生成与审查，Doxygen 标准中文注释；在 gate 中并入合并代码评审的注释维度 |
 | `compile-commands-init` | C/C++ 项目 compile_commands.json 与 clangd 配置 |
 
 ### ddev 使用指南
@@ -110,7 +110,7 @@ ddev-plan        ← 拆成可执行任务清单
     ↓
 ddev-exec        ← 逐个执行，自动跟踪进度
     ↓
-ddev-gate        ← 五道关卡验收：一致性 → 清理 → 代码审查 → C 规范 → 注释
+ddev-gate        ← 最终验收：架构一致性 + 代码评审 双 subagent 并行；偏离修正或记入实现笔记，只读复审收口
     ↓
 完成
 ```
@@ -122,6 +122,8 @@ ddev-gate        ← 五道关卡验收：一致性 → 清理 → 代码审查 
 - `ddev-code-review` — 代码改动后做质量/安全检查
 
 实际使用时不需要每次都跑全流程。小改动可以直接 `ddev-spec → ddev-plan → ddev-exec → ddev-gate`。纯 bug 修复甚至可以跳过 spec，直接从 `ddev-plan` 开始。
+
+> **gate 工作方式**：大改动在同一轮并行派发「架构一致性审查」和「代码评审」两个独立 subagent。一致性审查只核对代码与文档规划架构的偏离：能修正的修到一致，不能修正或不修正的写入 `implementation-notes.md` 的 Deviations。代码评审合并编码规范、代码质量、注释完整性，并输出受限清理清单。只要发生过代码修改，就基于最终代码重跑两个只读复审，直到同一份最终代码双 `pass` 且该轮无代码修改。小改动走 compact：1 个整合 subagent 一次完成两个维度。
 
 ### 代码审查、验证与调试
 

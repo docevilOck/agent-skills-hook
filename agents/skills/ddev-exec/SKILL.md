@@ -50,49 +50,42 @@ description: 在当前会话里按已写好的实现计划顺序执行任务时�
 7. 记录结果与未覆盖风险
 8. 任务完成后再标记为 `completed`，然后进入下一个任务
 
-如果计划里已经要求在步骤中提交、审查或补文档，就照计划执行，不要省略。
+如果计划里要求提交或补文档，就照计划执行，不要省略。如果计划里出现独立审查阶段、审查任务或派发审查 subagent 的安排，视为计划缺陷：停下来回退到 `ddev-plan` 修正，不在执行阶段自行加审查。
 
 如果计划步骤与引用文档冲突，以已确认的 architecture / detail / flow / dataflow 文档为准，并立即回到计划审查，必要时先修计划再继续执行。
 
 不要在任务刚做完时就提前宣称”计划完成”；默认要把最终完成结论留给收尾门禁。
 
-### 第三步：阶段性复核
-
-- 连续完成 2-3 个任务，或完成明显里程碑后，用 `ddev-code-review` 做阶段性复核
-- 若审查指出阻塞问题，先修复再继续后续任务
-- 若只是非阻塞建议，记录后按优先级处理
-
-### 第四步：默认收尾
+### 第三步：默认收尾
 
 当所有任务完成并通过计划要求的验证后，**自动进入默认收尾流程**。
 
 **⚠️ HARD GATE — 执行完成后必须直接进入 ddev-gate**
 
-所有 Task 执行完毕后，**禁止 agent 自行宣告"完成"或停留在代码已写的状态**。必须无条件、不可跳过地按照下方"默认收尾顺序"逐项推进，直至 `ddev-gate` 返回一致性 `pass`。
+所有 Task 执行完毕后，**禁止 agent 自行宣告"完成"或停留在代码已写的状态**。必须无条件、不可跳过地按照下方"默认收尾顺序"逐项推进，直至 `ddev-gate` 在同一份最终代码上给出双审查 `pass`。
 
 - 不得以"代码简单""只改了几行""肉眼看过"为由跳过 ddev-gate
-- 不得在 ddev-gate pass 之前进入 cleanup 或宣称完成
+- 不得在 ddev-gate 双审查 pass 之前宣称完成
 - 不得以"用户没要求"为由省略验收——ddev-gate 是本流程的强制终结点，不是可选项
 
 **默认收尾顺序：**
 
 1. 用 `verification-before-completion` 补齐最终结论所需的验证证据
-2. 如需独立质量复核，用 `ddev-code-review`
-3. 进入 `ddev-gate` 做第一轮一致性验收，并拉独立审查 agent 核对 architecture、detail、data flow、flow、exec plan 与代码是否完全一致
-4. 如果第一轮 `ddev-gate` 返回 `blocked`，主 agent 必须先修改，再重新进入 `ddev-gate`
-5. 如果第一轮 `ddev-gate` 返回 `need-info`，主 agent 必须先补齐缺失输入、范围或验证证据，再重新进入 `ddev-gate`
-6. 只有当 `ddev-gate` 给出一致性 `pass` 后，才进入 `ddev-clean` 清理阶段
-7. 清理阶段必须使用独立 subagent，并把范围限制在 final gate 已接受的代码范围或更窄的 changed-files；若为锁定行为必须补最小测试文件，只允许纳入最小必要测试范围
-8. 清理 subagent 必须按 `ddev-clean` 的 regression-tests-first、最小 diff、最小作用域规则执行，不得借 cleanup 扩大为重构或改设计
-9. 如果 cleanup 没有做出代码修改，可直接保留上一轮 final gate 的一致性 `pass`，进入最终收尾
-10. 如果 cleanup 做出了任何代码修改，主 agent 必须补充 cleanup 后的新验证证据，并重新进入 `ddev-gate` 做完整一致性重审
-11. 只有当 cleanup 后的最后一次 `ddev-gate` 也返回 `pass`，才能宣称”计划已经完成”
+2. 进入 `ddev-gate`。gate 会**同时派发两个独立 subagent**：
+   - 一致性审查：只核对代码与 spec/detail/architecture 文档规划的架构是否一致（模块边界、接口、依赖方向、状态归属、数据流/流程骨架）
+   - 代码评审：合并编码规范、代码质量、注释完整性、清理项识别（原 `ddev-clean` 职责）四个维度
+3. 一致性审查报出的架构偏离：能修正的修正到一致；无法修正或决定不修正的，写入 `implementation-notes.md` 的 Deviations（偏离点、理由、影响范围），由审查确认已记录
+4. 代码评审报出的阻塞项（CRITICAL/HIGH）和缺失注释：按其清单修复补齐；可清理项按 `ddev-clean` 的 regression-tests-first、最小 diff、最小作用域规则处理
+5. 只要本轮发生过任何代码修改（清理或修复），必须让 gate 基于最终代码重新并行派发两个审查做只读复审
+6. 如果 `ddev-gate` 返回 `blocked`，主 agent 必须先修改，再重新进入 `ddev-gate`
+7. 如果 `ddev-gate` 返回 `need-info`，主 agent 必须先补齐缺失输入、范围或验证证据，再重新进入 `ddev-gate`
+8. 只有当最后一轮中两个审查在同一份最终代码上都 `pass`、且该轮没有任何代码修改时，才能宣称"计划已经完成"
 
 ### ⚠️ 收尾阶段交接硬门禁
 
-**ddev-gate 内部的 gate → clean → review 循环为自动化流程，不受此限制。** gate 通过后的后续动作（如 archive / commit / 发布），**必须等待用户明确确认**，禁止 agent 自动推进。
+**ddev-gate 内部的「并行审查 → 修复/清理 → 只读复审」循环为自动化流程，不受此限制。** gate 通过后的后续动作（如 archive / commit / 发布），**必须等待用户明确确认**，禁止 agent 自动推进。
 
-- gate 一致性 `pass` 后，向用户报告验收结论，询问是否继续后续操作。
+- gate 双审查 `pass` 后，向用户报告验收结论，询问是否继续后续操作。
 - 用户未明确说”提交””归档””发布”等指令前，停留在 gate 结论输出阶段。
 
 ## 什么时候必须停下来
@@ -129,8 +122,8 @@ description: 在当前会话里按已写好的实现计划顺序执行任务时�
 - 把”代码写了”当成”任务完成”
 - 计划和上游文档冲突时，私自选择其中一个继续写
 - 没经过默认收尾就宣称整体完成
-- 在 `ddev-gate` 一致性 `pass` 之前提前进入 cleanup
-- cleanup 改了代码却不重新回到 `ddev-gate`
+- 在 `ddev-gate` 双审查 `pass` 之前宣称完成
+- 清理或修复改了代码，却不重新跑 `ddev-gate` 的并行复审
 - 未经用户明确同意就在 `main` / `master` 上开始实现
 - 把 `task_plan.md` / `progress.md` / `implementation-notes.md` 写到计划目录之外的仓库根目录或其他位置（见「执行文档存放位置」硬性规范）
 
@@ -252,9 +245,9 @@ description: 在当前会话里按已写好的实现计划顺序执行任务时�
 
 Open Questions 中的问题在 ddev-gate 验收阶段会作为未决项被检查，因此在进入默认收尾前必须全部回答完毕。
 
-### 第四步前：Stop Gate 前置检查
+### 第三步前：Stop Gate 前置检查
 
-进入默认收尾前，验证 `task_plan.md` 中所有 Tasks 均已 `[x]`，且 `implementation-notes.md` 中 Open Questions 已全部回答完毕。未全部完成的不进入第四步。
+进入默认收尾前，验证 `task_plan.md` 中所有 Tasks 均已 `[x]`，且 `implementation-notes.md` 中 Open Questions 已全部回答完毕。未全部完成的不进入第三步。
 
 ### 断点恢复
 
@@ -275,7 +268,7 @@ Open Questions 中的问题在 ddev-gate 验收阶段会作为未决项被检查
 
 **Required workflow skills:**
 - **ddev-plan** - 产出本 skill 要执行的计划
-- **ddev-code-review** - 阶段性复核与重要节点复核
 - **verification-before-completion** - 对最终结论补齐验证证据
-- **ddev-gate** - 默认最终验收
-- **ddev-clean** - 一致性通过后的受限 cleanup / deslop 阶段
+- **ddev-gate** - 默认最终验收（同时派发一致性审查 + 代码评审两个独立 subagent）
+- **ddev-code-review** - 独立触发的代码质量审查；gate 内的质量审查已并入代码评审 subagent
+- **ddev-clean** - 独立的受限 cleanup / deslop；gate 内的清理项识别已并入代码评审，执行由主 agent 按需调用

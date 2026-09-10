@@ -2,47 +2,49 @@
 
 下面是一份可直接仿照的最终验收输出样例。
 
+## `need-info` 样例
+
 ```md
 结论：`need-info`
 
 对照范围：
-- architecture：`docs/plans/26-05-18_uart_refactor/spec/uart-session.md`
+- spec：`docs/plans/26-05-18_uart_refactor/spec/uart-session.md`
 - detail：`docs/plans/26-05-18_uart_refactor/detail/dataflow/uart-rx-flow.md`
-- exec plan：`docs/plans/26-05-18_uart_refactor/exec-plan.md`
 - code：`src/uart/uart_session.c`、`src/uart/uart_session.h`
+- implementation-notes：`docs/plans/26-05-18_uart_refactor/implementation-notes.md`
 - 验证材料：`cmake --build build`、`ctest --output-on-failure`
-- cleanup stage：未进入
-- code-style review stage：未进入
-- comment review stage：未进入
+- 本轮审查方式：一致性审查 + 代码评审并行
 
-差异归类：
-- 实现偏离设计，需要修代码
-- 实现偏离 exec plan，需要修代码
-- 证据不足，当前不能给 `pass`
+并行审查摘要：
+- 一致性审查：`need-info`（发现 2 处架构偏离，1 处缺少最终代码验证证据）
+- 代码评审：`pass`（HIGH 0 条；注释完整；未执行清理）
+
+架构偏离处置表：
+
+| # | 偏离点 | 文档依据 | 处置 | 位置 |
+|---|--------|----------|------|------|
+| 1 | 接收状态仍通过 `g_uart_rx_state` 维护 | spec 要求状态收敛到 `uart_session_t` | 未处理（可修正） | `src/uart/uart_session.c:88` |
+| 2 | 命令分发仍为 6 段长链 `if/else if` | detail 约定 `switch (packet->cmd)` | 未处理（可修正） | `src/uart/uart_session.c:210` |
 
 发现的问题：
-1. High：[src/uart/uart_session.c] 中接收状态仍通过 `g_uart_rx_state` 维护，与 architecture 文档要求的 `uart_session_t` 上下文收敛不一致。
-2. Medium：detail 文档要求命令分发改为 `switch (packet->cmd)`，当前实现仍保留 6 段长链 `if/else if`。
-3. Medium：`UART_STATE_RX_PAYLOAD` 已在 detail 文档定义为枚举状态，但错误恢复分支仍直接写入裸值 `3`。
-4. Medium：exec plan 中要求“先移除旧全局状态，再补上下文初始化测试”，当前代码里测试已补，但旧全局状态仍残留。
+1. High：接收状态未下沉到 `uart_session_t`，与 spec 的架构约束不一致。
+2. Medium：命令分发未按 detail 约定改为 `switch`。
+3. need-info：当前只有 host 单元测试结果，缺少目标板串口回环证据，无法支撑 `pass`。
 
 已确认一致的关键点：
 - `uart_session_t` 已建立，并承接了缓冲区、长度和重试计数。
-- 对外接口仍保持在 `uart_session_init()` / `uart_session_feed()`，与 architecture 文档一致。
-- 错误码风格与 detail 文档定义一致，未发现新的随意返回值。
+- 对外接口仍保持在 `uart_session_init()` / `uart_session_feed()`，与 spec 一致。
 
 需要主 agent 修改的项：
 - 把 `g_uart_rx_state` 下沉到 `uart_session_t`
-- 把长链 `if/else if` 改成 detail 文档约定的 `switch (packet->cmd)`
-- 去掉裸状态值 `3`，改回 `uart_state_t` 枚举语义
-- 按 exec plan 移除旧全局状态后重新跑验证，再重新进入 `ddev-gate`
+- 把长链 `if/else if` 改成 detail 约定的 `switch (packet->cmd)`
+- 补充目标板串口回环验证证据后，基于最终代码重跑双审查
 
 未覆盖风险：
-- 当前只看了 host 构建和单元测试，未看到目标板串口回环验证结果。
-- 尚未确认异常包风暴场景下的状态迁移是否与流程图完全一致。
+- 异常包风暴场景下的状态迁移未验证。
 
 下一步：
-- 主 agent 必须先修改上述项，再重新进入 `ddev-gate`
+- 主 agent 先完成上述修改和证据补充，再重新进入 `ddev-gate`
 ```
 
 ## `pass` 样例
@@ -51,34 +53,41 @@
 结论：`pass`
 
 对照范围：
-- architecture：`docs/plans/26-05-18_uart_refactor/spec/uart-session.md`
-- detail：`docs/plans/26-05-18_uart_refactor/detail/structures/uart-session-struct.md`
-- exec plan：`docs/plans/26-05-18_uart_refactor/exec-plan.md`
+- spec：`docs/plans/26-05-18_uart_refactor/spec/uart-session.md`
+- detail：`docs/plans/26-05-18_uart_refactor/detail/structures/uart-session-struct.md`、`detail/flows/uart-rx-flow.md`
 - code：`src/uart/uart_session.c`、`src/uart/uart_session.h`
+- implementation-notes：`docs/plans/26-05-18_uart_refactor/implementation-notes.md`
 - 验证材料：本轮重新执行 `cmake --build build`、`ctest --output-on-failure`
-- cleanup stage：已进入且有代码修改并已重审
-- code-style review stage：已进入并已通过
-- comment review stage：已进入并已通过
+- 本轮审查方式：一致性审查 + 代码评审并行；已基于清理后最终代码完成只读复审
 
-差异归类：
-- 未发现需要升级处理的设计差异
+并行审查摘要：
+- 一致性审查：`pass`（无未处理架构偏离）
+- 代码评审：`pass`（CRITICAL 0 / HIGH 0 / MEDIUM 1 / LOW 2；注释完整；已执行受限清理）
+
+架构偏离处置表：
+
+| # | 偏离点 | 文档依据 | 处置 | 位置 |
+|---|--------|----------|------|------|
+| — | 无 | — | — | — |
 
 发现的问题：
-- 无
+- 无阻塞问题；1 条 MEDIUM（`uart_session_feed()` 错误分支可合并）已记录，不阻塞。
 
 已确认一致的关键点：
-- 接收状态、缓冲区和重试计数已全部收敛到 `uart_session_t`
-- 命令分发已按 detail 文档改为 `switch (packet->cmd)`
-- 状态迁移使用 `uart_state_t` 枚举，未发现裸状态值
+- 接收状态、缓冲区和重试计数已全部收敛到 `uart_session_t`。
+- 命令分发已按 detail 文档改为 `switch (packet->cmd)`。
+- 对外接口与依赖方向与 spec 一致，未发现新增跨模块耦合。
 
-需要主 agent 修改的项：
-- 无
+清理与修复说明：
+- 发生过代码修改：首轮代码评审清理了 1 处死代码、2 处重复分支，未改变行为、接口与架构。
+- 清理后已重新运行 `cmake --build build`、`ctest --output-on-failure`，均通过。
+- 已基于清理后最终代码并行重跑一致性审查与代码评审只读复审，双审查均 `pass` 且该轮无代码修改。
 
 未覆盖风险：
-- 尚未覆盖更大输入规模下的性能回归，但这不影响本轮以 host 行为和静态结构一致性为目标的验收结论
+- 尚未覆盖更大输入规模下的性能回归，但不影响本轮以架构一致性和代码质量为目标的有效结论。
 
 下一步：
-- 可进入正式收尾或后续提交流程
+- 可进入正式收尾或后续提交流程，等待用户确认
 ```
 
 ## `blocked` 样例
@@ -87,46 +96,51 @@
 结论：`blocked`
 
 对照范围：
-- architecture：`docs/plans/26-05-18_uart_refactor/spec/uart-session.md`
+- spec：`docs/plans/26-05-18_uart_refactor/spec/uart-session.md`
 - detail：未定位到唯一有效文档
-- exec plan：`docs/plans/26-05-18_uart_refactor/exec-plan.md`
 - code：`src/uart/uart_session.c`
+- implementation-notes：`docs/plans/26-05-18_uart_refactor/implementation-notes.md`
 - 验证材料：无
-- cleanup stage：未进入
-- code-style review stage：未进入
-- comment review stage：未进入
+- 本轮审查方式：一致性审查 + 代码评审并行
 
-差异归类：
-- 设计本身不完整，需要补文档
+并行审查摘要：
+- 一致性审查：`blocked`（存在未修正且未记录的架构偏离）
+- 代码评审：`blocked`（HIGH 1 条）
+
+架构偏离处置表：
+
+| # | 偏离点 | 文档依据 | 处置 | 位置 |
+|---|--------|----------|------|------|
+| 1 | 新增了 spec 未批准的 `uart_bus_shared_t` 全局共享状态 | spec 仅批准 `uart_session_t` 上下文 | 未修正、未记录 | `src/uart/uart_session.c:42` |
 
 发现的问题：
-1. High：当前目录下存在两个互相冲突的 detail 文档，无法判断应以哪个结构体定义和流程图为准。
-2. High：在无法确定 detail 基线的情况下，无法判断当前实现偏离的是代码还是设计。
+1. High：实现新增了 spec 未批准的跨模块共享状态，且既未修正、也未写入 `implementation-notes.md` 的 Deviations。
+2. High：当前目录下存在两个互相冲突的 detail 文档，无法确定架构基线。
+3. High：代码评审发现接收缓冲区长度校验缺失，存在越界风险。
 
 已确认一致的关键点：
-- architecture 文档已定位。
+- spec 文档已定位，`uart_session_init()` 接口位置正确。
 
 需要主 agent 修改的项：
 - 先唯一确定可用的 detail 文档基线
-- 确认本轮应采用的结构体定义和流程图后，再重新进入 `ddev-gate`
+- 移除或按 spec 收敛 `uart_bus_shared_t`；若决定保留，必须写入 `implementation-notes.md` 的 Deviations（偏离点、理由、影响范围）
+- 修复接收缓冲区长度校验缺失
 
 未覆盖风险：
-- 因 detail 基线不明确，本轮无法形成有效的一致性验收结论。
+- 因详设基线不明确，本轮无法形成有效的一致性验收结论。
 
 下一步：
-- 主 agent 必须先补齐或统一 detail 基线，再重新进入 `ddev-gate`
+- 主 agent 必须先完成上述修改/记录，再基于最终代码重新并行派发一致性审查与代码评审
 ```
 
 ## 使用要求
 
 - 结论只能是 `pass`、`need-info`、`blocked`
 - `对照范围` 必须点名具体文档和代码路径
-- `差异归类` 必须出现，且要能指导后续动作
-- `需要主 agent 修改的项` 必须出现；若无修改项，要明确写 `无`
-- `发现的问题` 优先写与设计不一致的内容，不要泛泛评论代码风格
+- `并行审查摘要` 必须分别给出一致性和代码评审的结论；compact 路线合并为一份「整合审查结论」
+- `架构偏离处置表` 必须出现；没有偏离写“无”；每项必须标注已修正 / 已记录 / 未处理
+- `发现的问题` 优先写与文档架构不一致或代码评审阻塞的内容
 - `已确认一致的关键点` 只列最重要的事实
+- `清理与修复说明` 必须写清是否改过代码、改动范围、验证证据、是否完成只读复审
 - `未覆盖风险` 必须写真实缺口，不允许省略
-- `cleanup stage` 必须写清是否进入 cleanup、是否改代码、是否已经重审
-- `code-style review stage` 必须写清是否进入、是否通过；若项目存在对应语言的编码规范 skill 此为必填
-- `comment review stage` 必须写清是否进入、是否通过；若项目存在对应语言的注释审查 skill 此为必填
 - 如果结论是 `blocked`，必须明确写出”主 agent 需要修改的项”，以便回炉后重审
