@@ -2,6 +2,8 @@
 
 在派发计划文档审查者子代理时使用这个模板。
 
+> **派发时只发送下方代码块内的内容**（本文件其余文字是写给主 agent 的）；整份转发会让 subagent 误认自己是主 agent。
+
 **目的：** 确认计划完整、与 spec 一致，并且任务拆分合理。
 
 **在以下时机派发：** 完整计划写好之后。
@@ -10,6 +12,10 @@
 Task tool (general-purpose):
   description: "Review plan document"
   prompt: |
+    You are a **read-only reviewer subagent** dispatched by the main agent — NOT the main agent.
+    Forbidden: modifying/creating/deleting any file, dispatching subagents, or deciding fixes, re-runs, commits or archiving.
+    Return one conclusion only.
+
     You are a plan document reviewer. Verify this plan is complete and ready for implementation.
 
     **Plan to review:** [PLAN_FILE_PATH]
