@@ -1,4 +1,16 @@
 #!/bin/bash
-# 便捷启动 dsh-tui 配置
-# 安装：部署脚本会将本文件软链接到全局 PATH（Linux: ~/.local/bin/dst）
-exec dsh --profile dsh-tui "$@"
+# 便捷启动 dsh-tui 配置（默认 high 推理等级）
+# 安装：部署脚本会将本文件软链接到全局 PATH（Linux: ~/.local/bin/dst）；
+#      同目录的 dst-effort-high.yml 需一并存在（脚本按自身真实路径查找）。
+# 说明：默认档由 dsh-tui bundle 的 `effort: max` 钉死（优先级高于持久化的
+#      /effort 选择），所以这里用 --patch 覆盖为 high；会话内 /effort 仍可
+#      临时改档，/settings 的「默认推理强度」优先级更高，也可覆盖本默认。
+self="$(readlink -f "$0" 2>/dev/null || echo "$0")"
+overlay="$(dirname "$self")/dst-effort-high.yml"
+
+if [ ! -f "$overlay" ]; then
+  echo "dst: 未找到 $overlay，按 dsh-tui 默认推理等级启动（见 README「DSH 便捷启动」）" >&2
+  exec dsh --profile dsh-tui "$@"
+fi
+
+exec dsh --profile dsh-tui --patch "$overlay" "$@"

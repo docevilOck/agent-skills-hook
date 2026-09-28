@@ -64,9 +64,11 @@ cd windows
 仓库维护 `dst` 源脚本（Linux `scripts/dst`、Windows `windows/dst.cmd`）。部署脚本不负责安装到 PATH，需手动放到全局 PATH 目录（Linux 如软链接到 `~/.local/bin/dst`，Windows 复制到 `%USERPROFILE%\.local\bin\dst.cmd`）：
 
 ```bash
-dst                    # 等价于 dsh --profile dsh-tui
+dst                    # 等价于 dsh --profile dsh-tui，默认 high 推理等级
 dst --resume <session> # 参数透传给 dsh-tui
 ```
+
+`dst` 默认使用 **high** 推理等级：dsh-tui bundle 自带 `effort: max`（其优先级高于持久化的 `/effort` 选择，见 dsh 的 effort 默认链），启动脚本用 `--patch` 加载同目录的 `dst-effort-high.yml` 覆盖为 high。因此该 overlay 必须与启动脚本一起部署（Linux 软链接指向仓库脚本即可按真实路径找到；Windows 需把 `dst-effort-high.yml` 与 `dst.cmd` 一并复制）。会话内 `/effort` 可临时改档，`/settings` 的「默认推理强度」优先级更高，可覆盖该默认；升级 `@deepseek-harness-tui/dsh-tui` 后若编排行的配置键有变动，需同步 overlay（用 `dsh --profile dsh-tui --dump-config` 对比 `effort` 一行即可确认生效）。
 
 ## 技能分类
 

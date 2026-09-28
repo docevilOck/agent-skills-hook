@@ -1,0 +1,18 @@
+# dst 便捷启动的默认推理等级：high（由 windows/dst.cmd 以 --patch 注入）。
+#
+# dsh 的 patch 语义是「整块替换目标行的 config」（见 dsh-tui bundle patch 顶部
+# 注释），所以这里必须复述 dsh-tui 行的全部配置键，只把 effort 从 bundle 自带
+# 的 max 改成 high；漏写的键会退回 schema 默认值或 undefined。
+# 升级 @deepseek-harness-tui/dsh-tui 后若该行新增/改动了配置键，需同步本文件
+# （可用 `dsh --profile dsh-tui --dump-config` 对比核对）。
+#
+# 与 scripts/dst-effort-high.yml 内容保持一致（两侧分别复制，见 README）。
+- id: dsh-tui
+  config:
+    provider: deepseek-official
+    fullscreen: true
+    terminalImages: true
+    effort: high
+    preset: !!js process.env.DSH_TUI_PRESET ?? undefined
+    workspace: !!js process.env.DSH_TUI_WORKSPACE_TARGET ?? undefined
+    sessionId: !!js process.env.DSH_TUI_RESUME_SESSION ?? undefined
