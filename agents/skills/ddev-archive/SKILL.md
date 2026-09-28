@@ -5,7 +5,7 @@ description: 实现 + 调试全部完成后，扫描活跃计划、归档各轮 
 
 # ddev-archive — 变更归档与最终设计定型
 
-把同一主题下经过多轮迭代的所有活跃计划中的 **spec 文档** 归档到 `YY-MM-DD_<主题名>/` 目录，并生成一份 `final-spec.md` 记录最终代码事实设计。
+把同一主题下经过多轮迭代的所有活跃计划中的 **spec 文档** 归档到 `archive/<YYYY>/<MM>/<YY-MM-DD_主题名>/` 目录，并生成一份 `final-spec.md` 记录最终代码事实设计。
 
 **开始时声明：** "正在使用 ddev-archive skill 归档变更。"
 
@@ -46,8 +46,10 @@ description: 实现 + 调试全部完成后，扫描活跃计划、归档各轮 
 
 ## 归档目录结构
 
+**必须按 `年/月` 两级存放**（与 prttech_app `docs/CLAUDE.md` 一致）：
+
 ```
-docs/plans/archive/YY-MM-DD_<topic-name>/
+docs/plans/archive/<YYYY>/<MM>/<YY-MM-DD_topic>/
 ├── spec/                        ← 各轮迭代的 spec 文档（原文件名保留）
 │   ├── <topic>.md               ← 初始 spec
 │   └── <topic>-iter1.md         ← 迭代 spec（同名冲突时加序号前缀）
@@ -55,7 +57,11 @@ docs/plans/archive/YY-MM-DD_<topic-name>/
 └── archive-notes.md             ← 可选，归档说明
 ```
 
-- `YY-MM-DD` 为归档日期（当天），`<topic-name>` 为主题英文名（kebab-case）
+- 年份 `<YYYY>` 四位（如 `2026`），月份 `<MM>` 两位（如 `07` / `09`）。
+- **按计划创建日期归月**：从计划目录名 `YY-MM-DD_<topic>` 取 `YY` → `20YY`、`MM`；不按归档动作发生的日期，避免同一计划因归档时间不同被拆到不同月份。
+- 计划目录名沿用创建日 `YY-MM-DD_<topic>`（kebab-case），归档不改名。
+- 例：`docs/plans/archive/2026/09/26-09-14_p1-usb-adb-config-race/`
+- `archive/` 根下只允许 `<YYYY>/` 一级容器，禁止把计划目录平铺在 `archive/` 根下。
 - 多个迭代 spec 同名时，按时间顺序加 `01_` / `02_` / `0N_` 前缀
 - **只归档 spec 文档**；原计划目录中非 spec 文档（detail/exec_plans/task_plan/implementation-notes/progress）在归档完成后删除，空目录随计划目录一并清理
 
@@ -94,7 +100,7 @@ docs/plans/archive/YY-MM-DD_<topic-name>/
 #### 文档位置
 
 ```
-docs/plans/archive/YY-MM-DD_<topic-name>/final-spec.md
+docs/plans/archive/<YYYY>/<MM>/<YY-MM-DD_topic>/final-spec.md
 ```
 
 #### 文档结构
@@ -172,12 +178,12 @@ docs/plans/archive/YY-MM-DD_<topic-name>/final-spec.md
 
 ### 第五步：创建归档目录并移动 spec
 
-1. 创建 `docs/plans/archive/YY-MM-DD_<topic-name>/spec/`
-2. 将每个迭代目录下的 **spec 文档** 移动到归档 `spec/` 下
+1. 从计划目录名 `YY-MM-DD_<topic>` 计算归档路径：`docs/plans/archive/20YY/MM/YY-MM-DD_<topic>/spec/`（年四位、月两位；目录名不改）
+2. 创建该目录，将每个迭代目录下的 **spec 文档** 移动到归档 `spec/` 下
    - **必须使用 `git mv`**，不要用 `mv` 或 `cp + rm`，否则 git 会丢失文件历史
-   - 例：`git mv docs/plans/26-08-05_xxx/spec/xxx.md docs/plans/archive/26-08-06_xxx/spec/xxx.md`
+   - 例：`git mv docs/plans/26-08-05_xxx/spec/xxx.md docs/plans/archive/2026/08/26-08-05_xxx/spec/xxx.md`
    - 同名冲突时按迭代顺序加 `01_` / `02_` 前缀
-3. 将 `final-spec.md`（和可选的 `archive-notes.md`）写入归档根目录，`git add` 暂存
+3. 将 `final-spec.md`（和可选的 `archive-notes.md`）写入归档根目录 `<YYYY>/<MM>/<YY-MM-DD_topic>/`，`git add` 暂存
 
 ### ⚠️ 门禁：归档完成后必须删除原计划目录
 
@@ -185,7 +191,7 @@ docs/plans/archive/YY-MM-DD_<topic-name>/final-spec.md
 
 4. **删除非 spec 文档**：spec 全部 `git mv` 移走后，原计划目录剩余的 detail/、exec_plans/、task_plan.md、implementation-notes.md、progress.md 等不再保留。删除前确认其核心内容已被 final-spec 覆盖（尤其 implementation-notes 中的决策记录），已跟踪文件用 `git rm`，未跟踪文件直接 `rm`
 5. **清理原计划目录**：剩余文件全部删除后，原计划目录已空，连同其空子目录一并删除
-6. **验证清理结果**：`git status` 确认原计划目录路径下已无任何残留（删除全部变为 staged `D`，spec 变为 staged `R`），归档目录只剩 spec + final-spec（+ archive-notes）。若原计划目录仍存在非空内容，视为门禁未通过，回到第 4-5 步修正
+6. **验证清理结果**：`git status` 确认原计划目录路径下已无任何残留（删除全部变为 staged `D`，spec 变为 staged `R`），归档目录只剩 spec + final-spec（+ archive-notes），且路径为 `archive/<YYYY>/<MM>/<YY-MM-DD_topic>/`（年四位、月两位，无平铺）。若原计划目录仍存在非空内容、或归档路径未按年/月分层，视为门禁未通过，回到第 4-5 步修正
 
 > 归档结束后工作区不得残留：原计划目录本身、其中任何文档、或散落在仓库根目录的执行文档。
 
@@ -245,6 +251,6 @@ docs/plans/archive/YY-MM-DD_<topic-name>/final-spec.md
 4. **最终架构图**：是否反映实际代码的模块边界和调用关系（而非某轮 spec 的复制）？
 5. **数据结构一致性**：final-spec.md 中的结构体/枚举是否与 `.h` 中的实际定义一致？
 6. **ASCII 图规范**：所有 ASCII 图是否通过 ddev-diagram 门禁？
-7. **只归档 spec**：归档目录中是否只有 spec + final-spec（+ archive-notes）？非 spec 文档是否已删除、原计划目录是否已清理干净（含空子目录）？
+7. **只归档 spec 且按年/月分层**：归档目录是否为 `archive/<YYYY>/<MM>/<YY-MM-DD_topic>/`（年四位、月两位，无平铺）？目录中是否只有 spec + final-spec（+ archive-notes）？非 spec 文档是否已删除、原计划目录是否已清理干净（含空子目录）？
 8. **Debug bug 完整**：每个调试发现的 bug 是否有症状/根因/修复三要素？
 9. **执行文档位置**：`progress.md` 等执行文档是否只存在于对应计划目录？仓库根目录或其他位置是否有孤儿执行文档（如有，已纠正或删除）？
