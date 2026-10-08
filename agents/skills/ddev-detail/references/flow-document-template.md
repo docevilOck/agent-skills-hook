@@ -34,7 +34,7 @@
 - [关联的数据流文档名]
 
 ## 8. 图
-[使用 `ddev-diagram` 生成的 ASCII 图]
+[使用 `ddev-diagram` 生成的图，默认 Mermaid]
 ```
 
 ## 拆分版建议

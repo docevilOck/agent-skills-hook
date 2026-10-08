@@ -134,7 +134,7 @@ docs/plans/archive/<YYYY>/<MM>/<YY-MM-DD_topic>/final-spec.md
 
 ## 3. 最终架构总览
 
-(ASCII 图 — ddev-diagram 规范 — 反映最终代码的模块边界和调用关系)
+(Mermaid 图 — ddev-diagram 规范 — 反映最终代码的模块边界和调用关系)
 
 ## 4. 最终核心数据结构
 
@@ -146,7 +146,7 @@ docs/plans/archive/<YYYY>/<MM>/<YY-MM-DD_topic>/final-spec.md
 
 ## 5. 最终核心流程
 
-(ASCII 图 — 反映最终代码的实际数据流和关键流程)
+(Mermaid 图 — 反映最终代码的实际数据流和关键流程)
 
 ## 6. 调试发现的问题及修复
 
@@ -174,7 +174,7 @@ docs/plans/archive/<YYYY>/<MM>/<YY-MM-DD_topic>/final-spec.md
 
 ### ⚠️ 硬门禁：画图前必须先加载 ddev-diagram
 
-**在任何 ASCII 图动笔之前，必须执行 `Skill("ddev-diagram")` 加载绘制规范。**
+**在任何图动笔之前，必须执行 `Skill("ddev-diagram")` 加载绘制规范。**
 
 ### 第五步：创建归档目录并移动 spec
 
@@ -250,7 +250,7 @@ docs/plans/archive/<YYYY>/<MM>/<YY-MM-DD_topic>/final-spec.md
 3. **差异覆盖**：是否每轮迭代的"原计划 vs 最终实现"差异都已记录？
 4. **最终架构图**：是否反映实际代码的模块边界和调用关系（而非某轮 spec 的复制）？
 5. **数据结构一致性**：final-spec.md 中的结构体/枚举是否与 `.h` 中的实际定义一致？
-6. **ASCII 图规范**：所有 ASCII 图是否通过 ddev-diagram 门禁？
+6. **图规范**：所有图是否通过 ddev-diagram 门禁？
 7. **只归档 spec 且按年/月分层**：归档目录是否为 `archive/<YYYY>/<MM>/<YY-MM-DD_topic>/`（年四位、月两位，无平铺）？目录中是否只有 spec + final-spec（+ archive-notes）？非 spec 文档是否已删除、原计划目录是否已清理干净（含空子目录）？
 8. **Debug bug 完整**：每个调试发现的 bug 是否有症状/根因/修复三要素？
 9. **执行文档位置**：`progress.md` 等执行文档是否只存在于对应计划目录？仓库根目录或其他位置是否有孤儿执行文档（如有，已纠正或删除）？

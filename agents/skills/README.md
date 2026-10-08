@@ -25,7 +25,7 @@
 | `xlsx` | 电子表格创建、编辑、分析。支持公式、格式化、数据分析和可视化。 | 自动 — 需要处理 .xlsx/.xlsm/.csv 等 |
 | `xlsx-manipulation` | 用 openpyxl 库程序化操作 Excel 文件。 | 自动 |
 | `guizang-ppt-skill` | 生成横向翻页网页 PPT（单 HTML 文件）。含 WebGL 背景、章节幕封、数据大字报、图片网格等模板。提供两种风格：电子杂志×电子墨水和瑞士国际主义。 | 自动 — 提到"杂志风 PPT""瑞士风 PPT""web deck"等 |
-| `ddev-diagram` | 按规范手写 ASCII 架构图、流程图、数据流图、对比图到 .md 文件，不经过 PlantUML。 | 自动 — 需要绘制架构图、流程图等 |
+| `ddev-diagram` | 默认输出 Mermaid 架构图、流程图、数据流图、对比图到 .md，Mermaid 表达不了时退回 Unicode 框图，不经过 PlantUML。 | 自动 — 需要绘制架构图、流程图等 |
 | `ddev-plan` | 将已有规格或多步骤任务需求映射为可执行的实现计划，明确任务、约束和验证标准。 | 自动 — 有规格且需要分步执行时 |
 | `writing-skills` | 创建、编辑、验证 skills 的统一工作流，确保 skill 易于发现、阅读和长期维护。 | 自动 — 创建/编辑/重构 SKILL.md 时 |
 
