@@ -176,32 +176,41 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 
 ## 核心流程（Streaming 路线）
 
-0. **Stop Gate 前置检查**：主 agent 读取 `task_plan.md` 和 `implementation-notes.md`，确认以下条件同时满足才能继续验收流程，否则返回 `blocked`：
-   - 所有任务 checkbox 均为 `[x]`（completed）
-   - Errors Encountered 表中所有错误均已解决（Resolution 列非空或已标记 Resolved）
-   - `implementation-notes.md` 中存在且 Open Questions 已全部回答完毕（无未决项）
-   - 若存在 `scripts/check-complete`，运行确认输出 "ALL PHASES COMPLETE"
+0. **Stop Gate 前置检查（产出遗留清单，不直接阻塞）**：主 agent 读取 `task_plan.md` 和 `implementation-notes.md`，逐项核对并**记录缺口**，然后继续验收流程：
+   - 所有任务 checkbox 是否为 `[x]`（completed）
+   - Errors Encountered 表中所有错误是否已解决（Resolution 列非空或已标记 Resolved）
+   - `implementation-notes.md` 是否存在
+   - Open Questions 是否全部回答完毕
+   - 若存在 `scripts/check-complete`，运行确认输出 "ALL PHASES COMPLETE"（该脚本不存在则跳过，不算缺口）
+
+   **分流规则**：以上缺口**不单独构成 `blocked`**，写入最终输出的「遗留清单」。只有两项例外：
+   - 标注 `影响正确性: 是` 的 Open Question 未回答 → `blocked`
+   - `implementation-notes.md` 缺失，且本轮确实存在需要记录的 Deviations → `blocked`
+
+   其余（未勾 checkbox、未解决的 Error、`影响正确性: 否` 的未答项、notes 缺失但无偏离需记录）一律不阻塞，只进清单。
+
+   **历史 notes 兜底**：早期生成的 `implementation-notes.md` 没有 `影响正确性` 字段。字段缺失时按 `是` 保守处理（即未答则 `blocked`），并在遗留清单中注明"该 notes 未使用分级字段"。
 1. 主 agent 定位 spec 文档、detail 文档、架构文档、代码范围、本轮验证证据、`implementation-notes.md` 和 `task_plan.md`，整理成明确的审查上下文。
 2. 主 agent 先读取 `implementation-notes.md`，提取 Deviations 和 Open Questions：
    - Deviations 条目 → 作为一致性审查的重点检查项
    - Design Decisions → 作为 spec 空白处的补充验收依据，审查 agent 需确认决策合理且未引入新的未批准架构
-   - Open Questions → 若有未回答的，直接判定 `blocked`；若已回答，将其回答结论纳入验收范围
+   - Open Questions → 按 `影响正确性` 字段分流：`是` 的未答项 → `blocked`；`否` 的未答项 → 只进遗留清单；已回答的，将其回答结论纳入验收范围
 3. **同一轮并行派发两个独立 subagent（提示词必须使用固定模板、按「派发方式」的裁切规则只转发模板全文，禁止主 agent 自行生成或夹带主 agent 面向内容）**。为保证两个审查读到同一份稳定代码，本轮两个 subagent 都只读、不修改文件；清理在评审返回后由主 agent 执行：
    - **A. 一致性审查**（只读）：直接使用 [streaming-reviewer-prompt.md](streaming-reviewer-prompt.md) 全文作为提示词，只填写其中的任务输入；只核对代码与文档规划架构的一致性，输出偏离清单。
    - **B. 代码评审**（只读）：直接使用 [code-reviewer-prompt.md](code-reviewer-prompt.md) 全文作为提示词，只填写其中的任务输入；按项目语言合并完成编码规范、代码质量、注释完整性审查，并按 `ddev-clean` 判断标准输出受限清理清单。
 4. 等待两个 subagent 返回：
    - A 输出 `pass` / `need-info` / `blocked`，并给出架构偏离清单；每项偏离标注建议处置：**修正** 或 **记录**。
-   - B 输出 `pass` / `blocked`，附问题分级（CRITICAL / HIGH / MEDIUM / LOW）、注释缺失清单、清理建议清单。
+   - B 输出 `pass` / `blocked`，附问题分级（CRITICAL / HIGH / MEDIUM / LOW）、注释分级清单（HIGH / MEDIUM / LOW）、清理建议清单。
 5. 主 agent 汇总处置：
    - A 报出的偏离：可修正的立即修正到与文档一致；无法修正或决定不修正的，写入 `implementation-notes.md` 的 Deviations（偏离点、理由、影响范围）。
-   - B 报出的阻塞项（CRITICAL / HIGH）和缺失注释：按其清单修复、补齐。
+   - B 报出的阻塞项（CRITICAL / HIGH）与 HIGH 级注释问题：按其清单修复、补齐。MEDIUM / LOW 级注释缺口同轮补齐，不阻塞放行。
    - B 的清理建议清单：由主 agent 按 `ddev-clean` 的 regression-tests-first、显式清理计划、分 smell 分 pass、最小 diff、最小作用域规则执行。直接在主 agent 内加载 `ddev-clean` 执行，或派发清理 subagent；派发时必须原样使用 [ddev-clean/reviewer-prompt.md](../ddev-clean/reviewer-prompt.md) 全文作为提示词，只填写任务输入，禁止自行生成提示词。清理后补充对应验证证据。
    - 任何代码修改后，补充对应的验证证据（沿用 cleanup 前的旧证据不算）。
 6. **复审规则**：只要本轮发生过任何代码修改（主 agent 的修复或清理），就必须基于最终代码**重新并行派发 A + B 做只读复审**。复审轮两个 subagent 都不得再修改代码，只验证最终状态；发现新问题就报 `blocked`，由主 agent 修复后再来一轮。
 7. 重复步骤 6，直到出现一轮：A 与 B 都 `pass`，且该轮没有任何代码修改。此时主 agent 才能给最终 `pass`。
 8. 下列情况直接 `blocked`：
    - A 报出的架构偏离既未修正，也未写入 `implementation-notes.md` 记录；
-   - B 存在未处理的 CRITICAL / HIGH，或注释缺失未补齐；
+   - B 存在未处理的 CRITICAL / HIGH，或 HIGH 级注释问题未处理（分级见「注释问题分级」）；
    - 清理过程改变了文档已批准的架构、接口或行为，且未回退、未重新走双审；
    - 两个审查无法在同一份最终代码上同时通过。
 9. 如果没有新的、可归属到本轮结论的验证证据，最多输出 `need-info`，不能输出 `pass`。
@@ -210,16 +219,16 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 
 改动面路由判定为小改动时走本路线。核心原则：**1 个独立 subagent 一次性完成两个维度**，不派发第二个 subagent，不单独调用 `ddev-clean`。
 
-C0. **前置检查**：同 Streaming 步骤 0。不满足 → `blocked`。
+C0. **前置检查**：同 Streaming 步骤 0，产出遗留清单并按同一规则分流。只有「`影响正确性: 是` 的 Open Question 未答」或「notes 缺失且确有偏离需记录」才 `blocked`；其余记账缺口进清单，不阻塞。
 C1. 主 agent 定位 spec、detail、架构文档、代码范围、本轮验证证据、`implementation-notes.md` 和 `task_plan.md`，读取并整理成审查上下文。
 C2. 主 agent 读取 `implementation-notes.md`，提取 Deviations（作为一致性重点检查项）、Design Decisions（作为 spec 空白处补充依据）、Open Questions（未答 → `blocked`）。
 C3. 拉 **1 个独立 subagent** 做整合审查：**直接使用 [compact-reviewer-prompt.md](compact-reviewer-prompt.md) 全文作为提示词，只填写其中的任务输入，禁止主 agent 自行生成或改写提示词**。该 agent **只读**，一次性完成：
     - **一致性对照**：只核对代码与文档规划架构的一致性（模块边界、接口、依赖方向、状态归属、数据流/流程骨架），输出偏离清单并标注建议处置（修正 / 记录）；**先用 code-review-graph 看影响面与需审查文件、`grep` 兜底**，影响面超出 spec/detail 声明范围视为偏离
     - **代码评审**：按项目语言合并编码规范、代码质量（安全、架构性能、死代码/重复）、注释完整性；同时给出可选的清理建议清单，但不执行清理
-    - 输出一份结论 `pass` / `need-info` / `blocked`，附偏离清单、问题分级、注释缺失清单、清理建议
+    - 输出一份结论 `pass` / `need-info` / `blocked`，附偏离清单、问题分级、注释分级清单、清理建议
 C4. 主 agent 汇总处置：
     - 架构偏离：能修正的修正；无法修正或决定不修正的，写入 `implementation-notes.md` 的 Deviations
-    - CRITICAL / HIGH 问题：修复；缺失注释：补齐
+    - CRITICAL / HIGH 问题：修复；HIGH 级注释问题：补齐；MEDIUM / LOW 级注释缺口：同轮补齐，不阻塞放行
     - 清理建议默认不阻塞；主 agent 决定是否按 `ddev-clean` 规则处理。若派发清理 subagent，必须原样使用 [ddev-clean/reviewer-prompt.md](../ddev-clean/reviewer-prompt.md) 全文作为提示词；若处理了代码，补验证证据后从 C3 重跑整合审查
 C5. 只要本轮发生过任何代码修改，必须基于最终代码重跑 C3 做只读复审，直到出现一轮：整合审查 `pass` 且该轮无代码修改。
 C6. `blocked` → 主 agent 按清单修改，重新进入本 skill，从 C1 重跑 Compact 路线（不升级为 Streaming）。
@@ -255,7 +264,7 @@ Compact 路线同样要求 spec、detail、代码范围、验证证据齐全，�
 - **非 C 项目**：加载 `ddev-code-review`（代码质量）+ 对应语言编码规范 skill（如有）+ 对应注释审查 skill（如有）+ `ddev-clean`（清理项识别，只出清单）。没有对应 skill 的维度在结论中标注“已跳过”。
 - **先用 code-review-graph 看影响面与需审查文件、`grep` 兜底**：确认审查范围覆盖所有受影响文件。
 - **问题分级**：CRITICAL（安全漏洞 / 崩溃）> HIGH（Bug / 严重异味）> MEDIUM（技术债）> LOW（建议）。存在 CRITICAL 或 HIGH → `blocked`；仅 MEDIUM / LOW → `pass`（在建议项中列出）。
-- **注释完整性**：缺失或不足 → `blocked`，并附逐项缺失清单和补全建议。
+- **注释完整性**：按「注释问题分级」判定——HIGH 级 → `blocked`；MEDIUM / LOW 级只列清单、不阻塞。无论哪级都要附逐项清单和补全建议。
 - **清理**：按 `ddev-clean` 的判断标准输出清理清单，不执行清理。清单不得建议改变行为、接口、文档已批准的架构或数据流。主 agent 在评审返回后按 `ddev-clean` 规则执行（regression-tests-first、显式清理计划、分 smell 分 pass、最小 diff、最小作用域），并补充验证证据；执行后基于最终代码重新并行派发两个审查。
 - **任何轮次都只读**：代码评审 subagent 不修改代码；复审轮重点验证上一轮修复 / 清理的最终状态。
 - 不允许用"基本规范""大体符合""基本齐全"等模糊表述放行。
@@ -270,7 +279,7 @@ Compact 路线同样要求 spec、detail、代码范围、验证证据齐全，�
 - 必须是独立视角，只读，不能复用主 agent 的口头总结
 - **一次性完成两个维度的审查**，输出一份结论：
   1. **一致性**：只核对代码与文档规划架构的一致性（模块边界、接口、依赖方向、状态归属、数据流/流程骨架）；显式核对 Deviations 的处置状态；**先用 code-review-graph 看影响面与需审查文件、`grep` 兜底**，影响面超出 spec/detail 声明范围视为偏离
-  2. **代码评审**：按项目语言合并编码规范、代码质量、注释完整性；问题按 CRITICAL / HIGH / MEDIUM / LOW 分级；缺失注释 → `blocked`；清理只给建议清单，不执行
+  2. **代码评审**：按项目语言合并编码规范、代码质量、注释完整性；问题按 CRITICAL / HIGH / MEDIUM / LOW 分级；注释问题按「注释问题分级」判定，只有 HIGH 级 → `blocked`；清理只给建议清单，不执行
 - 结论只允许 `pass` / `need-info` / `blocked`
 - 不允许用"基本一致""大体符合"等模糊表述放行
 - 如果代码经过主 agent 修复或按建议清理后重审，必须基于最终版本重新审查，不能沿用前次结论
@@ -305,6 +314,25 @@ compact 整合审查必须原样使用提示模板 [compact-reviewer-prompt.md](
 - `static` 私有函数边界是否与文档设计一致
 - 错误码、异常出口和资源清理路径是否与设计一致
 
+## 注释问题分级（与 `ddev-comment-gen` 共用口径）
+
+注释问题并入代码评审结论，分级口径在 `ddev-gate` 与 `ddev-comment-gen` 必须一致，不另立标准。
+
+**分流原则：客观项可阻塞，裁量项只列清单。**
+
+| 级别 | 情形 | 判定 |
+|------|------|------|
+| HIGH | 文件头 `@file` + `@brief` 缺失；`.h` 中声明的公开函数 Doxygen 缺失（`@brief` / `@param` / `@return`）；公开 `struct` / `enum` 的 `@brief` 缺失；**注释与代码行为矛盾**；计划/文档术语泄漏 | `blocked` |
+| MEDIUM | 结构体 / 枚举**成员**行内注释缺失；`static` 复杂函数缺少意图说明；本次改动范围内注释仍为英文 | 列清单，同轮补齐，不阻塞 |
+| LOW | 局部逻辑 / 行内注释缺失；注释冗余（复述代码、超长、`static` 贴 Doxygen、调试标签） | 列清单，不阻塞 |
+
+判据说明：
+
+- **错误注释 > 缺失注释**：注释与行为矛盾会让读者按错误理解改代码；缺失只是信息不足
+- 缺哪个 Doxygen 标签、注释与行为是否矛盾、术语泄漏 grep 是否命中，都是**客观事实**，可以阻塞
+- 成员注释该不该有、注释是否冗余，依赖**裁量**，只列清单
+- MEDIUM / LOW 不阻塞 `pass`，但主 agent 仍应在同轮补齐；`pass` 时清单里仍有未补齐项，必须在「遗留清单」中列明
+
 详细检查清单见 [acceptance-checklist.md](references/acceptance-checklist.md)。
 
 标准输出样例见 [example-acceptance-output.md](examples/example-acceptance-output.md)。
@@ -327,11 +355,11 @@ compact 路线同样只允许这三种结论；两个审查维度由 1 个整合
 - 已找到并核对 detail / 架构文档
 - 已明确本轮验收对应的代码范围
 - **一致性**：代码与文档规划的架构一致，或每一处偏离都已修正、或已写入 `implementation-notes.md` 的 Deviations 且理由和影响范围清楚
-- **代码评审**：无未处理的 CRITICAL / HIGH；注释完整（或该语言无对应 skill 并已标注“已跳过”）；清理建议清单已给出（或无需清理）；如主 agent 执行了清理，清理未改变文档已批准的架构、接口、行为和范围，并已补充验证证据
+- **代码评审**：无未处理的 CRITICAL / HIGH；无未处理的 HIGH 级注释问题（MEDIUM / LOW 级缺口可放行，但须列入遗留清单；该语言无对应注释 skill 时标注“已跳过”）；清理建议清单已给出（或无需清理）；如主 agent 执行了清理，清理未改变文档已批准的架构、接口、行为和范围，并已补充验证证据
 - **最终轮**：最后一轮中一致性审查与代码评审在同一份最终代码上都 `pass`，且该轮没有任何代码修改；若此前发生过修改，已完成只读复审
 - 本轮存在新的验证证据，且证据与结论匹配
 - 未覆盖风险已明确说明
-- task_plan.md 存在且所有 checkbox 已完成、所有错误已解决、check-complete 验证通过，且 `implementation-notes.md` 中 Open Questions 已全部回答完毕
+- **遗留清单已输出**：task_plan checkbox、Errors 表、`implementation-notes.md`、Open Questions 的缺口状态已随结论列出（缺口本身不阻塞 `pass`，判定口径只在步骤 0 定义一处，此处不重复列举）
 - 如果 `implementation-notes.md` 中存在 Deviations，每一项都已给出结论（已修正 / 已接受并记录 / 需补文档）
 
 ### `need-info`
@@ -344,6 +372,7 @@ compact 路线同样只允许这三种结论；两个审查维度由 1 个整合
 - 改动范围无法唯一确定
 - 某些实现意图在代码里存在，但文档没有明确写
 - 设计与实现差异无法判断是故意还是遗漏
+- 遗留清单中积累了较多未清的文档记账项，且其中部分无法判断是否影响正确性
 
 判定原则：
 
@@ -355,15 +384,15 @@ compact 路线同样只允许这三种结论；两个审查维度由 1 个整合
 用于无法验收或明显不通过的情况，例如：
 
 - 找不到 spec 文档或 detail 文档
-- `implementation-notes.md` 不存在，或其中 Open Questions 仍有未回答项
+- `implementation-notes.md` 缺失且存在需要记录的 Deviations；或标注 `影响正确性: 是` 的 Open Question 未回答
 - 无法定位本轮改动对应的实现范围
 - 代码偏离文档规划的架构，且既未修正、也未写入 `implementation-notes.md`
 - 一致性审查与代码评审无法在同一份最终代码上同时通过
 - 代码评审存在 CRITICAL / HIGH 问题未处理
-- 注释审查发现缺失且未补齐
+- 存在未处理的 HIGH 级注释问题（公开 API Doxygen 缺失、注释与行为矛盾、计划/文档术语泄漏，见「注释问题分级」）
 - 清理过程改变了文档已批准的架构、接口或行为，且未回退、未重新走双审
 - 结论依赖关键证据，但证据不存在
-- task_plan.md 或 Stop Gate 前置条件不满足
+- `task_plan.md` 缺失或不在计划目录下，导致无法确定本次改动的任务范围（属结构性输入缺失，与「未勾 checkbox」的记账缺口不同）
 
 判定原则：
 
@@ -380,18 +409,22 @@ compact 路线同样只允许这三种结论；两个审查维度由 1 个整合
 3. 并行审查摘要：
    - 一致性审查结论：架构是否一致
    - 代码评审结论：问题分级汇总（CRITICAL / HIGH / MEDIUM / LOW 各几条）、注释完整性、清理建议数量与执行情况
-4. 架构偏离处置表：
+4. **遗留清单**（不阻塞项，但必须列出）：
+   - 文档记账缺口：未勾的 checkbox、未解决的 Error、`implementation-notes.md` 缺失、未答 Open Question（含 `影响正确性` 取值）
+   - 非阻塞注释缺口：MEDIUM / LOW 级注释问题及是否已在同轮补齐
+   - 未清的清理建议项
+5. 架构偏离处置表：
 
    | 偏离点 | 文档依据 | 处置（已修正 / 已记录 / 未处理） | 位置 |
    |--------|----------|----------------------------------|------|
 
-5. 发现的问题：按严重度列出
-6. 已确认一致的关键点：只列最重要的几项
-7. 未覆盖风险：明确还没验证到哪里
-8. 清理与修复说明：是否改过代码、范围是什么、验证证据是什么、是否已完成只读复审
-9. 如果结论是 `blocked`，明确列出“需要主 agent 修改的项”，以便按项修复并重新送审
+6. 发现的问题：按严重度列出
+7. 已确认一致的关键点：只列最重要的几项
+8. 未覆盖风险：明确还没验证到哪里
+9. 清理与修复说明：是否改过代码、范围是什么、验证证据是什么、是否已完成只读复审
+10. 如果结论是 `blocked`，明确列出“需要主 agent 修改的项”，以便按项修复并重新送审
 
-**compact 路线**：第 3–4 项合并为一份「整合审查结论」，一次性输出一致性 + 代码评审两个维度的结果和偏离处置表。
+**compact 路线**：第 3–5 项合并为一份「整合审查结论」，一次性输出一致性 + 代码评审两个维度的结果和偏离处置表；遗留清单同样必须列出。
 
 如果没有发现不一致，也不能只说“通过”，仍要说明对照了什么。
 
@@ -428,6 +461,6 @@ compact 路线同样只允许这三种结论；两个审查维度由 1 个整合
 
 streaming 路线必须真正做到两个 subagent 并行派发；最终放行对象必须是两个只读复审 subagent 在同一份最终代码上共同 `pass` 的那一版代码，不是任何中间版本。
 
-清理评估已并入代码评审（清理执行由主 agent 按 `ddev-clean` 规则完成），不再有独立 `ddev-clean` 阶段；注释审查也已并入代码评审（C 项目通过 `ddev-comment-gen` 维度覆盖），两者都必须通过才能给最终 `pass`。
+清理评估已并入代码评审（清理执行由主 agent 按 `ddev-clean` 规则完成），不再有独立 `ddev-clean` 阶段；注释审查也已并入代码评审（C 项目通过 `ddev-comment-gen` 维度覆盖）。放行底线是：**无未处理的 CRITICAL / HIGH、无未处理的 HIGH 级注释问题**；文档记账缺口与非阻塞注释缺口只进遗留清单，不卡放行。
 
 **compact 路线**：同样必须有 spec、detail、代码范围、验证证据；整合 subagent 通过（覆盖一致性、代码评审、清理建议）才能给最终 `pass`，不因改动小而降低底线。
