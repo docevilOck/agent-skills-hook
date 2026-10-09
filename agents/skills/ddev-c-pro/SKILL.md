@@ -93,7 +93,51 @@ module_status_t module_encode(const input_t *in, uint8_t *out, size_t out_cap, s
 
 - **显式返回错误码**，不依赖 errno。公开 API 必须校验 NULL pointer 和越界参数。
 - **内存**：明确 ownership（谁分配谁释放），优先调用方传 buffer + capacity，避免隐式 malloc。
-- **错误路径资源回滚**：分配多个资源后任一失败，必须回滚已分配的资源，用 `goto` 统一清理出口（唯一允许的 `goto` 用法）。
+- **错误路径资源回滚**：分配多个资源后任一失败，必须回滚已分配的资源，用 `goto` 统一清理出口（**唯一允许的 `goto` 用法**）。标签统一命名 `cleanup`（沿用仓库既有的 `exit` / `out` 亦可），释放顺序与申请顺序相反，只判空不判状态：
+
+  ```c
+  module_status_t module_open(module_t *m, const module_cfg_t *cfg)
+  {
+      module_status_t ret = MODULE_OK;
+
+      if (m == NULL || cfg == NULL) {
+          return MODULE_ERR_INVALID_ARG;   /* 未申请任何资源，直接返回 */
+      }
+
+      m->fd = open(cfg->path, O_RDWR);
+      if (m->fd < 0) {
+          ret = MODULE_ERR_IO;
+          goto cleanup;
+      }
+
+      m->buf = prt_malloc(cfg->buf_size);
+      if (m->buf == NULL) {
+          ret = MODULE_ERR_NO_MEM;
+          goto cleanup;
+      }
+
+      if (module_sync(m) != MODULE_OK) {
+          ret = MODULE_ERR_IO;
+          goto cleanup;
+      }
+      return MODULE_OK;
+
+  cleanup:                                 /* 与申请顺序相反，只判空 */
+      if (m->buf != NULL) {
+          prt_free(m->buf);
+          m->buf = NULL;
+      }
+      if (m->fd >= 0) {
+          close(m->fd);
+          m->fd = -1;
+      }
+      return ret;
+  }
+  ```
+
+  - `ret` 只在失败处赋值，清理段不再改写；清理段只释放资源，不夹带业务流程
+  - 禁止跳入循环或分支体内、禁止向前跨越变量初始化跳转、禁止用 `goto` 编排正常流程（仅错误清理）
+  - 单一资源或无资源申请的函数直接用 `return` 错误码，不为统一而引入 `goto`
 
 ### 标准库替代函数（优先使用工程封装）
 
@@ -271,15 +315,66 @@ module_status_t module_encode(const input_t *in, uint8_t *out, size_t out_cap, s
   - 四件套均确认无引用证据后才可删除；仅搜单个目录不足以判定死代码
 - **魔术字**：是否出现非 0/1/-1 的裸字面量（毫秒数、缓冲区大小、重试次数、寄存器地址等），必须替换为命名常量 + 注释说明取值依据；缓冲区大小等大数字（≥1024）必须用 `N * 1024` 表达式 + 宏，禁止裸写大数
 
-## 风格 & 测试
+## 代码风格与测试
 
-- 缩进 4 空格，大括号 K&R 风格，每行 ≤100 字符，指针 `*` 靠变量名，单行 if 也加大括号。
-- 优先使用 `stdint.h` / `stdbool.h` / `stddef.h`。
-- **命名规范**：类型 `_t` 后缀（`module_cfg_t`），公开 API 统一模块前缀（`module_init`），宏全大写 + 模块前缀（`MODULE_BUF_SIZE`），私有函数 `static` 限制可见。
-- 纯逻辑与 I/O 分离以便 host 端单测；推荐 Unity/Ceedling/CTest；CI 中 `-Wall -Wextra -Werror`。
-- **推荐编译警告**（GCC/Clang）：`-Wall -Wextra -Wshadow -Wundef -Wconversion -Wenum-conversion -Wmissing-prototypes -Wstrict-prototypes -Wcast-align`。
-- 静态分析：CI 中集成 clang-tidy 或 cppcheck；关注 `readability-*`、`bugprone-*`、`performance-*` 规则集。
-- **测试文件命名**：`test_<module>.c`，放在 `test/` 目录。mock 硬件依赖通过回调注入或链接期替换。
+仓库自有 C 代码（大核 prttech_app、小核 melis）按本节执行。**不要顺手重排存量代码格式**：存量代码为手写格式且内部不一致，抽样实测任何格式化配置都会改动约 58% 的行，重排会淹没真实改动。
+
+### 缩进与行宽
+
+- 缩进 4 空格，禁止 Tab；续行同样缩进 4 空格
+- 每行 ≤100 字符；行尾不留空格
+- 文件编码 UTF-8，行尾 LF（仓库内约 12.5% 文件是 CRLF，改到这些文件时不要扩散 CRLF）
+
+### 大括号
+
+- 控制语句（`if` / `else` / `for` / `while` / `switch` / `do`）大括号**与语句同行**
+- **函数定义大括号独占一行**（仓库实测 18425:1650）；`struct` / `union` / `enum` 定义大括号同行
+- 语句体一律加 `{}`，禁止 `if (x) return;`。实测 GCC 9 / Clang 10 的 `-Wall -Wextra -Wmisleading-indentation` 不报此形态，只能靠约定拦
+
+```c
+typedef struct {
+    int fd;
+} module_t;
+
+static int module_parse(const char *s)
+{
+    if (s == NULL) {
+        return -1;
+    }
+    switch (s[0]) {
+    case 'a':
+        return 1;
+    default:
+        return 0;
+    }
+}
+```
+
+### 指针、空格与对齐
+
+- 指针 `*` 靠变量名：`type *name`（写 `char *buf`，不写 `char* buf` 或 `char * buf`）
+- 函数调用名与括号之间不留空格：`foo(a, b)`；关键字后留一个空格：`if (a)`、`switch (v)`
+- 双目运算符两侧留空格、一元运算符紧贴操作数：`a = -b`；逗号后留一个空格
+- `case` 与 `switch` 同层不额外缩进，`case` 段内语句缩进一级
+- 连续同类宏的值、连续行尾注释尽量对齐到同一列，便于扫读
+
+### 命名
+
+- 类型 `_t` 后缀（`module_cfg_t`）；公开 API 统一模块前缀（`module_init`）；宏全大写 + 模块前缀（`MODULE_BUF_SIZE`）；私有函数 `static` 限制可见
+- 常量、枚举值用 `MODULE_XXX` 风格；局部变量小写加下划线
+- 枚举/状态码族的自释取值（`MODULE_OK`、`…_ERR_TIMEOUT`）不需要行内注释
+
+### 错误路径
+
+- 申请多个资源的函数用 `goto cleanup` 统一清理出口——**唯一允许的 `goto` 用法**；样板、标签命名与禁止事项见上文「返回值与错误处理」
+
+### 其它
+
+- 优先使用 `stdint.h` / `stdbool.h` / `stddef.h`
+- 纯逻辑与 I/O 分离以便 host 端单测；推荐 Unity/Ceedling/CTest；CI 中 `-Wall -Wextra -Werror`
+- **推荐编译警告**（GCC/Clang）：`-Wall -Wextra -Wshadow -Wundef -Wconversion -Wenum-conversion -Wmissing-prototypes -Wstrict-prototypes -Wcast-align`
+- 静态分析：CI 中集成 clang-tidy 或 cppcheck；关注 `readability-*`、`bugprone-*`、`performance-*` 规则集
+- **测试文件命名**：`test_<module>.c`，放在 `test/` 目录；mock 硬件依赖通过回调注入或链接期替换
 
 ## 输出要求
 
