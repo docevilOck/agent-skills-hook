@@ -209,7 +209,7 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
    - B 输出 `pass` / `blocked`，附问题分级（CRITICAL / HIGH / MEDIUM / LOW）、注释分级清单（HIGH / MEDIUM / LOW）、清理建议清单。
 5. 主 agent 汇总处置：
    - A 报出的偏离：可修正的立即修正到与文档一致；无法修正或决定不修正的，写入 `implementation-notes.md` 的 Deviations（偏离点、理由、影响范围）。
-   - B 报出的阻塞项（CRITICAL / HIGH）与 HIGH 级注释问题：按其清单修复、补齐。MEDIUM / LOW 级注释缺口同轮补齐，不阻塞放行。
+   - B 报出的阻塞项（CRITICAL / HIGH）与 HIGH 级注释问题：按其清单修复、补齐。MEDIUM / LOW 级注释缺口同轮补齐、**冗余注释同轮删除**，不阻塞放行。
    - B 的清理建议清单：由主 agent 按 `ddev-clean` 的 regression-tests-first、显式清理计划、分 smell 分 pass、最小 diff、最小作用域规则执行。直接在主 agent 内加载 `ddev-clean` 执行，或派发清理 subagent；派发时必须原样使用 [ddev-clean/reviewer-prompt.md](../ddev-clean/reviewer-prompt.md) 全文作为提示词，只填写任务输入，禁止自行生成提示词。清理后补充对应验证证据。
    - 任何代码修改后，补充对应的验证证据（沿用 cleanup 前的旧证据不算）。
 6. **复审规则**：只要本轮发生过任何代码修改（主 agent 的修复或清理），就必须基于最终代码**重新并行派发 A + B 做只读复审**。复审轮两个 subagent 都不得再修改代码，只验证最终状态；发现新问题就报 `blocked`，由主 agent 修复后再来一轮。
@@ -234,7 +234,7 @@ C3. 拉 **1 个独立 subagent** 做整合审查：**直接使用 [compact-revie
     - 输出一份结论 `pass` / `need-info` / `blocked`，附偏离清单、问题分级、注释分级清单、清理建议
 C4. 主 agent 汇总处置：
     - 架构偏离：能修正的修正；无法修正或决定不修正的，写入 `implementation-notes.md` 的 Deviations
-    - CRITICAL / HIGH 问题：修复；HIGH 级注释问题：补齐；MEDIUM / LOW 级注释缺口：同轮补齐，不阻塞放行
+    - CRITICAL / HIGH 问题：修复；HIGH 级注释问题：补齐；MEDIUM / LOW 级注释缺口：同轮补齐、冗余注释同轮删除，不阻塞放行
     - 清理建议默认不阻塞；主 agent 决定是否按 `ddev-clean` 规则处理。若派发清理 subagent，必须原样使用 [ddev-clean/reviewer-prompt.md](../ddev-clean/reviewer-prompt.md) 全文作为提示词；若处理了代码，补验证证据后从 C3 重跑整合审查
 C5. 只要本轮发生过任何代码修改，必须基于最终代码重跑 C3 做只读复审，直到出现一轮：整合审查 `pass` 且该轮无代码修改。
 C6. `blocked` → 主 agent 按清单修改，重新进入本 skill，从 C1 重跑 Compact 路线（不升级为 Streaming）。
@@ -330,14 +330,14 @@ compact 整合审查必须原样使用提示模板 [compact-reviewer-prompt.md](
 |------|------|------|
 | HIGH | 文件头 `@file` + `@brief` 缺失；`.h` 中声明的公开函数 Doxygen 缺失（`@brief` / `@param` / `@return`）；公开 `struct` / `enum` 的 `@brief` 缺失；**注释与代码行为矛盾**；计划/文档术语泄漏 | `blocked` |
 | MEDIUM | 结构体 / 枚举**成员**行内注释缺失；`static` 复杂函数缺少意图说明；本次改动范围内注释仍为英文 | 列清单，同轮补齐，不阻塞 |
-| LOW | 局部逻辑 / 行内注释缺失；注释冗余（复述代码、超长、`static` 贴 Doxygen、调试标签） | 列清单，不阻塞 |
+| LOW | 局部逻辑 / 行内注释缺失；注释冗余（复述代码、超长、`static` 贴 Doxygen、调试标签） | 列清单；**冗余项同轮删除**，不阻塞 |
 
 判据说明：
 
 - **错误注释 > 缺失注释**：注释与行为矛盾会让读者按错误理解改代码；缺失只是信息不足
 - 缺哪个 Doxygen 标签、注释与行为是否矛盾、术语泄漏 grep 是否命中，都是**客观事实**，可以阻塞
 - 成员注释该不该有、注释是否冗余，依赖**裁量**，只列清单
-- MEDIUM / LOW 不阻塞 `pass`，但主 agent 仍应在同轮补齐；`pass` 时清单里仍有未补齐项，必须在「遗留清单」中列明
+- MEDIUM / LOW 不阻塞 `pass`，但主 agent 仍应在同轮补齐缺口、删除冗余；`pass` 时清单里仍有未处理项，必须在「遗留清单」中列明
 
 详细检查清单见 [acceptance-checklist.md](references/acceptance-checklist.md)。
 

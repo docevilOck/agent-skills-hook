@@ -37,7 +37,7 @@
 | `requesting-code-review` | 在完成任务、实现重要功能或准备合并前，派发审查子代理确认工作满足要求。 | 自动 — 任务完成/准备合并时 |
 | `receiving-code-review` | 接收代码审查反馈时的技术评估与验证流程，避免表面附和或盲目照做。 | 自动 — 收到审查反馈时 |
 | `ddev-clean` | AI 生成代码的反 slop 清理重构工作流，逐臭味清理并保持行为不变；gate 中负责清理项识别，执行由主 agent 按需进行。 | 自动 — 需要清理/重构 AI 生成代码 |
-| `ddev-comment-gen` | C 项目注释审查维度。在 ddev-gate 的合并代码评审 subagent 中与 c-pro、ddev-clean 同轮加载，核验 Doxygen 注释完整性，缺失则补全。 | 自动 — C 项目 gate 代码评审时 |
+| `ddev-comment-gen` | C 项目注释审查维度。注释以“默认不写”为基线：在 ddev-gate 的合并代码评审 subagent 中与 c-pro、ddev-clean 同轮加载，核验注释必要性与规范性，补齐真实缺口、删除冗余注释。 | 自动 — C 项目 gate 代码评审时 |
 | `systematic-debugging` | 系统性调试方法论：在提出修复之前先定位根因，避免随手打补丁掩盖底层问题。 | 自动 — 遇到 bug、测试失败或异常行为时 |
 | `verification-before-completion` | 完成前强制验证：必须先运行验证命令并确认输出，再做任何成功声明。 | 自动 — 准备声称工作已完成/已修复时 |
 | `protocol-semantic-guard` | 协议和指令集相关代码变更的语义守卫。修改有线协议、命令编码、解析表、标签、属性、枚举等时使用。 | 自动 — 修改协议/指令集相关代码时 |
