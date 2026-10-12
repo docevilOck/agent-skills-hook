@@ -1,6 +1,6 @@
 # RTK 命令参考（DSH / Claude Code 共享）
 
-> 本文件是 `CLAUDE.md` 中 RTK 精简说明的完整命令参考。
+> 本文件是 `AGENTS.md` 中 RTK 精简说明的完整命令参考。
 > 注意：DSH 无 PreToolUse hook，命令需**手动加 `rtk` 前缀**；Claude Code 侧 hook 已配置，命令会被自动重写。
 > 验证：`rtk --version`（应显示 rtk X.Y.Z）、`rtk gain`（应显示 token 节省统计）。
 
