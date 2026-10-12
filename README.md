@@ -29,7 +29,7 @@ agent-skills-hook/
 │   │   ├── dcp.jsonc               # DCP 上下文管理配置
 │   │   ├── agents/                 # OpenCode 子代理定义
 │   │   └── prompts/               # 共享提示词模板
-│   └── shared/mcp_servers.json     # 共享 MCP 服务器定义（context-mode、crg/code-review-graph）
+│   └── shared/mcp_servers.json     # 共享 MCP 服务器定义（context-mode）
 ├── agents/skills/                  # 共享技能库（61 个技能）
 ├── linux/deploy.sh                 # Linux 部署（软链接）
 ├── windows/deploy.ps1              # Windows 部署（Junction）
@@ -61,8 +61,6 @@ cd windows
 
 > DSH 使用 `config/dsh/AGENTS.md` 作为其全局指令（软链接 `~/.dsh/AGENTS.md`），`config/dsh/RTK.md` 一并链到 `~/.dsh/RTK.md`（`AGENTS.md` 里"同目录 RTK.md"按此解析）。
 > DSH 同时部署 `skills/`（软链接 `~/.dsh/skills`）与 MCP servers（注入 `~/.dsh/profiles/dsh-tui/cordis.patch.yml`，来源 `config/shared/mcp_servers.json`）。
-> `crg` 需要 `code-review-graph` 在 PATH 才能真正拉起，未安装时该 server 保持不可用。
-> 它不在 npm 上（PyPI 包，当前 2.3.9），装到 PATH 的方式：`uv tool install code-review-graph`（或 `pipx install code-review-graph`）。
 
 ### DSH 便捷启动
 
@@ -73,7 +71,9 @@ dst                    # 等价于 dsh --profile dsh-tui，默认 high 推理等
 dst --resume <session> # 参数透传给 dsh-tui
 ```
 
-`dst` 默认使用 **high** 推理等级：dsh-tui bundle 自带 `effort: max`（其优先级高于持久化的 `/effort` 选择，见 dsh 的 effort 默认链），启动脚本用 `--patch` 加载同目录的 `dst-effort-high.yml` 覆盖为 high。因此该 overlay 必须与启动脚本一起部署（Linux 软链接指向仓库脚本即可按真实路径找到；Windows 需把 `dst-effort-high.yml` 与 `dst.cmd` 一并复制）。会话内 `/effort` 可临时改档，`/settings` 的「默认推理强度」优先级更高，可覆盖该默认；升级 `@deepseek-harness-tui/dsh-tui` 后若编排行的配置键有变动，需同步 overlay（用 `dsh --profile dsh-tui --dump-config` 对比 `effort` 一行即可确认生效）。
+`dst` 默认使用 **high** 推理等级：dsh-tui bundle 自带 `effort: max`（其优先级高于持久化的 `/effort` 选择，见 dsh 的 effort 默认链），启动脚本用 `--patch` 加载同目录的 `dst-effort-high.yml` 覆盖为 high。dsh 的 patch 语义是**整块替换**目标行的 `config`，所以该 overlay 复述了 dsh-tui 行的全部配置键——**用 `dst` 启动时，profile patch 里对 dsh-tui 行的自定义会被 overlay 的值覆盖**；升级 `@deepseek-harness-tui/dsh-tui` 后需用 `dsh --profile dsh-tui --dump-config` 重新对齐 overlay，否则新键会退回 schema 默认值。overlay 必须与启动脚本一起部署（Linux 软链接指向仓库脚本即可按真实路径找到；Windows 需把 `dst-effort-high.yml` 与 `dst.cmd` 一并复制）。会话内 `/effort` 可临时改档，`/settings` 的「默认推理强度」优先级更高，可覆盖该默认。
+>
+> 注意：全局安装 `@deepseek-harness-tui/dsh-tui` 时，其 bin 里已经有一个 `dst`（等同 `dsh-tui` 启动器，effort 沿用 bundle 的 `max`）。仓库这份是加 `--patch` 的包装脚本，靠 PATH 顺序生效（把软链接放在 node 全局 bin 之前，如 `~/.local/bin`）。
 
 ## 技能分类
 
@@ -143,7 +143,7 @@ ddev-gate        ← 最终验收：架构一致性 + 代码评审 双 subagent 
 | `protocol-semantic-guard` | 协议/指令集语义守卫，改 wire protocol 时用 |
 | `image-understanding` | 图片对比/视觉回归/UI diff 检测 |
 
-> **代码审查前先看影响面**：先跑 `code-review-graph build` 建图（在仓库根生成 `.code-review-graph/`），再用 code-review-graph 的 3 个 MCP 工具——`mcp__crg__get_minimal_context_tool`（入口，~100 tokens）→ `mcp__crg__query_graph_tool`（调用/引用关系）→ `mcp__crg__get_review_context_tool`（影响半径 + 需审查文件 + 源码片段）——先看清改动影响面和需要审查的文件，然后才开始逐文件 review。
+> **代码审查前先看影响面**：先用 `grep -rn` 查关键符号的调用方与引用点，再 `read` 命中文件确认上下文，看清影响半径和需要审查的文件，然后才开始逐文件 review。
 
 ### 嵌入式与硬件调试
 

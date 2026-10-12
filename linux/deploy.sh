@@ -7,6 +7,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="${REPO_ROOT:-$(dirname "$SCRIPT_DIR")}"
 TARGET="${TARGET:-all}"
+# 兼容文档里的 `./deploy.sh TARGET=dsh` 调用形式
+for arg in "$@"; do
+  case "$arg" in
+    TARGET=*) TARGET="${arg#TARGET=}" ;;
+  esac
+done
 STAMP="$(date +%Y%m%d-%H%M%S)"
 
 # Skills 位于仓库根目录
