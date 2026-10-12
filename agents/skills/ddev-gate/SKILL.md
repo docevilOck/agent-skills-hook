@@ -67,6 +67,21 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 
 执行计划只用于确定范围和理解任务背景；一致性审查不再要求 exec plan 的每个步骤都落地，也不再把 exec plan 当作独立设计真源。
 
+## 文档审查范围（硬性）
+
+审查只覆盖**归档后仍会保留**的文档；审查产出（偏离清单、文档级问题、遗留清单里的文档项）也只针对它们：
+
+- spec、final-spec.md、`docs/architecture/`
+
+归档时会被删除的执行期文档**不作为审查对象**，不得因它们的表述、完整性或前后不一致给出偏离、问题或 `blocked`：
+
+- `detail/`、`exec_plans/`、`task_plan.md`、`implementation-notes.md`、`progress.md`、`findings/`
+
+两条边界：
+
+- **读取不受限**：这些文档仍要读——`detail/` 是一致性对照的设计基线，`implementation-notes.md` 的 Deviations / Open Questions 仍按既有规则作过程门禁（属流程门禁，不是文档审查）
+- **不为它们补文档**：审查发现的问题不得转化成"补写 detail / 补 findings / 修 task_plan"这类修复项
+
 ## 范围确定规则
 
 验收范围必须先定清楚，再开始对照。
@@ -111,6 +126,12 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 ## 派发方式（主 agent 专用，禁止转发给 subagent）
 
 > 本节只给主 agent 读。**禁止**把本节或本 `SKILL.md` 的任何内容拼进 subagent 提示词——这样做的直接后果是 subagent 误认自己是主 agent，进而自行改代码、自行派生审查、并回传无法核实的审查结论。
+
+**默认 goal 与阻塞式派发（硬性）**
+
+- 进入本 skill 前先 `create_goal`：objective 写成本轮改动的可验证完成态（如「<本轮改动> 通过 ddev-gate 双审查 pass」）；会话 resume / fork 后 goal 会解除武装，用户说「继续」时先 `update_goal` 的 `resume` 重新武装
+- 所有审查 subagent（streaming 的 A / B、compact 整合、清理）一律**阻塞式派发**，不要放到后台运行：goal 只靠当前轮推进，后台派发会让 goal 跨轮空转、白烧续跑轮次
+- 同一轮要多个 subagent 时，在**同一条消息**里发出多个阻塞调用，一次等齐
 
 **提示词裁切规则（硬性）**
 
