@@ -354,7 +354,7 @@ if ($Target -eq "dsh" -or $Target -eq "all") {
     if (Test-Path $PatchFile) {
         $McpTmp = Join-Path $env:TEMP ("agent-skills-hook-mcp-" + [guid]::NewGuid().ToString() + ".py")
         @'
-import json, sys
+import json, re, sys
 
 mcp_json, patch_path = sys.argv[1], sys.argv[2]
 with open(mcp_json, "r", encoding="utf-8") as f:
@@ -363,6 +363,9 @@ with open(patch_path, "r", encoding="utf-8") as f:
     existing = f.read()
 
 HEADER = "# 仓库 MCP servers（agent-skills-hook config/shared/mcp_servers.json）"
+
+# 默认 profile patch 只有占位空数组 `[]`，其后追加块序列不是合法 YAML，先摘掉
+base = re.sub(r"(?m)^\[\s*\]\s*$\n?", "", existing)
 
 blocks = []
 added = []
@@ -385,11 +388,15 @@ for name, srv in servers.items():
     blocks.append("\n".join(lines))
     added.append(name)
 
+content = base.rstrip("\n") + "\n"
 if blocks:
     if HEADER not in existing:
         blocks[0] = HEADER + "\n" + blocks[0]
-    with open(patch_path, "a", encoding="utf-8") as f:
-        f.write("\n" + "\n".join(blocks) + "\n")
+    content = content + "\n" + "\n".join(blocks) + "\n"
+if content != existing:
+    with open(patch_path, "w", encoding="utf-8") as f:
+        f.write(content)
+if blocks:
     print(f"DSH MCP servers configured: {', '.join(added)}")
 else:
     print("DSH MCP servers already configured.")
