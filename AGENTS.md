@@ -12,7 +12,7 @@ agent-skills-hook/
 │   ├── codex/AGENTS.md           # Codex CLI 配置
 │   ├── opencode/AGENTS.md        # OpenCode 配置
 │   ├── opencode/opencode.json    # OpenCode 主配置（插件、MCP、模型等）
-│   ├── dsh/AGENTS.md             # DSH 全局指令（+ 同目录 RTK.md）
+│   └── dsh/AGENTS.md             # DSH 全局指令（RTK 命令参考内联在文末）
 ├── agents/skills/                # 共享技能库
 ├── linux/deploy.sh               # Linux 部署（软链接）
 ├── windows/deploy.ps1            # Windows 部署（Junction 链接）
@@ -42,7 +42,7 @@ cd windows
 - `skills/` 通过 Junction（Windows）或软链接（Linux）指向仓库 `agents/skills/`
 - `opencode.json` 深合并到 `~/.config/opencode/opencode.json`
 - `agents/` 目录复制到 `~/.codex/agents/`（Codex）
-- `config/dsh/AGENTS.md` + `RTK.md` 链到 `~/.dsh/`，MCP 注入 `~/.dsh/profiles/dsh-tui/cordis.patch.yml`（DSH）
+- `config/dsh/AGENTS.md` 链到 `~/.dsh/AGENTS.md`，MCP 注入 `~/.dsh/profiles/dsh-tui/cordis.patch.yml`（DSH）
 
 ## 更新
 
