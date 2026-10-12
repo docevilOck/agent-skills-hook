@@ -363,43 +363,82 @@ with open(patch_path, "r", encoding="utf-8") as f:
     existing = f.read()
 
 HEADER = "# 仓库 MCP servers（agent-skills-hook config/shared/mcp_servers.json）"
+CLIENT = "@deepseek-ai/dsh-mcp-client"
 
-# 默认 profile patch 只有占位空数组 `[]`，其后追加块序列不是合法 YAML，先摘掉
-base = re.sub(r"(?m)^\[\s*\]\s*$\n?", "", existing)
+
+def block(name, srv):
+    lines = [
+        "- insert:",
+        "    - id: mcp-%s" % name,
+        "      name: '%s'" % CLIENT,
+        "      config:",
+        "        serverName: %s" % name,
+        "        transport: stdio",
+        "        command: %s" % srv["command"],
+    ]
+    if srv.get("args"):
+        lines.append("        args: [%s]" % ", ".join("'%s'" % a for a in srv["args"]))
+    if srv.get("cwd"):
+        lines.append("        cwd: %s" % srv["cwd"])
+    return lines
+
+
+def entry_id(entry):
+    m = re.search(r"(?m)^\s*-?\s*id:\s*(\S+)\s*$", "\n".join(entry))
+    return m.group(1) if m else None
+
+
+src = existing.split("\n")
+first = next((i for i, l in enumerate(src) if l.startswith("- ")), len(src))
+# 默认 profile patch 的占位空数组不能与块序列共存，顺带摘掉
+pre = [l for l in src[:first] if not re.fullmatch(r"\[\s*\]", l.strip())]
+pre = [l for i, l in enumerate(pre) if l.strip() or (i and pre[i - 1].strip())]
+bounds = [i for i, l in enumerate(src) if l.startswith("- ")] + [len(src)]
+entries = [src[bounds[k]:bounds[k + 1]] for k in range(len(bounds) - 1)]
+
+kept, dropped, unmanaged, at = [], [], [], None
+for e in entries:
+    eid = entry_id(e)
+    is_client = CLIENT in "\n".join(e)
+    name = eid[4:] if eid and eid.startswith("mcp-") else None
+    if name and (is_client or name in servers):
+        # 受管条目：无论旧形态（insert / $set disabled）一律丢弃，稍后按 JSON 重建
+        dropped.append(eid)
+        if at is None:
+            at = len(kept)
+        continue
+    if name:
+        unmanaged.append(eid)
+    kept.append(e)
 
 blocks = []
-added = []
 for name, srv in servers.items():
-    if f"id: mcp-{name}" in existing:
-        print(f"DSH MCP server '{name}' already configured.")
-        continue
-    lines = ["- insert:"]
-    lines.append(f"    - id: mcp-{name}")
-    lines.append("      name: '@deepseek-ai/dsh-mcp-client'")
-    lines.append("      config:")
-    lines.append(f"        serverName: {name}")
-    lines.append("        transport: stdio")
-    lines.append(f"        command: {srv['command']}")
-    if srv.get("args"):
-        args = ", ".join(f"'{a}'" for a in srv["args"])
-        lines.append(f"        args: [{args}]")
-    if srv.get("cwd"):
-        lines.append(f"        cwd: {srv['cwd']}")
-    blocks.append("\n".join(lines))
-    added.append(name)
+    blocks.extend(block(name, srv))
 
-content = base.rstrip("\n") + "\n"
-if blocks:
-    if HEADER not in existing:
-        blocks[0] = HEADER + "\n" + blocks[0]
-    content = content + "\n" + "\n".join(blocks) + "\n"
-if content != existing:
+out = list(pre)
+for i, e in enumerate(kept):
+    if at == i:
+        out.extend(blocks)
+    out.extend(e)
+if at is None or at >= len(kept):
+    out.extend(blocks)
+
+text = "\n".join(out).rstrip("\n") + "\n"
+if blocks and HEADER not in existing:
+    text = text.replace(blocks[0], HEADER + "\n" + blocks[0], 1)
+
+stale = sorted(set(d for d in dropped if d[4:] not in servers))
+if text != existing:
     with open(patch_path, "w", encoding="utf-8") as f:
-        f.write(content)
-if blocks:
-    print(f"DSH MCP servers configured: {', '.join(added)}")
+        f.write(text)
+    print("DSH MCP patch updated: declared %s" % (", ".join(servers) or "none"))
 else:
-    print("DSH MCP servers already configured.")
+    print("DSH MCP patch already in sync: declared %s" % (", ".join(servers) or "none"))
+if stale:
+    print("DSH MCP stale entries removed: %s" % ", ".join(stale))
+if unmanaged:
+    print("WARNING: patch 里有脚本未接管的 mcp-* 条目，需手工确认: %s" % ", ".join(sorted(set(unmanaged))))
+
 '@ | Set-Content -Path $McpTmp -Encoding utf8
 
         python $McpTmp (Join-Path $SharedConfigRoot "mcp_servers.json") $PatchFile

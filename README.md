@@ -61,6 +61,8 @@ cd windows
 
 > DSH 使用 `config/dsh/AGENTS.md` 作为其全局指令（软链接 `~/.dsh/AGENTS.md`），`config/dsh/RTK.md` 一并链到 `~/.dsh/RTK.md`（`AGENTS.md` 里"同目录 RTK.md"按此解析）。
 > DSH 同时部署 `skills/`（软链接 `~/.dsh/skills`）与 MCP servers（注入 `~/.dsh/profiles/dsh-tui/cordis.patch.yml`，来源 `config/shared/mcp_servers.json`）。
+> MCP 注入按该 JSON **同步**，不是只追加：脚本接管 patch 里所有「`id: mcp-<name>` 且带 `@deepseek-ai/dsh-mcp-client`」的条目，每次部署按 JSON 重建（改 command/args 跟着走，JSON 里删掉的 server 会被移除并打印 `stale entries removed`；旧的 `$set: disabled` 覆写也会被重建为可用条目）。
+> 要加自定义 MCP 就写进 `config/shared/mcp_servers.json`，别直接改 patch——手改的同名条目会被下次部署覆盖。JSON 之外的 `mcp-*` 条目（例如禁用 bundle 自带的 `mcp-resources`）脚本不接管，只打印 WARNING 提醒手工确认。
 
 ### DSH 便捷启动
 
