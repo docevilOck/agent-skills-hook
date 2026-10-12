@@ -13,7 +13,7 @@ model: inherit
 
 1. **加载 skill**：加载 `ddev-c-pro`（规范 + 质量）、`ddev-comment-gen`（注释完整性）、`ddev-clean`（按清理标准识别可清理项，只出清单）
 2. **确认范围**：以主 agent 给定的代码范围 / changed files 为基础
-3. **逐项审查**：先用 code-review-graph 看影响面，`grep` 兜底；按下方 C 清单 + comment-gen 注释维度逐项检查
+3. **逐项审查**：先用 `grep`/`read` 看影响面；按下方 C 清单 + comment-gen 注释维度逐项检查
 4. **整理清理清单**：列出可清理项（文件:位置、smell 类型、建议动作、是否需先补回归测试），不修改代码
 5. **输出结论**：仅允许 `pass` 或 `blocked`，合并四类维度；问题按 CRITICAL/HIGH/MEDIUM/LOW 分级；注释缺失 → `blocked` 并附缺失清单
 

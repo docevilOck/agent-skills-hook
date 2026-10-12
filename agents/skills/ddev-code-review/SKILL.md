@@ -20,7 +20,7 @@ description: ddev-gate 合并代码评审中的代码质量维度，覆盖安全
 
 ## 配套技能
 
-结构影响分析必须以 `code-review-graph` MCP 为主力。开始审查前先确认仓库根已生成 `.code-review-graph/`（无则先 `code-review-graph build`）。`mcp__crg__*` 工具不可用时才回退到 `grep`/`read`。
+结构影响分析以 `grep`/`read` 为主力：先追关键符号的调用方与引用点，再读源码确认。
 
 ## 工作方式
 
@@ -31,18 +31,18 @@ description: ddev-gate 合并代码评审中的代码质量维度，覆盖安全
 - 运行 `git log` 理解近期提交背景
 - 确定范围：整份 diff、指定文件，或定向审查
 
-### 阶段 2：用 code-review-graph 做结构影响分析（强制，且最先做）
-在读取任何源码文件之前，先用 code-review-graph 确立影响面和需要审查的文件。code-review-graph 是主力工具；`grep`/`read` 仅作兜底。
+### 阶段 2：用 grep/read 做结构影响分析（强制，且最先做）
+在读取任何源码文件之前，先用 `grep` 追关键符号的调用方与引用点，确立影响面和需要审查的文件。
 
 | 步骤 | 工具 | 用途 |
 |------|------|------|
-| 2.0 | `mcp__crg__get_minimal_context_tool` | 任务入口：~100 tokens，返回风险分 + 相关 communities/flows + 建议的下一步工具 |
-| 2.1 | `mcp__crg__query_graph_tool`（`callers_of`/`callees_of`/`references_to`/`imports_of`） | 追改动的波及半径——谁调它 / 它调谁 / 谁引用它 |
-| 2.2 | `mcp__crg__get_review_context_tool` | 影响半径 + 需审查的文件清单 + 相关源码片段 + 审查指引 |
+| 2.0 | `grep -rn <符号>` | 追关键符号的调用方与引用点，列出受影响文件 |
+| 2.1 | `grep -rn <改动文件>` | 反向查谁引用它，判断波及半径——谁调它 / 谁引用它 |
+| 2.2 | `read` | 读受影响文件的调用点与函数体，确认影响半径 + 审查文件清单 |
 | 2.3 | `grep` | 兜底/细化：定位图中未覆盖的定义与调用点 |
 | 2.4 | `Read` | 读包围函数/结构体和数据流路径 |
 
-**规则**：未先用 code-review-graph 确立影响面之前，禁止开始逐文件代码审查。图驱动审查范围，揭示浅层 grep 漏掉的隐藏风险。若图缺失（`status: not_ready`），先跑 `code-review-graph build`；仅当确实无图时才回退 grep。
+**规则**：未先用 `grep`/`read` 确立影响面之前，禁止开始逐文件代码审查。影响面决定审查范围，避免只看 diff 就下结论。
 
 ### 阶段 3：深度审查类别
 - **安全（Security）** —— 硬编码凭据、注入风险、XSS、CSRF、权限绕过、路径遍历、敏感数据泄露
@@ -73,11 +73,10 @@ CODE REVIEW TASK
 Scope: [files changed from git diff, or specific files/dirs]
 
 PHASE 1 — Identify: Run git diff, list changed files and symbols.
-PHASE 2 — Structural Impact Analysis (MANDATORY, FIRST): Before reading any source, use code-review-graph:
-  - mcp__crg__get_minimal_context_tool — task entry (risk, communities/flows, suggested tools)
-  - mcp__crg__query_graph_tool — callers_of / callees_of / references_to to assess change radius
-  - mcp__crg__get_review_context_tool — impact radius + affected files + source snippets
-  - Fall back to grep / Read only when the graph is unavailable (missing .code-review-graph/).
+PHASE 2 — Structural Impact Analysis (MANDATORY, FIRST): Before reading any source, use grep/read to map the change surface:
+  - grep -rn <symbol> — find call sites and references to assess change radius
+  - grep -rn <changed-file> — reverse lookup: who references it
+  - read — open affected call sites and function bodies; list files needing review
 PHASE 3 — Deep Review: Check security, quality, performance, best practices, maintainability.
 PHASE 4 — Report: Structured output (see Output Format below).
 ```

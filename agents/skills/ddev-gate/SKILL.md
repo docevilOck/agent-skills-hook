@@ -110,7 +110,7 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 **判定「大改动」— 命中任一即走 streaming：**
 
 1. diff 行数 > 300
-2. code-review-graph 查到的影响范围超出本模块（存在受影响的跨模块调用方 / 文件）
+2. grep 查到的影响范围超出本模块（存在受影响的跨模块调用方 / 文件）
 3. 结构性重构：跨多文件重建结构体、数据流、状态机或公共接口，而非单文件内局部增量
 
 **以下不单独构成「大改动」，仍走 compact：**
@@ -119,7 +119,7 @@ description: 在代码实现完成后、准备结束任务或进入发布前使�
 - 涉及数据流 / 关键流程的局部修改——只要实现是单文件内局部增量（如新增 static 函数 + 换查表来源），API 对外签名不变
 - C + Python + 文档的复合改动——按合计 diff 行数与实际影响半径判定，不因跨语言自动升级
 
-判定依据取 spec / detail 声明的范围与 git diff / code-review-graph 查到的调用点影响范围中的**较严者**。
+判定依据取 spec / detail 声明的范围与 git diff / grep 查到的调用点影响范围中的**较严者**。
 
 `ponytail: diff 行数阈值是启发式，可按团队习惯调整；与第 3 条结构性重构判定冲突时，以重构性质为准。`
 
@@ -250,7 +250,7 @@ C0. **前置检查**：同 Streaming 步骤 0，产出遗留清单并按同一�
 C1. 主 agent 定位 spec、detail、架构文档、代码范围、本轮验证证据、`implementation-notes.md` 和 `task_plan.md`，读取并整理成审查上下文。
 C2. 主 agent 读取 `implementation-notes.md`，提取 Deviations（作为一致性重点检查项）、Design Decisions（作为 spec 空白处补充依据）、Open Questions（未答 → `blocked`）。
 C3. 拉 **1 个独立 subagent** 做整合审查：**直接使用 [compact-reviewer-prompt.md](compact-reviewer-prompt.md) 全文作为提示词，只填写其中的任务输入，禁止主 agent 自行生成或改写提示词**。该 agent **只读**，一次性完成：
-    - **一致性对照**：只核对代码与文档规划架构的一致性（模块边界、接口、依赖方向、状态归属、数据流/流程骨架），输出偏离清单并标注建议处置（修正 / 记录）；**先用 code-review-graph 看影响面与需审查文件、`grep` 兜底**，影响面超出 spec/detail 声明范围视为偏离
+    - **一致性对照**：只核对代码与文档规划架构的一致性（模块边界、接口、依赖方向、状态归属、数据流/流程骨架），输出偏离清单并标注建议处置（修正 / 记录）；**先用 `grep`/`read` 看影响面与需审查文件**，影响面超出 spec/detail 声明范围视为偏离
     - **代码评审**：按项目语言合并编码规范、代码质量（安全、架构性能、死代码/重复）、注释完整性；同时给出可选的清理建议清单，但不执行清理
     - 输出一份结论 `pass` / `need-info` / `blocked`，附偏离清单、问题分级、注释分级清单、清理建议
 C4. 主 agent 汇总处置：
@@ -266,7 +266,7 @@ Compact 路线同样要求 spec、detail、代码范围、验证证据齐全，�
 
 ## 审查 agent 要求
 
-> **通用规则**：所有审查 agent 评估改动影响面时，一律**先用 `code-review-graph` 看影响面与需审查文件**，再 `grep` / `read` 兜底。图缺失（无 `.code-review-graph/`）时先 `code-review-graph build`。
+> **通用规则**：所有审查 agent 评估改动影响面时，一律**先用 `grep`/`read` 看影响面与需审查文件**。
 
 > **提示词模板硬性要求**：streaming 路线必须直接把 [streaming-reviewer-prompt.md](streaming-reviewer-prompt.md) 全文用作一致性审查提示词，把 [code-reviewer-prompt.md](code-reviewer-prompt.md) 全文用作代码评审提示词；compact 路线必须直接把 [compact-reviewer-prompt.md](compact-reviewer-prompt.md) 全文用作整合审查提示词。主 agent 只填写模板里的「任务输入」，禁止自行生成、概括、改写或拼装审查提示词；模板缺失或无法读取时停止派发并报告，不得用现场生成的提示词替代。
 
@@ -275,7 +275,7 @@ Compact 路线同样要求 spec、detail、代码范围、验证证据齐全，�
 - 必须是独立视角，只读，不能把主 agent 自己的口头总结当结论
 - **只审查架构一致性**：模块边界与职责、接口位置与签名、调用/依赖方向、状态所有权、数据流与关键流程骨架、联动注册点、文档批准的共享状态与全局变量边界
 - 必须显式核对 spec、detail / 架构文档、代码事实三类输入，以及 `implementation-notes.md` 中的 Deviations
-- **先用 code-review-graph 看影响面与需审查文件、`grep` 兜底**：确认实际影响范围与文档声明一致；存在文档未声明的受影响模块或新增跨模块耦合 → 视为偏离
+- **先用 `grep`/`read` 看影响面与需审查文件**：确认实际影响范围与文档声明一致；存在文档未声明的受影响模块或新增跨模块耦合 → 视为偏离
 - 每个偏离必须给出：文档依据、代码事实、位置、建议处置（修正 / 记录）
 - 不检查 exec plan 的逐步落地，不检查命名、风格、注释、测试覆盖、代码质量；这些分别归文档计划和代码评审负责
 - 不允许用“基本一致”“差不多符合”“核心没问题”这类模糊表述放行
@@ -289,7 +289,7 @@ Compact 路线同样要求 spec、detail、代码范围、验证证据齐全，�
 
 - **C 项目（`.c` / `.h`）**：加载 `ddev-c-pro`（编码规范 + 代码质量：安全、架构性能、死代码/重复）+ `ddev-comment-gen`（注释完整性）+ `ddev-clean`（清理项识别，只出清单）。不再单独调用 `ddev-code-review`，也不再有单独 c-pro / comment-gen 阶段。
 - **非 C 项目**：加载 `ddev-code-review`（代码质量）+ 对应语言编码规范 skill（如有）+ 对应注释审查 skill（如有）+ `ddev-clean`（清理项识别，只出清单）。没有对应 skill 的维度在结论中标注“已跳过”。
-- **先用 code-review-graph 看影响面与需审查文件、`grep` 兜底**：确认审查范围覆盖所有受影响文件。
+- **先用 `grep`/`read` 看影响面与需审查文件**：确认审查范围覆盖所有受影响文件。
 - **问题分级**：CRITICAL（安全漏洞 / 崩溃）> HIGH（Bug / 严重异味）> MEDIUM（技术债）> LOW（建议）。存在 CRITICAL 或 HIGH → `blocked`；仅 MEDIUM / LOW → `pass`（在建议项中列出）。
 - **注释完整性**：按「注释问题分级」判定——HIGH 级 → `blocked`；MEDIUM / LOW 级只列清单、不阻塞。无论哪级都要附逐项清单和补全建议。
 - **清理**：按 `ddev-clean` 的判断标准输出清理清单，不执行清理。清单不得建议改变行为、接口、文档已批准的架构或数据流。主 agent 在评审返回后按 `ddev-clean` 规则执行（regression-tests-first、显式清理计划、分 smell 分 pass、最小 diff、最小作用域），并补充验证证据；执行后基于最终代码重新并行派发两个审查。
@@ -305,7 +305,7 @@ Compact 路线同样要求 spec、detail、代码范围、验证证据齐全，�
 
 - 必须是独立视角，只读，不能复用主 agent 的口头总结
 - **一次性完成两个维度的审查**，输出一份结论：
-  1. **一致性**：只核对代码与文档规划架构的一致性（模块边界、接口、依赖方向、状态归属、数据流/流程骨架）；显式核对 Deviations 的处置状态；**先用 code-review-graph 看影响面与需审查文件、`grep` 兜底**，影响面超出 spec/detail 声明范围视为偏离
+  1. **一致性**：只核对代码与文档规划架构的一致性（模块边界、接口、依赖方向、状态归属、数据流/流程骨架）；显式核对 Deviations 的处置状态；**先用 `grep`/`read` 看影响面与需审查文件**，影响面超出 spec/detail 声明范围视为偏离
   2. **代码评审**：按项目语言合并编码规范、代码质量、注释完整性；问题按 CRITICAL / HIGH / MEDIUM / LOW 分级；注释问题按「注释问题分级」判定，只有 HIGH 级 → `blocked`；清理只给建议清单，不执行
 - 结论只允许 `pass` / `need-info` / `blocked`
 - 不允许用"基本一致""大体符合"等模糊表述放行

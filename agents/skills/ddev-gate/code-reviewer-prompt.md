@@ -45,10 +45,9 @@
 
 ## 影响面评估（先做）
 
-在读取任何源码之前，先用 code-review-graph 确立影响面和需审查文件：
+在读取任何源码之前，先用 `grep`/`read` 确立影响面和需审查文件：
 
-- `mcp__crg__get_minimal_context_tool` → `mcp__crg__query_graph_tool`（`callers_of`/`callees_of`/`references_to`/`imports_of`）→ `mcp__crg__get_review_context_tool`
-- 图缺失（`status: not_ready`）时先 `code-review-graph build`，确实无图才回退到 `grep` / `Read`
+- 从改动文件出发反向 `grep` 引用点，再 `read` 受影响文件的调用点与函数体
 - 确认审查范围覆盖所有受影响的文件；影响面超出主 agent 给定范围时，在结论中标注遗漏文件，不要自行扩大修改范围
 
 ## 审查维度与分级

@@ -67,9 +67,8 @@
 
 ## 影响面评估
 
-在开始逐项审查前，先**用 code-review-graph 看影响面与需审查文件**，`grep` 兜底：
+在开始逐项审查前，先**用 `grep`/`read` 看影响面与需审查文件**：
 
-- `mcp__crg__get_minimal_context_tool` → `mcp__crg__query_graph_tool`（`callers_of`/`callees_of`/`references_to`）→ `mcp__crg__get_review_context_tool`（影响半径 + 需审查文件 + 源码片段）
 - 对本次改动涉及的关键符号查所有引用点，确认：
   - 改动影响了哪些调用方（call sites）
   - 波及范围是否与 spec / detail 文档声明的范围一致
@@ -123,7 +122,7 @@ Deviations 核对（如有）：
 
 影响面评估：
 - 关键符号：[本次改动涉及的关键函数/结构体/模块]
-- code-review-graph 影响面分析：[影响半径、调用方数量、是否超出文档声明范围]
+- 影响面分析（`grep`/`read`）：[影响半径、调用方数量、是否超出文档声明范围]
 - 遗漏文件（如有）：[查出的受影响文件]
 
 未覆盖风险：
