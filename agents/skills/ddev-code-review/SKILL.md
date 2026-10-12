@@ -18,10 +18,6 @@ description: ddev-gate 合并代码评审中的代码质量维度，覆盖安全
 
 > **C 项目注意**：`ddev-gate` 中 C 项目的代码质量 + 编码规范由 `ddev-c-pro` 承担，注释由 `ddev-comment-gen` 承担，清理项识别由 `ddev-clean` 承担（只出清单，执行由主 agent 按需进行），三者由同一个代码评审 subagent 合并加载。本 skill 的 gate 职责用于非 C 项目，并可能与对应语言规范 / 注释 skill 合并为一份评审结论。独立触发（用户直接要求 review）时 C 项目可正常使用。
 
-## 配套技能
-
-结构影响分析以 `grep`/`read` 为主力：先追关键符号的调用方与引用点，再读源码确认。
-
 ## 工作方式
 
 将深度分析委派给 `code-reviewer` agent。独立触发时按下面的 4 阶段流水线执行；在 `ddev-gate` 代码评审 subagent 内加载时，由该 subagent 直接按同样阶段执行，并与编码规范 / 注释 / 清理维度合并输出。
