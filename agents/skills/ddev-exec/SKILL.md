@@ -18,6 +18,23 @@ description: 在当前会话里按已写好的实现计划顺序执行任务时�
 
 ## 流程
 
+### 第零步：建立 goal（默认动作）
+
+开始执行前先建 goal，把「按计划实现 → 收尾门禁 pass」整体作为目标，靠 goal 的自动续跑把任务跑完，不靠单轮对话硬撑：
+
+1. `create_goal`：objective 写成本次计划的可验证完成态（如「按 <计划路径> 完成实现，并通过 ddev-gate 双审查 pass」）
+2. 会话 resume / fork 后 goal 会解除武装：用户说「继续」时先用 `update_goal` 的 `resume` 重新武装，否则自动续跑不会启动
+3. 只有收尾门禁真的通过、或用户叫停时才 `complete`；单轮做不完不构成 `blocked`
+
+**派发 subagent 必须阻塞式（硬性）**
+
+goal 只靠当前轮推进，后台 subagent 不推进它，只会让 goal 空转烧轮次：
+
+- 一律阻塞式派发（`run_in_background: false`），拿到结果再继续
+- 要并行多个 subagent（如 ddev-gate 的两个审查）时，在**同一条消息**里发出多个阻塞调用——它们仍然并发执行，但结果都回到本轮回合
+- 已后台派发的，立即在同一轮内用 `job_output`（`wait: true`）收口，不要跨轮等通知
+- 禁止「后台派发 subagent → 本轮结束 → 下一轮空转等待」这种写法
+
 ### 第一步：读取并审查计划
 
 1. 读取计划文件
@@ -33,6 +50,18 @@ description: 在当前会话里按已写好的实现计划顺序执行任务时�
 - 计划是否偷偷引入了文档里没有的新设计、新接口或新流程分支
 - 如果计划与引用文档冲突，是否已经回退到上游澄清，而不是强行执行
 - 计划/引用文档里的**图、示意图、标注**是否被当成硬需求：图用来表达边界与关系，图中出现的行为项（动画、脉冲、位移等）若用户从未点名要求，先向用户确认再实现，不要照抄图面描述
+
+### 文档审查范围（硬性）
+
+审查（计划审查与收尾 gate 审查都算）只覆盖**归档后仍会保留**的文档：
+
+- spec、final-spec.md、`docs/architecture/`
+
+**归档时会被删除的执行期文档不纳入审查范围**，也不为它们补文档、写 findings 或产出审查结论：
+
+- `detail/`、`exec_plans/`、`task_plan.md`、`implementation-notes.md`、`progress.md`、`findings/`
+
+这些文档只作过程输入使用（例如 gate 读取 Deviations / Open Questions），归档时随计划目录一并删除，不值得投入审查成本。需要拿它们对照设计时读取仍然允许——本条限制的是**审查对象与审查产出**，不是读取。
 
 ### 第二步：按顺序串行执行
 
@@ -74,7 +103,7 @@ description: 在当前会话里按已写好的实现计划顺序执行任务时�
 **默认收尾顺序：**
 
 1. 用 `verification-before-completion` 补齐最终结论所需的验证证据
-2. 进入 `ddev-gate`。gate 会**同时派发两个独立 subagent**：
+2. 进入 `ddev-gate`。gate 会**同时派发两个独立 subagent**（阻塞式派发，禁止后台，见「第零步」）：
    - 一致性审查：只核对代码与 spec/detail/architecture 文档规划的架构是否一致（模块边界、接口、依赖方向、状态归属、数据流/流程骨架）
    - 代码评审：合并编码规范、代码质量、注释完整性、清理项识别（原 `ddev-clean` 职责）四个维度
 3. 一致性审查报出的架构偏离：能修正的修正到一致；无法修正或决定不修正的，写入 `implementation-notes.md` 的 Deviations（偏离点、理由、影响范围），由审查确认已记录
@@ -130,6 +159,8 @@ description: 在当前会话里按已写好的实现计划顺序执行任务时�
 - 清理或修复改了代码，却不重新跑 `ddev-gate` 的并行复审
 - 未经用户明确同意就在 `main` / `master` 上开始实现
 - 把 `task_plan.md` / `progress.md` / `implementation-notes.md` 写到计划目录之外的仓库根目录或其他位置（见「执行文档存放位置」硬性规范）
+- 后台派发 subagent，然后跨轮空转等待，白烧 goal 轮次
+- 把归档时会被删除的执行期文档（detail / exec_plans / task_plan / implementation-notes / progress / findings）当审查对象
 
 ## planning-with-files 状态追踪
 
