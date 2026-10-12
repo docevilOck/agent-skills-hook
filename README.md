@@ -62,6 +62,7 @@ cd windows
 > DSH 使用 `config/dsh/AGENTS.md` 作为其全局指令（软链接 `~/.dsh/AGENTS.md`），`config/dsh/RTK.md` 一并链到 `~/.dsh/RTK.md`（`AGENTS.md` 里"同目录 RTK.md"按此解析）。
 > DSH 同时部署 `skills/`（软链接 `~/.dsh/skills`）与 MCP servers（注入 `~/.dsh/profiles/dsh-tui/cordis.patch.yml`，来源 `config/shared/mcp_servers.json`）。
 > `crg` 需要 `code-review-graph` 在 PATH 才能真正拉起，未安装时该 server 保持不可用。
+> 它不在 npm 上（PyPI 包，当前 2.3.9），装到 PATH 的方式：`uv tool install code-review-graph`（或 `pipx install code-review-graph`）。
 
 ### DSH 便捷启动
 
