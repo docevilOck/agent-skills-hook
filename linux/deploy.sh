@@ -291,9 +291,10 @@ if [ "$TARGET" = "dsh" ] || [ "$TARGET" = "all" ]; then
   [ -e "$HOME/.dsh/skills" ] && cp -a "$HOME/.dsh/skills" "$BACKUP_D/dsh/"
   cp -a "$REPO_SKILLS" "$BACKUP_D/repo/"
 
-  # 部署配置（复用 Claude Code 的 CLAUDE.md 作为 DSH 全局指令）+ skills 软链接
+  # 部署配置（DSH 专用 AGENTS.md + 同目录 RTK.md）+ skills 软链接
   mkdir -p "$HOME/.dsh"
-  safe_link "$HOME/.dsh/AGENTS.md" "$CONFIG_ROOT/claude/CLAUDE.md"
+  safe_link "$HOME/.dsh/AGENTS.md" "$CONFIG_ROOT/dsh/AGENTS.md"
+  safe_link "$HOME/.dsh/RTK.md" "$CONFIG_ROOT/dsh/RTK.md"
   safe_link "$HOME/.dsh/skills" "$REPO_SKILLS"
 
   # 部署 MCP servers：注入 dsh-tui profile 的 cordis.patch.yml（按 server 幂等）

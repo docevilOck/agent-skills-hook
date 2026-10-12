@@ -343,8 +343,9 @@ if ($Target -eq "dsh" -or $Target -eq "all") {
     if (Test-Path "$DshDir\skills") { Copy-DirectoryTree "$DshDir\skills" "$BackupD\dsh\skills" }
     Copy-DirectoryTree $RepoSkills "$BackupD\repo\skills"
 
-    # 部署配置（复用 Claude Code 的 CLAUDE.md 作为 DSH 全局指令）+ skills 链接
-    Safe-LinkFile "$DshDir\AGENTS.md" "$ConfigRoot\claude\CLAUDE.md"
+    # 部署配置（DSH 专用 AGENTS.md + 同目录 RTK.md）+ skills 链接
+    Safe-LinkFile "$DshDir\AGENTS.md" "$ConfigRoot\dsh\AGENTS.md"
+    Safe-LinkFile "$DshDir\RTK.md" "$ConfigRoot\dsh\RTK.md"
     Safe-Link "$DshDir\skills" $RepoSkills
 
     # 部署 MCP servers：注入 dsh-tui profile 的 cordis.patch.yml（按 server 幂等）

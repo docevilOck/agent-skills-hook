@@ -15,8 +15,11 @@ agent-skills-hook/
 ├── config/                         # 单一配置源
 │   ├── AGENTS.md                   # 仓库总则
 │   ├── claude/
-│   │   ├── CLAUDE.md               # Claude Code 全局指令（DSH 复用为全局 AGENTS.md）
+│   │   ├── CLAUDE.md               # Claude Code 全局指令
 │   │   └── agents/                 # Claude Code 子代理定义
+│   ├── dsh/
+│   │   ├── AGENTS.md               # DSH 全局指令
+│   │   └── RTK.md                  # RTK 命令参考（DSH 无 hook，需手动加前缀）
 │   ├── codex/
 │   │   ├── AGENTS.md               # Codex CLI 全局指令
 │   │   └── agents/                 # Codex CLI 子代理定义
@@ -56,8 +59,9 @@ cd windows
 
 部署前自动备份到 `~/.claude-backups/`、`~/.codex-backups/`、`~/.opencode-backups/`、`~/.dsh-backups/`。
 
-> DSH 复用 `config/claude/CLAUDE.md` 作为其全局指令（`~/.dsh/AGENTS.md`），与 Claude Code 保持同一份规则。
-> DSH 同时部署 `skills/`（软链接 `~/.dsh/skills`）与 MCP servers（注入 `~/.dsh/profiles/dsh-tui/cordis.patch.yml`，默认 context-mode）。
+> DSH 使用 `config/dsh/AGENTS.md` 作为其全局指令（软链接 `~/.dsh/AGENTS.md`），`config/dsh/RTK.md` 一并链到 `~/.dsh/RTK.md`（`AGENTS.md` 里"同目录 RTK.md"按此解析）。
+> DSH 同时部署 `skills/`（软链接 `~/.dsh/skills`）与 MCP servers（注入 `~/.dsh/profiles/dsh-tui/cordis.patch.yml`，来源 `config/shared/mcp_servers.json`）。
+> `crg` 需要 `code-review-graph` 在 PATH 才能真正拉起，未安装时该 server 保持不可用。
 
 ### DSH 便捷启动
 

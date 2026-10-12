@@ -1,6 +1,6 @@
 # agent-skills-hook
 
-维护 Claude Code、Codex CLI、OpenCode 的共享技能库（skills）与协作提示词配置。
+维护 Claude Code、Codex CLI、OpenCode、DeepSeek Harness (DSH) 的共享技能库（skills）与协作提示词配置。
 
 ## 目录结构
 
@@ -12,6 +12,7 @@ agent-skills-hook/
 │   ├── codex/AGENTS.md           # Codex CLI 配置
 │   ├── opencode/AGENTS.md        # OpenCode 配置
 │   ├── opencode/opencode.json    # OpenCode 主配置（插件、MCP、模型等）
+│   ├── dsh/AGENTS.md             # DSH 全局指令（+ 同目录 RTK.md）
 ├── agents/skills/                # 共享技能库
 ├── linux/deploy.sh               # Linux 部署（软链接）
 ├── windows/deploy.ps1            # Windows 部署（Junction 链接）
@@ -41,6 +42,7 @@ cd windows
 - `skills/` 通过 Junction（Windows）或软链接（Linux）指向仓库 `agents/skills/`
 - `opencode.json` 深合并到 `~/.config/opencode/opencode.json`
 - `agents/` 目录复制到 `~/.codex/agents/`（Codex）
+- `config/dsh/AGENTS.md` + `RTK.md` 链到 `~/.dsh/`，MCP 注入 `~/.dsh/profiles/dsh-tui/cordis.patch.yml`（DSH）
 
 ## 更新
 
@@ -48,4 +50,4 @@ cd windows
 
 ## 回滚
 
-备份位于 `~/.codex-backups/`、`~/.opencode-backups/`、`~/.claude-backups/`。
+备份位于 `~/.codex-backups/`、`~/.opencode-backups/`、`~/.claude-backups/`、`~/.dsh-backups/`。
