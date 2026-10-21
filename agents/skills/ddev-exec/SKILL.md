@@ -182,6 +182,7 @@ goal 只靠当前轮推进，后台 subagent 不推进它，只会让 goal 空�
 | `progress.md` | 计划目录根 | 执行日志：每任务完成后记录产出和验证结果 | 首次写入时创建 |
 | `implementation-notes.md` | 计划目录根 | 实现笔记：每任务完成后按 4 维度记录 AI 推理过程 | 首次任务完成后自动创建 |
 | `findings/` | 计划目录下 `findings/` | 上游设计决策（由 ddev-spec/detail/doc-review 写入，本阶段只读） | 已存在 |
+| `gate-scope.yaml` | 计划目录根 | 改动面清单：计划文件表 + 实际改动 + 注册点 + 验证证据 + Deviations（`DEV-ID`） | 由 ddev-plan 生成；第一步读取，执行中维护 |
 
 ### 第一步后：创建 task_plan.md
 
@@ -220,7 +221,11 @@ goal 只靠当前轮推进，后台 subagent 不推进它，只会让 goal 空�
 1. 标记 `task_plan.md` 中该任务的 checkbox 为 `[x]`
 2. 更新 `Current Task` 为下一个任务
 3. 追加 `implementation-notes.md`，按 4 维度记录本任务的推理过程
-4. 写入 `progress.md`，格式：
+4. **更新 `gate-scope.yaml`**（缺文件就按 `ddev-gate/references/gate-scope.md` 建）：
+   - 实际改动文件与计划不一致时，更新 `planned_files` 或在 `deviations` 里登记原因
+   - 新增偏离 → 追加 `deviations` 项，带 `DEV-<任务短名>-<序号>`
+   - 刷新 `verification.latest_run` 与 `evidence_fresh`
+5. 写入 `progress.md`，格式：
 
 ```markdown
 ### Task N — <任务名> ✅
@@ -255,9 +260,12 @@ goal 只靠当前轮推进，后台 subagent 不推进它，只会让 goal 空�
 > 故意偏离 spec/detail/plan 的实现，及偏离理由
 
 ### Task N — <任务名>
+- **DEV-ID**：<DEV-<任务短名>-<序号>；与 `gate-scope.yaml:deviations[].id` 一致>
 - **偏离点**：<文档要求 A，实际实现为 B>
 - **理由**：<为什么偏离>
 - **影响范围**：<哪些文件/接口受影响>
+- **处置**：<修正 / 记录 / 不接受>
+- **复核轮**：<待 gate 填写>
 
 ## Tradeoffs
 > 考虑过但最终放弃的替代方案，及放弃原因

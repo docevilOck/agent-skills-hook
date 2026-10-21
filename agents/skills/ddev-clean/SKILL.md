@@ -15,6 +15,13 @@ Use this skill when:
 - Follow-up implementation left duplicate code, dead code, weak boundaries, missing tests, or unnecessary wrapper layers
 - You need a disciplined cleanup workflow without broad rewrites
 
+## 在 ddev-gate 中的位置（硬性）
+
+- 清理**不参与 gate 的每轮复审**：首轮与复审轮只做识别（不输出清单、不执行），避免"修 LOW → 触发重审"的轮次膨胀。
+- 终轮输出一份 backlog（死代码 / 重复 / 命名不一致 / 魔术数字 / 过长函数 / 冗余注释），由主 agent 一次性决定是否执行。
+- 执行清理后若有任何代码修改，按 `ddev-gate` 的增量复审规则处理（触及架构面才重跑一致性审查）。
+- 不要在本 skill 内重复 `ddev-gate` 机械闸 M2/M3 已经给出的结论。
+
 ## GPT-5.4 Guidance Alignment
 
 - Keep outputs concise and evidence-dense unless risk or the user requests more detail.
@@ -35,7 +42,7 @@ Use this skill when:
 - 只有在完成编码规范 / 质量 / 注释审查结论之后才执行清理，避免边审边改。
 - 目标是在**不改变**文档已批准的架构、detail、数据流、接口和行为的前提下，删除 slop 并提升可维护性。
 - 如果为锁定行为必须补测试，只允许纳入锁定既有行为所必需的最小测试文件，不得借此扩大实现范围。
-- 清理产生任何代码修改后，必须补充验证证据；主 agent 必须基于最终代码重新并行派发一致性审查与代码评审做只读复审。
+- 清理产生任何代码修改后，必须补充验证证据；复审按 `ddev-gate` 的增量规则（只审本轮 diff + 未闭环 `DEV-ID`，触及公共头 / 注册表 / 构建脚本时升级全量）。
 - 如果维护性问题真正需要架构或流程变更才能解决，停止并上报，不要借 cleanup 做重构。
 
 ## Procedure

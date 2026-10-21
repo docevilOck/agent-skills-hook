@@ -16,8 +16,11 @@
 | detail / 架构文档 | `[structures / dataflow / flows / docs/architecture 路径]` |
 | 代码范围 | `[changed files / diff]` |
 | implementation-notes | `[路径；含 Deviations]` |
-| 验证证据 | `[本轮构建 / 测试 / 人工验证结果]` |
+| 验证证据 | `[本轮构建 / 测试 / 人工验证结果；标注 repro 或 static]` |
+| 改动面清单 | `[gate-scope.yaml 路径]` |
+| 机械闸摘要 | `[MECH: M1=.. M2=.. M3=..；M2/M3 命中明细]` |
 | 本轮类型 | `[首轮审查 / 只读复审]` |
+| 上一轮未闭环 DEV-ID | `[DEV-xxx-01, DEV-xxx-02 或 无]` |
 
 以下输入由派发方提供；缺失或与代码事实不符时，判 `need-info` 并在结论中指明缺哪一项。
 
@@ -35,9 +38,21 @@
 - 联动注册点（分发表、回调表、枚举映射、构建/编译开关）
 - 文档明确批准的共享状态、业务全局变量与并发/生命周期边界
 
+### 只审这三类（V1 / V2 / V5）
+
+| 编号 | 审什么 | 必须产出 |
+|---|---|---|
+| V1 | 越界与漏改：实际改动 vs `gate-scope.yaml` 的 planned_files / allowed_globs | 越界清单 + 漏改清单 |
+| V2 | 三方口径矛盾：spec / detail / 代码 / 注释 是否互斥 | 矛盾对 + **定稿建议**（唯一口径 + 改哪份文档） |
+| V5 | 注册点齐备：`registration_points` 每一项是否真被接上 | 逐项命中/未命中 |
+
+### 明确不审（出现在报告里视为越界）
+
+命名、格式、缩进、死代码、重复代码、魔术数字、过长函数、注释完整性、注释语言、测试覆盖、构建结果。这些由机械闸（M2/M3）或 backlog 负责。
+
 ## 输入说明
 
-- 六个输入由主 agent 在上方表格中填写。
+- 表格输入由主 agent 填写；`MECH` 摘要里的 M2/M3 命中项是**已知事实**，不要重复论证。
 - 本轮类型为**只读复审**时，按最终代码重做对照，不得要求或建议超出最终代码状态的额外改动。
 - 缺少 spec、detail / 架构文档或代码范围时，直接输出 `need-info` 或 `blocked`，不要退化成泛化 review。
 
@@ -75,6 +90,10 @@
   - 是否存在文档未声明的受影响模块或新增跨模块依赖（存在 → 架构偏离）
 - `grep` 只做兜底：检查图中未覆盖的关键调用链
 - 如果影响面超出 spec / detail 声明的范围，必须在偏离清单中标注
+- **必须做 IMPACT 对账**：用 `git diff --name-only`（含 `git status --porcelain` 的未跟踪文件）取实际改动文件集，与 `gate-scope.yaml` 的 `planned_files` + `impact_surface.callers` 对账：
+  - 改动文件不在清单内 → 列入偏离清单（越界）
+  - 反向 `grep` 得到、但 `impact_surface.callers` 未声明的受影响文件 → 计入 `IMPACT delta`
+  - 报告必须输出 `IMPACT: checked=<n> delta=<n>`；`delta > 0` 时结论不得为 `pass`
 
 ## 结论规则
 
@@ -89,13 +108,20 @@
 - 只有“未修正且未记录”的架构偏离才用 `blocked`；已记录的偏离不再阻塞
 - “实现没按文档架构落地”且无法修正又拒绝记录 → `blocked`
 - 如果是只读复审轮，发现最终代码仍有新偏离或旧偏离未处理 → `blocked`
+- `IMPACT delta > 0` 且 delta 文件未被审过 → `need-info`（不得 `pass`）
+- 只审 V1/V2/V5：报告里出现命名、格式、注释、死代码类条目 → 该条无效，按越界处理
+- 已记录偏离必须逐条回执 `DEV-ID`；缺 `DEV-ID` 的“已记录”不计为已接受
 
 ## 输出格式
 
-按下面格式输出：
+第一行必须是机读头（只允许单一 token，禁止 `pass（附建议）` 这类写法）：
 
 ```
-结论：pass | need-info | blocked
+VERDICT: pass | need-info | blocked
+SEV: C=0 H=<n> M=<n> L=<n>
+IMPACT: checked=<n> delta=<n>
+ROUND: <n>/3
+EVIDENCE: repro | static
 
 审查轮次：首轮 | 只读复审
 
@@ -114,8 +140,11 @@
 
 若没有偏离，写“无”。
 
-Deviations 核对（如有）：
-- [Deviation 条目] → 已修正 / 已记录 / 未处理
+Deviations 闭环核对（必填，无则写“无”）：
+
+| DEV-ID | 上轮状态 | 本轮判定 | 依据 |
+|---|---|---|---|
+| DEV-xxx-01 | 记录 | 已修正 / 已记录 / 未处理 | 文件:行 或 notes 行号 |
 
 已确认一致的架构关键点：
 - ...

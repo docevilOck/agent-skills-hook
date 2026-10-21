@@ -140,6 +140,21 @@ TDD 任务在"必读文档"中必须额外引用：
 
 这个结构会影响任务拆分。每个任务都应该产出自包含、彼此独立、合理的改动，并能明确回答“本任务落实的是哪份设计文档的哪一部分”。
 
+### 落盘改动面清单（`gate-scope.yaml`，强制）
+
+计划定稿时，必须在计划目录（`docs/plans/YY-MM-DD_<topic>/`，与 `exec_plans/` 同级）生成 `gate-scope.yaml`。它是 `ddev-gate` 机械闸的输入契约，格式见 `ddev-gate/references/gate-scope.md`。
+
+最少要填：
+
+- `planned_files`：modify / create / delete 三张清单，来自上面的文件结构表
+- `allowed_globs`：计划允许的整目录改动（文档目录、测试产物）
+- `impact_surface`：新增/修改的公共符号、计划阶段 grep 到的调用方、会被多文件 include 的公共头文件
+- `registration_points`：spec 联动修改清单里的枚举 / 分发表 / 回调表 / 构建开关
+- `verification`：计划中的验证命令与证据文件路径
+- `base_ref`：对账基线（分支名或 commit）
+
+只列"计划态"的事实，不要求预测未来；执行期实际改动由 `ddev-exec` 维护。
+
 ## 小步任务粒度
 
 计划要拆到”可稳定执行、可独立验证、可明确对照设计”的粒度，但不需要把任务机械拆成 2-5 分钟的小动作，也不需要把上游文档已经写清楚的实现细节再重复展开成完整代码。
@@ -391,6 +406,8 @@ TDD 任务在"必读文档"中必须额外引用：
 
 保存计划后，向用户报告计划文档路径、任务数量和关键里程碑。
 
+**同时落盘 `gate-scope.yaml`**（见「落盘改动面清单」），否则执行结束时 `ddev-gate` 机械闸 M1 无法判越界，streaming 路线会直接 `need-info`。
+
 **禁止 agent 自动进入 ddev-exec。** 必须等待用户明确确认后再加载 `ddev-exec` 开始执行。
 
 **提示模板：**
@@ -411,8 +428,8 @@ TDD 任务在"必读文档"中必须额外引用：
 默认收尾顺序是：
 
 1. 用 `verification-before-completion` 补齐本轮结论所需的验证证据。
-2. 进入 `ddev-gate`：gate 会同时派发两个独立 subagent——一致性审查 + 代码评审（编码规范/质量/注释/清理合并为一个）。
-3. 如果 gate 返回 `blocked` / `need-info`，先修复或补齐缺失输入，再重新进入 `ddev-gate`，直到两个审查在同一份最终代码上都 `pass`。
+2. 进入 `ddev-gate`：先跑机械闸（M1~M6），再派发语义审查（一致性 + 行为评审）。
+3. 如果 gate 返回 `blocked` / `need-info`，先修复或补齐缺失输入，再复审；轮次预算 3 轮，超预算转 `need-info` + 遗留清单交用户裁决。
 4. 代码偏离文档规划的架构时，修正到一致；无法修正或决定不修正的偏离，写入 `implementation-notes.md` 的 Deviations（偏离点、理由、影响范围）。
 5. 只有 `ddev-gate` 通过后，才能宣称“实现已经按设计完成”。
 
